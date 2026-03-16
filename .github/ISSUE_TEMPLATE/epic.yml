@@ -1,0 +1,75 @@
+name: "📦 Epic"
+description: "A large body of work spanning multiple sprints"
+title: "[EPIC] "
+labels: ["type: epic"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Epic Definition
+        Epics are large features broken into smaller issues.
+        Link child issues using `Part of #<epic-number>` in their body.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which version does this epic belong to?
+      placeholder: "v1 / v2 / v3 / v4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What does success look like when this epic is complete?
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation & Context
+      description: Why is this work needed? What problem does it solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: child_issues
+    attributes:
+      label: Child Issues (Tasks)
+      description: List the issues that make up this epic. Update as work progresses.
+      placeholder: |
+        - [ ] #0 Task one
+        - [ ] #0 Task two
+        - [ ] #0 Task three
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know this epic is done?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "critical"
+        - "high"
+        - "medium"
+        - "low"
+    validations:
+      required: true
+
+  - type: input
+    id: milestone
+    attributes:
+      label: Target Milestone
+      placeholder: "M1: 1v1 Competence"

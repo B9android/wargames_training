@@ -1,0 +1,29 @@
+name: "🤖 Agent: Weekly Progress Report"
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"   # Every Monday 9:00 AM UTC
+  workflow_dispatch:        # Allow manual trigger
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  weekly-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install PyGithub openai
+
+      - name: Generate weekly report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPO_NAME: ${{ github.repository }}
+        run: python scripts/project_agent/progress_reporter.py

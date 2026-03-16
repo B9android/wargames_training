@@ -1,0 +1,42 @@
+name: "✨ Feature Request"
+description: "New capability or improvement"
+title: "[FEAT] "
+labels: ["type: feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem does this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Target Version
+      options: ["v1", "v2", "v3", "v4", "vFuture"]
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["critical", "high", "medium", "low"]

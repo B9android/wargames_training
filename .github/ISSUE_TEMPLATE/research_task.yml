@@ -1,0 +1,30 @@
+name: "🔬 Research Task"
+description: "Investigation, literature review, design decision"
+title: "[RESEARCH] "
+labels: ["type: research"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Research Question
+      description: What specific question are you trying to answer?
+    validations:
+      required: true
+
+  - type: textarea
+    id: approach
+    attributes:
+      label: Approach
+      description: How will you investigate this?
+
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings
+      description: Fill in when complete.
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision / Recommendation
+      description: What should we do based on this research?

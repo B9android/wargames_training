@@ -1,0 +1,26 @@
+name: "🤖 Agent: Milestone Health Check"
+
+on:
+  schedule:
+    - cron: "0 8 * * *"   # Daily at 8 AM UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  milestone-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub openai
+      - name: Run milestone health check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPO_NAME: ${{ github.repository }}
+        run: python scripts/project_agent/milestone_checker.py

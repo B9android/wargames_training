@@ -1,0 +1,63 @@
+name: "🧪 Experiment"
+description: "A training run or research trial with hypothesis and results"
+title: "[EXP] "
+labels: ["type: experiment"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Experiment Log
+        Use this template for every training run worth tracking.
+        Results should be filled in after the run completes.
+
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: What do you expect to happen and why?
+      placeholder: "If we increase the reward shaping weight for flanking angle, the agent will learn to flank faster because..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Experiment Setup
+      description: Config, algorithm, environment version, changes from baseline
+      placeholder: |
+        - Algorithm: PPO
+        - n_envs: 8
+        - total_timesteps: 500_000
+        - Changes from baseline: reward_flank_weight = 0.5 → 2.0
+        - W&B run: [link]
+        - Git commit: abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: results
+    attributes:
+      label: Results
+      description: Fill in after run completes. Paste W&B charts if useful.
+      placeholder: |
+        - Final mean reward:
+        - Win rate vs scripted:
+        - Training time:
+        - Observations:
+
+  - type: textarea
+    id: conclusion
+    attributes:
+      label: Conclusion & Next Steps
+      description: What did we learn? What should we try next?
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - "⏳ Running"
+        - "✅ Success — hypothesis confirmed"
+        - "❌ Failed — hypothesis rejected"
+        - "🤔 Mixed — partial confirmation"
+        - "💥 Crashed — technical failure"
