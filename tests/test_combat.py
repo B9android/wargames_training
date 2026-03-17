@@ -1,5 +1,6 @@
 """Unit tests for envs/sim/combat.py."""
 
+import math
 import sys
 import unittest
 from pathlib import Path
@@ -12,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from envs.sim.battalion import Battalion
 from envs.sim.combat import (
+    BASE_DAMAGE_MULTIPLIER,  # backwards-compat alias — tested in TestRangeFactor
     BASE_FIRE_DAMAGE,
     MORALE_CASUALTY_WEIGHT,
     MORALE_RECOVERY_RATE,
@@ -19,7 +21,10 @@ from envs.sim.combat import (
     CombatState,
     apply_casualties,
     compute_fire_damage,
+    in_fire_arc,
+    in_fire_range,
     morale_check,
+    range_factor,
     resolve_volley,
 )
 
@@ -27,6 +32,21 @@ from envs.sim.combat import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+class TestCombatConstants(unittest.TestCase):
+    """Tests for combat module constants and backwards-compat aliases."""
+
+    def test_base_damage_multiplier_alias(self) -> None:
+        # BACKWARDS-COMPAT: BASE_DAMAGE_MULTIPLIER should match BASE_FIRE_DAMAGE.
+        self.assertEqual(
+            BASE_DAMAGE_MULTIPLIER,
+            BASE_FIRE_DAMAGE,
+            msg=(
+                "BASE_DAMAGE_MULTIPLIER should remain a backwards-compat alias "
+                "for BASE_FIRE_DAMAGE; if this changes, update tests and callers."
+            ),
+        )
 
 
 def _make_pair(dist: float = 100.0, theta: float = 0.0):
@@ -37,8 +57,138 @@ def _make_pair(dist: float = 100.0, theta: float = 0.0):
     return shooter, target
 
 
+def _make_attacker(x=0.0, y=0.0, theta=0.0, strength=1.0) -> Battalion:
+    """Helper: attacker battalion with configurable position, facing, and strength."""
+    return Battalion(x=x, y=y, theta=theta, strength=strength, team=0)
+
+
+def _make_target(x=0.0, y=0.0, theta=0.0, strength=1.0) -> Battalion:
+    """Helper: a target battalion."""
+    return Battalion(x=x, y=y, theta=theta, strength=strength, team=1)
+
+
 def _create_seeded_rng(seed: int = 42) -> np.random.Generator:
     return np.random.default_rng(seed)
+
+
+# ---------------------------------------------------------------------------
+# Standalone helpers: range_factor
+# ---------------------------------------------------------------------------
+
+
+class TestRangeFactor(unittest.TestCase):
+    """Tests for the linear damage falloff (range_factor)."""
+
+    def test_full_damage_at_zero_range(self) -> None:
+        self.assertAlmostEqual(range_factor(0.0, 200.0), 1.0)
+
+    def test_no_damage_at_max_range(self) -> None:
+        self.assertAlmostEqual(range_factor(200.0, 200.0), 0.0)
+
+    def test_half_damage_at_half_range(self) -> None:
+        self.assertAlmostEqual(range_factor(100.0, 200.0), 0.5)
+
+    def test_clamped_to_zero_beyond_max_range(self) -> None:
+        self.assertAlmostEqual(range_factor(300.0, 200.0), 0.0)
+
+    def test_clamped_to_one_at_negative_dist(self) -> None:
+        # Negative distance is nonsensical but should not blow up.
+        self.assertAlmostEqual(range_factor(-10.0, 200.0), 1.0)
+
+    def test_three_quarter_damage_at_quarter_range(self) -> None:
+        self.assertAlmostEqual(range_factor(50.0, 200.0), 0.75)
+
+    def test_raises_for_zero_fire_range(self) -> None:
+        with self.assertRaises(ValueError):
+            range_factor(0.0, 0.0)
+
+    def test_raises_for_negative_fire_range(self) -> None:
+        with self.assertRaises(ValueError):
+            range_factor(50.0, -100.0)
+
+    def test_base_damage_multiplier_is_alias(self) -> None:
+        """BASE_DAMAGE_MULTIPLIER must equal BASE_FIRE_DAMAGE (backwards compat)."""
+        self.assertEqual(BASE_DAMAGE_MULTIPLIER, BASE_FIRE_DAMAGE)
+
+
+# ---------------------------------------------------------------------------
+# Standalone helpers: in_fire_range
+# ---------------------------------------------------------------------------
+
+
+class TestInFireRange(unittest.TestCase):
+    """Tests for range checks."""
+
+    def test_target_within_range(self) -> None:
+        attacker = _make_attacker()
+        target = _make_target(x=100.0)
+        self.assertTrue(in_fire_range(attacker, target))
+
+    def test_target_exactly_at_max_range(self) -> None:
+        attacker = _make_attacker()
+        target = _make_target(x=200.0)  # fire_range = 200.0
+        self.assertTrue(in_fire_range(attacker, target))
+
+    def test_target_beyond_max_range(self) -> None:
+        attacker = _make_attacker()
+        target = _make_target(x=201.0)
+        self.assertFalse(in_fire_range(attacker, target))
+
+    def test_range_computed_in_2d(self) -> None:
+        attacker = _make_attacker()
+        # 3-4-5 triangle: dist = 5, well within range
+        target = _make_target(x=3.0, y=4.0)
+        self.assertTrue(in_fire_range(attacker, target))
+
+    def test_target_far_diagonally_out_of_range(self) -> None:
+        attacker = _make_attacker()
+        # sqrt(150^2 + 150^2) ≈ 212 > 200
+        target = _make_target(x=150.0, y=150.0)
+        self.assertFalse(in_fire_range(attacker, target))
+
+
+# ---------------------------------------------------------------------------
+# Standalone helpers: in_fire_arc
+# ---------------------------------------------------------------------------
+
+
+class TestInFireArc(unittest.TestCase):
+    """Tests for frontal arc checks (attacker facing +x, arc = ±45°)."""
+
+    def test_target_directly_ahead_in_arc(self) -> None:
+        attacker = _make_attacker(theta=0.0)
+        target = _make_target(x=100.0, y=0.0)
+        self.assertTrue(in_fire_arc(attacker, target))
+
+    def test_target_at_arc_boundary_inside(self) -> None:
+        # Exactly at ±44° should be inside the ±45° arc.
+        attacker = _make_attacker(theta=0.0)
+        angle = math.radians(44)
+        target = _make_target(x=100.0 * math.cos(angle), y=100.0 * math.sin(angle))
+        self.assertTrue(in_fire_arc(attacker, target))
+
+    def test_target_outside_arc(self) -> None:
+        # Target is at 90° relative to facing (+y direction), outside ±45° arc.
+        attacker = _make_attacker(theta=0.0)
+        target = _make_target(x=0.0, y=100.0)
+        self.assertFalse(in_fire_arc(attacker, target))
+
+    def test_target_directly_behind_outside_arc(self) -> None:
+        attacker = _make_attacker(theta=0.0)
+        target = _make_target(x=-100.0, y=0.0)
+        self.assertFalse(in_fire_arc(attacker, target))
+
+    def test_arc_rotates_with_facing(self) -> None:
+        # Attacker faces +y (theta = π/2); target at (0, 100) should be in arc.
+        attacker = _make_attacker(theta=math.pi / 2)
+        target = _make_target(x=0.0, y=100.0)
+        self.assertTrue(in_fire_arc(attacker, target))
+
+    def test_arc_rotates_with_facing_miss(self) -> None:
+        # Attacker faces +y; target at (100, 0) is 90° off — outside arc.
+        attacker = _make_attacker(theta=math.pi / 2)
+        target = _make_target(x=100.0, y=0.0)
+        self.assertFalse(in_fire_arc(attacker, target))
 
 
 # ---------------------------------------------------------------------------

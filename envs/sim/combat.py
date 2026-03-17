@@ -17,6 +17,9 @@ if TYPE_CHECKING:
 #: Base fractional strength loss per volley at point-blank with intensity=1.
 BASE_FIRE_DAMAGE: float = 0.05
 
+#: Alias for BASE_FIRE_DAMAGE kept for backwards compatibility.
+BASE_DAMAGE_MULTIPLIER: float = BASE_FIRE_DAMAGE
+
 #: How much each point of strength loss translates to a morale hit.
 MORALE_CASUALTY_WEIGHT: float = 0.4
 
@@ -69,6 +72,38 @@ class CombatState:
     def reset_step_accumulators(self) -> None:
         """Reset per-step counters.  Call at the *start* of each simulation step."""
         self.accumulated_damage = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Standalone geometry / math helpers
+# ---------------------------------------------------------------------------
+
+
+def range_factor(dist: float, fire_range: float) -> float:
+    """Linear damage falloff: 1.0 at zero range, 0.0 at max fire_range, clipped to [0, 1].
+
+    Raises ValueError if fire_range is not positive.
+    """
+    if fire_range <= 0:
+        raise ValueError(f"fire_range must be positive, got {fire_range}")
+    return float(np.clip(1.0 - dist / fire_range, 0.0, 1.0))
+
+
+def in_fire_range(attacker: Battalion, target: Battalion) -> bool:
+    """Return True if target is within attacker's fire range."""
+    dx = target.x - attacker.x
+    dy = target.y - attacker.y
+    dist = np.sqrt(dx**2 + dy**2)
+    return bool(dist <= attacker.fire_range)
+
+
+def in_fire_arc(attacker: Battalion, target: Battalion) -> bool:
+    """Return True if target lies within attacker's frontal fire arc."""
+    dx = target.x - attacker.x
+    dy = target.y - attacker.y
+    angle_to_target = np.arctan2(dy, dx)
+    angle_diff = abs(_angle_diff(angle_to_target, attacker.theta))
+    return bool(angle_diff < attacker.fire_arc)
 
 
 # ---------------------------------------------------------------------------
@@ -141,8 +176,10 @@ def compute_fire_damage(
     dy = target.y - shooter.y
     dist = np.sqrt(dx ** 2 + dy ** 2)
 
-    # Linear range falloff: full damage at dist=0, zero damage at fire_range
-    range_factor = max(0.0, 1.0 - dist / shooter.fire_range)
+    # Linear range falloff via shared helper (also guards fire_range <= 0)
+    if shooter.fire_range <= 0:
+        return 0.0
+    rf = range_factor(dist, shooter.fire_range)
 
     # Angle-of-attack bonus
     angle_mult = _hit_angle_multiplier(shooter, target)
@@ -151,7 +188,7 @@ def compute_fire_damage(
     shooter_strength_factor = max(0.0, shooter.strength)
 
     base_damage = BASE_FIRE_DAMAGE * float(intensity)
-    damage = base_damage * range_factor * angle_mult * shooter_strength_factor
+    damage = base_damage * rf * angle_mult * shooter_strength_factor
     return float(damage)
 
 
