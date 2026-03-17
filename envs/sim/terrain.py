@@ -16,9 +16,14 @@ import numpy as np
 class TerrainMap:
     """2-D terrain representation used by the simulation.
 
-    The map covers the rectangle ``[0, width) × [0, height)`` in world
-    coordinates.  Terrain data is stored in 2-D NumPy arrays whose shape
-    is ``(rows, cols)``.  Row 0 corresponds to ``y ≈ 0`` and the last row
+    The map conceptually covers continuous world coordinates in the
+    rectangle ``[0, width] × [0, height]``.  Coordinates passed into
+    query methods are clamped to this rectangle so that points on the
+    upper/right boundary (``x == width`` or ``y == height``) map into
+    the last column/row of the underlying grids.
+
+    Terrain data is stored in 2-D NumPy arrays whose shape is
+    ``(rows, cols)``.  Row 0 corresponds to ``y ≈ 0`` and the last row
     to ``y ≈ height``; column 0 corresponds to ``x ≈ 0``.
 
     When both *elevation* and *cover* are ``None`` the terrain is treated
