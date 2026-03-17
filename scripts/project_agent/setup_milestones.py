@@ -16,10 +16,23 @@ gh = Github(os.environ["GITHUB_TOKEN"])
 repo = gh.get_repo(REPO_NAME)
 
 # ---------------------------------------------------------------------------
-# Milestone schedule — adjust START_DATE to match your project kick-off.
+# Milestone schedule — START_DATE is configurable via env var.
 # Each offset is in calendar weeks from START_DATE.
 # ---------------------------------------------------------------------------
-START_DATE = datetime(2026, 3, 17, tzinfo=timezone.utc)
+START_DATE_ENV = os.getenv("START_DATE")
+if START_DATE_ENV:
+    try:
+        parsed_start = datetime.fromisoformat(START_DATE_ENV)
+        if parsed_start.tzinfo is None:
+            parsed_start = parsed_start.replace(tzinfo=timezone.utc)
+        START_DATE = parsed_start
+    except ValueError as exc:
+        raise ValueError(
+            "Invalid START_DATE env var format. Use ISO 8601, e.g. "
+            "'2026-03-17' or '2026-03-17T00:00:00+00:00'."
+        ) from exc
+else:
+    START_DATE = datetime.now(timezone.utc)
 
 MILESTONES = [
     {
