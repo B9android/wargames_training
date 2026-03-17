@@ -2,6 +2,7 @@ import sys
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 AGENT_DIR = PROJECT_ROOT / "scripts" / "project_agent"
@@ -177,7 +178,19 @@ class LoadRuleMapTests(unittest.TestCase):
     def test_all_keys_are_uppercase(self) -> None:
         rule_map = mc.load_rule_map()
         for key in rule_map:
-            self.assertEqual(key, key.upper(), f"Key '{key}' is not uppercase")
+        self.assertEqual(key, key.upper(), f"Key '{key}' is not uppercase")
+
+    def test_uses_loaded_yaml_when_available(self) -> None:
+        """Ensure load_rule_map actually uses yaml.safe_load, not just the fallback."""
+        fake_rule_map = {"[TEST_ONLY]": ["test: from-yaml"]}
+
+        # Patch the yaml module used inside milestone_checker to control safe_load output.
+        with patch.object(mc, "yaml", autospec=True) as mock_yaml:
+        mock_yaml.safe_load.return_value = fake_rule_map
+        rule_map = mc.load_rule_map()
+
+        self.assertIn("[TEST_ONLY]", rule_map)
+        self.assertIn("test: from-yaml", rule_map["[TEST_ONLY]"])
 
 
 class TriageUnlabeledIssuesTests(unittest.TestCase):
