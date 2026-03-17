@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -32,6 +32,10 @@ FLANKED_DAMAGE_MULT: float = 1.5
 #: Damage multiplier when the target is hit from the rear (>135°).
 REAR_DAMAGE_MULT: float = 2.0
 
+#: Module-level default random generator.  Used when callers do not pass an RNG.
+#: Avoids the overhead of re-initializing RNG state on every call.
+_DEFAULT_RNG: np.random.Generator = np.random.default_rng()
+
 
 # ---------------------------------------------------------------------------
 # Per-battalion combat state
@@ -58,6 +62,9 @@ class CombatState:
 
     is_routing: bool = False
     """``True`` when the unit has broken and is fleeing."""
+
+    shots_fired: int = 0
+    """Number of volleys this unit has fired.  Incremented by :func:`resolve_volley`."""
 
     def reset_step_accumulators(self) -> None:
         """Reset per-step counters.  Call at the *start* of each simulation step."""
@@ -127,6 +134,9 @@ def compute_fire_damage(
     if not shooter.can_fire_at(target):
         return 0.0
 
+    # Clamp intensity to the documented [0, 1] range
+    intensity = max(0.0, min(1.0, float(intensity)))
+
     dx = target.x - shooter.x
     dy = target.y - shooter.y
     dist = np.sqrt(dx ** 2 + dy ** 2)
@@ -170,15 +180,16 @@ def apply_casualties(
         Actual damage applied (may be less than *damage* if strength
         would otherwise go below zero).
     """
-    actual = min(float(damage), target.strength)
-    target.strength = max(0.0, target.strength - actual)
+    actual = min(max(0.0, float(damage)), target.strength)
+    # Clamp to [0, 1]: lower bound guards against floating-point underflow,
+    # upper bound ensures a pre-existing over-strength value is corrected.
+    target.strength = max(0.0, min(1.0, target.strength - actual))
     state.accumulated_damage += actual
     state.total_casualties += actual
     return actual
 
 
 def morale_check(
-    target: Battalion,
     state: CombatState,
     rng: np.random.Generator | None = None,
 ) -> bool:
@@ -191,8 +202,8 @@ def morale_check(
     ~~~~~~~~~~~~~~~~
     * Each step's accumulated damage is converted to a morale hit using
       ``MORALE_CASUALTY_WEIGHT``.
-    * When the unit is not under fire and not routing it recovers
-      ``MORALE_RECOVERY_RATE`` per step.
+    * When the unit is not under fire it recovers ``MORALE_RECOVERY_RATE``
+      per step (applies whether or not the unit is currently routing).
     * A unit whose morale falls below ``MORALE_ROUT_THRESHOLD`` makes a
       probabilistic routing check; the lower morale is, the more likely
       it routs.
@@ -201,13 +212,11 @@ def morale_check(
 
     Parameters
     ----------
-    target:
-        The battalion being checked.
     state:
-        The :class:`CombatState` belonging to *target*.
+        The :class:`CombatState` belonging to the battalion being checked.
     rng:
-        Optional :class:`numpy.random.Generator`.  A fresh generator is
-        created if ``None`` is passed.
+        Optional :class:`numpy.random.Generator`.  Falls back to the
+        module-level ``_DEFAULT_RNG`` if ``None`` is passed.
 
     Returns
     -------
@@ -215,14 +224,15 @@ def morale_check(
         ``True`` if the unit is routing after this check, ``False`` otherwise.
     """
     if rng is None:
-        rng = np.random.default_rng()
+        rng = _DEFAULT_RNG
 
     # Apply morale penalty from this step's casualties
     morale_hit = state.accumulated_damage * MORALE_CASUALTY_WEIGHT
     state.morale = max(0.0, state.morale - morale_hit)
 
-    # Passive recovery when not receiving fire and not already routing
-    if state.accumulated_damage == 0.0 and not state.is_routing:
+    # Passive recovery when not under fire (applies even while routing so
+    # routing units can eventually reach the rally gate)
+    if state.accumulated_damage == 0.0:
         state.morale = min(1.0, state.morale + MORALE_RECOVERY_RATE)
 
     if state.is_routing:
@@ -272,7 +282,8 @@ def resolve_volley(
     """
     damage = compute_fire_damage(shooter, target, intensity)
     actual = apply_casualties(target, target_state, damage)
-    routing = morale_check(target, target_state, rng=rng)
+    shooter_state.shots_fired += 1
+    routing = morale_check(target_state, rng=rng)
     return {
         "damage_dealt": actual,
         "target_routing": routing,

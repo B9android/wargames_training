@@ -13,11 +13,9 @@ if str(PROJECT_ROOT) not in sys.path:
 from envs.sim.battalion import Battalion
 from envs.sim.combat import (
     BASE_FIRE_DAMAGE,
-    FLANKED_DAMAGE_MULT,
     MORALE_CASUALTY_WEIGHT,
     MORALE_RECOVERY_RATE,
     MORALE_ROUT_THRESHOLD,
-    REAR_DAMAGE_MULT,
     CombatState,
     apply_casualties,
     compute_fire_damage,
@@ -143,6 +141,18 @@ class TestComputeFireDamage(unittest.TestCase):
         expected = BASE_FIRE_DAMAGE * 1.0 * range_factor * 1.0 * 1.0
         self.assertAlmostEqual(compute_fire_damage(shooter, target, 1.0), expected, places=10)
 
+    def test_negative_intensity_clamped_to_zero(self) -> None:
+        """Negative intensity must not produce negative (healing) damage."""
+        shooter, target = _make_pair(dist=50.0)
+        self.assertAlmostEqual(compute_fire_damage(shooter, target, -1.0), 0.0)
+
+    def test_intensity_above_one_clamped_to_one(self) -> None:
+        """intensity > 1 should produce the same damage as intensity == 1."""
+        shooter, target = _make_pair(dist=50.0)
+        dmg_clamped = compute_fire_damage(shooter, target, 1.0)
+        dmg_over = compute_fire_damage(shooter, target, 10.0)
+        self.assertAlmostEqual(dmg_over, dmg_clamped)
+
 
 # ---------------------------------------------------------------------------
 # apply_casualties
@@ -190,6 +200,15 @@ class TestApplyCasualties(unittest.TestCase):
         actual = apply_casualties(target, state, 0.5)
         self.assertAlmostEqual(actual, 0.05)
 
+    def test_negative_damage_clamped_to_zero(self) -> None:
+        """Negative damage must not increase strength."""
+        _, target = _make_pair()
+        state = CombatState()
+        actual = apply_casualties(target, state, -0.5)
+        self.assertAlmostEqual(actual, 0.0)
+        self.assertAlmostEqual(target.strength, 1.0)
+        self.assertAlmostEqual(state.accumulated_damage, 0.0)
+
 
 # ---------------------------------------------------------------------------
 # morale_check
@@ -198,48 +217,48 @@ class TestApplyCasualties(unittest.TestCase):
 
 class TestMoraleCheck(unittest.TestCase):
     def test_no_damage_triggers_recovery(self) -> None:
-        _, target = _make_pair()
         state = CombatState(morale=0.8, accumulated_damage=0.0)
-        morale_check(target, state, rng=_create_seeded_rng())
+        morale_check(state, rng=_create_seeded_rng())
         self.assertAlmostEqual(state.morale, 0.8 + MORALE_RECOVERY_RATE)
 
     def test_morale_decreases_with_damage(self) -> None:
-        _, target = _make_pair()
         state = CombatState(morale=1.0, accumulated_damage=0.2)
-        morale_check(target, state, rng=_create_seeded_rng())
+        morale_check(state, rng=_create_seeded_rng())
         expected_morale = 1.0 - 0.2 * MORALE_CASUALTY_WEIGHT
         self.assertAlmostEqual(state.morale, expected_morale)
 
     def test_morale_clamped_to_zero(self) -> None:
-        _, target = _make_pair()
         state = CombatState(morale=0.1, accumulated_damage=0.5)
-        morale_check(target, state, rng=_create_seeded_rng(0))
+        morale_check(state, rng=_create_seeded_rng(0))
         self.assertGreaterEqual(state.morale, 0.0)
 
     def test_morale_clamped_to_one_on_recovery(self) -> None:
-        _, target = _make_pair()
         state = CombatState(morale=0.999, accumulated_damage=0.0)
-        morale_check(target, state, rng=_create_seeded_rng())
+        morale_check(state, rng=_create_seeded_rng())
         self.assertLessEqual(state.morale, 1.0)
 
     def test_unit_routes_when_morale_zero(self) -> None:
         """With morale at 0, rout probability is 1.0 — must always route."""
-        _, target = _make_pair()
         state = CombatState(morale=0.0, accumulated_damage=0.0)
-        result = morale_check(target, state, rng=_create_seeded_rng())
+        result = morale_check(state, rng=_create_seeded_rng())
         self.assertTrue(result)
         self.assertTrue(state.is_routing)
 
     def test_unit_does_not_route_when_morale_above_threshold(self) -> None:
-        _, target = _make_pair()
         state = CombatState(morale=0.9, accumulated_damage=0.0)
-        result = morale_check(target, state, rng=_create_seeded_rng())
+        result = morale_check(state, rng=_create_seeded_rng())
         self.assertFalse(result)
         self.assertFalse(state.is_routing)
 
+    def test_routing_unit_recovers_morale_when_not_under_fire(self) -> None:
+        """Routing units must still recover morale so they can reach the rally gate."""
+        state = CombatState(morale=0.4, accumulated_damage=0.0, is_routing=True)
+        # Use a seeded RNG with very low probability to avoid accidental rally
+        morale_check(state, rng=_create_seeded_rng(1))
+        self.assertGreater(state.morale, 0.4)
+
     def test_routing_unit_can_rally(self) -> None:
         """Set morale > 2× threshold and use a seeded RNG that produces < 0.05."""
-        _, target = _make_pair()
         # morale well above 2× threshold; accumulated_damage=0 so no further hit
         state = CombatState(
             morale=MORALE_ROUT_THRESHOLD * 3,
@@ -253,16 +272,15 @@ class TestMoraleCheck(unittest.TestCase):
             state.is_routing = True
             state.morale = MORALE_ROUT_THRESHOLD * 3
             state.accumulated_damage = 0.0
-            result = morale_check(target, state, rng=rng)
+            result = morale_check(state, rng=rng)
             if not result:
                 rallied = True
                 break
         self.assertTrue(rallied, "Unit never rallied in 200 attempts")
 
     def test_returns_routing_flag(self) -> None:
-        _, target = _make_pair()
         state = CombatState(morale=0.0, accumulated_damage=0.0)
-        result = morale_check(target, state, rng=_create_seeded_rng())
+        result = morale_check(state, rng=_create_seeded_rng())
         self.assertEqual(result, state.is_routing)
 
 
@@ -310,6 +328,16 @@ class TestResolveVolley(unittest.TestCase):
             if target.strength <= 0.0:
                 break
         self.assertAlmostEqual(target.strength, 0.0)
+
+    def test_shooter_state_shots_fired_increments(self) -> None:
+        """shots_fired on the shooter's CombatState increments each volley."""
+        shooter, target = _make_pair(dist=50.0)
+        s_state = CombatState()
+        t_state = CombatState()
+        resolve_volley(shooter, s_state, target, t_state, 1.0, rng=_create_seeded_rng())
+        self.assertEqual(s_state.shots_fired, 1)
+        resolve_volley(shooter, s_state, target, t_state, 1.0, rng=_create_seeded_rng())
+        self.assertEqual(s_state.shots_fired, 2)
 
 
 if __name__ == "__main__":
