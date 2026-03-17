@@ -1,12 +1,12 @@
 name: "🗺️ Seed v1 Roadmap Issues"
 
-# Runs automatically whenever this branch is pushed, and can also be
-# triggered manually.  Idempotent — skips issues that already exist.
+# Runs automatically when main is updated (e.g. after PR merge), and can
+# also be triggered manually via workflow_dispatch.
+# Idempotent — skips issues that already exist.
 
 on:
   push:
     branches:
-      - "copilot/**"
       - "main"
   workflow_dispatch:
     inputs:
