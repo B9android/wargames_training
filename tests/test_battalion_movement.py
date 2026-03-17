@@ -5,11 +5,10 @@ from pathlib import Path
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SIM_DIR = PROJECT_ROOT / "envs" / "sim"
-if str(SIM_DIR) not in sys.path:
-    sys.path.insert(0, str(SIM_DIR))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from battalion import Battalion
+from envs.sim.battalion import Battalion
 
 
 def make_battalion(**kwargs) -> Battalion:
