@@ -1,7 +1,7 @@
 # envs/sim/battalion.py
 
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class Battalion:
@@ -10,6 +10,14 @@ class Battalion:
     theta: float      # facing angle (radians)
     strength: float   # 0.0 to 1.0
     team: int         # 0 = blue, 1 = red
+
+    # Morale and routing
+    morale: float = 1.0           # 0.0 to 1.0, decreases under fire
+    routing_threshold: float = 0.3  # morale below this triggers routing
+    routed: bool = False          # True if battalion has routed
+
+    # Formation cohesion bonus (multiplicative modifier to effectiveness)
+    cohesion_bonus: float = 1.0   # 1.0 = normal, >1.0 = bonus from formation
 
     # Physical limits
     max_speed: float = 50.0      # meters per second (scaled)
@@ -50,7 +58,47 @@ class Battalion:
         dist = np.sqrt(dx**2 + dy**2)
         # Damage falls off with range
         range_factor = 1.0 - (dist / self.fire_range)
-        damage = intensity * range_factor * 0.05  # tune this
+        # Apply cohesion bonus to damage output
+        damage = intensity * range_factor * 0.05 * self.cohesion_bonus
         target.strength = max(0.0, target.strength - damage)
         return damage
+
+    def take_damage(self, damage: float, morale_impact: float = 0.1):
+        """
+        Apply damage to strength and reduce morale.
+
+        Args:
+            damage: Amount of strength damage to take
+            morale_impact: Morale loss per unit of damage (default 0.1)
+        """
+        self.strength = max(0.0, self.strength - damage)
+        # Morale drops proportionally to damage taken
+        morale_loss = damage * morale_impact
+        self.morale = max(0.0, self.morale - morale_loss)
+        # Check if battalion should route
+        if self.morale <= self.routing_threshold and not self.routed:
+            self.routed = True
+
+    def check_routing(self) -> bool:
+        """
+        Check if battalion should route based on morale.
+
+        Returns:
+            True if battalion has routed, False otherwise
+        """
+        if not self.routed and self.morale <= self.routing_threshold:
+            self.routed = True
+        return self.routed
+
+    def rally(self, morale_gain: float = 0.1):
+        """
+        Attempt to rally a routing or demoralized battalion.
+
+        Args:
+            morale_gain: Amount of morale to restore
+        """
+        self.morale = min(1.0, self.morale + morale_gain)
+        # Can only rally if morale recovers significantly above threshold
+        if self.routed and self.morale > self.routing_threshold * 1.5:
+            self.routed = False
 
