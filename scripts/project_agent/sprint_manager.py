@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import yaml
-from github import Github
+from github import Auth, Github
 
 from common import agent_signature, log_event, require_env, retry
 from projects_v2 import ProjectsV2Client
@@ -134,7 +134,8 @@ def main() -> None:
     
     sprint_name = os.environ.get("SPRINT_NAME", "")
     
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(REPO_NAME)
     
     # Initialize projects v2 client for board management

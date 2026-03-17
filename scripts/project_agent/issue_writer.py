@@ -76,7 +76,7 @@ Generate follow-up issues.
 
 
 def main() -> None:
-    from github import Github
+    from github import Auth, Github
     from openai import OpenAI
 
     env = require_env(["REPO_NAME", "GITHUB_TOKEN", "OPENAI_API_KEY"])
@@ -86,7 +86,8 @@ def main() -> None:
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
     parent_issues = extract_parent_issue_numbers(context)
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     ai = OpenAI(api_key=env["OPENAI_API_KEY"])
     repo = gh.get_repo(repo_name)
     

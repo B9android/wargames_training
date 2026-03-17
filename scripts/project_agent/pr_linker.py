@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 import yaml
-from github import Github
+from github import Auth, Github
 
 from common import add_marker, agent_signature, extract_marker, has_marker, log_event, require_env, retry
 from projects_v2 import ProjectsV2Client
@@ -202,7 +202,8 @@ def main() -> None:
     PR_NUMBER = int(env["PR_NUMBER"])
     DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
     
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(REPO_NAME)
     pr = repo.get_pull(PR_NUMBER)
     
