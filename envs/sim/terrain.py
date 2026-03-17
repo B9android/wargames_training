@@ -26,9 +26,9 @@ class TerrainMap:
     ``(rows, cols)``.  Row 0 corresponds to ``y ≈ 0`` and the last row
     to ``y ≈ height``; column 0 corresponds to ``x ≈ 0``.
 
-    When both *elevation* and *cover* are ``None`` the terrain is treated
-    as a perfectly flat, fully open plain (all methods still work and
-    return sensible defaults).
+    Flat, fully open terrain is represented by zero-valued elevation and
+    cover grids (as produced by :meth:`flat`), which correspond to a
+    perfectly flat, fully open plain.
 
     Use :meth:`flat` or :meth:`from_arrays` instead of calling the
     constructor directly.
