@@ -243,6 +243,17 @@ Please review and adjust as needed.
         retry(lambda body=comment_body: issue.create_comment(body))
 
     log_event("triage_complete", issue=ISSUE_NUMBER, mode=mode, labels=labels_to_apply, dry_run=DRY_RUN)
+
+    # Emit GitHub Actions step outputs for downstream job chaining.
+    is_epic = "type: epic" in labels_to_apply
+    is_experiment = "type: experiment" in labels_to_apply
+    github_output_file = os.environ.get("GITHUB_OUTPUT", "")
+    if github_output_file:
+        with open(github_output_file, "a", encoding="utf-8") as _out:
+            _out.write(f"is_epic={'true' if is_epic else 'false'}\n")
+            _out.write(f"is_experiment={'true' if is_experiment else 'false'}\n")
+            _out.write(f"issue_number={ISSUE_NUMBER}\n")
+
     print(f"{'[dry-run] ' if DRY_RUN else ''}✅ Triaged issue #{ISSUE_NUMBER}")
 
 
