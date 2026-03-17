@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from envs.sim.battalion import Battalion
 from envs.sim.combat import (
-    BASE_DAMAGE_MULTIPLIER,
+    BASE_DAMAGE_MULTIPLIER,  # backwards-compat alias — tested in TestRangeFactor
     BASE_FIRE_DAMAGE,
     MORALE_CASUALTY_WEIGHT,
     MORALE_RECOVERY_RATE,
@@ -43,7 +43,7 @@ def _make_pair(dist: float = 100.0, theta: float = 0.0):
 
 
 def _make_attacker(x=0.0, y=0.0, theta=0.0, strength=1.0) -> Battalion:
-    """Helper: attacker facing right (+x direction) at origin."""
+    """Helper: attacker battalion with configurable position, facing, and strength."""
     return Battalion(x=x, y=y, theta=theta, strength=strength, team=0)
 
 
@@ -90,6 +90,10 @@ class TestRangeFactor(unittest.TestCase):
     def test_raises_for_negative_fire_range(self) -> None:
         with self.assertRaises(ValueError):
             range_factor(50.0, -100.0)
+
+    def test_base_damage_multiplier_is_alias(self) -> None:
+        """BASE_DAMAGE_MULTIPLIER must equal BASE_FIRE_DAMAGE (backwards compat)."""
+        self.assertEqual(BASE_DAMAGE_MULTIPLIER, BASE_FIRE_DAMAGE)
 
 
 # ---------------------------------------------------------------------------
