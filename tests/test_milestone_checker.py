@@ -33,11 +33,21 @@ class _Issue:
         self.added_labels: list[str] = []
         self.comments: list[str] = []
 
-    def add_to_labels(self, label: str) -> None:
-        self.added_labels.append(label)
+    def add_to_labels(self, *labels: str) -> None:
+        self.added_labels.extend(labels)
 
     def create_comment(self, message: str) -> None:
         self.comments.append(message)
+
+
+_DEFAULT_REPO_LABELS = [
+    "type: bug", "type: feature", "type: experiment", "type: research",
+    "type: epic", "type: chore",
+    "priority: critical", "priority: high", "priority: medium", "priority: low",
+    "status: needs-manual-triage", "status: approved", "status: in-progress",
+    "status: blocked", "status: stale", "status: complete", "status: failed",
+    "status: cancelled", "status: agent-created",
+]
 
 
 class _Milestone:
@@ -60,10 +70,17 @@ class _Milestone:
 
 
 class _Repo:
-    def __init__(self, open_issues: list[_Issue], agent_issues: list[_Issue], milestone_issues: list[_Issue]) -> None:
+    def __init__(
+        self,
+        open_issues: list[_Issue],
+        agent_issues: list[_Issue],
+        milestone_issues: list[_Issue],
+        repo_labels: list[str] | None = None,
+    ) -> None:
         self._open_issues = open_issues
         self._agent_issues = agent_issues
         self._milestone_issues = milestone_issues
+        self._repo_labels = repo_labels if repo_labels is not None else _DEFAULT_REPO_LABELS
         self.created: list[dict[str, object]] = []
 
     def get_issues(self, *, state: str, labels=None, milestone=None):
@@ -72,6 +89,9 @@ class _Repo:
         if milestone is not None:
             return list(self._milestone_issues)
         return list(self._open_issues)
+
+    def get_labels(self):
+        return [_Label(name) for name in self._repo_labels]
 
     def create_issue(self, *, title: str, body: str, labels: list[str]):
         number = 900 + len(self.created)
@@ -141,6 +161,94 @@ class MilestoneCheckerTests(unittest.TestCase):
         self.assertEqual(len(created), 1)
         self.assertEqual(len(repo.created), 1)
         self.assertIn("issues need labels", repo.created[0]["title"])
+
+
+class LoadRuleMapTests(unittest.TestCase):
+    def test_returns_dict_with_bug_marker(self) -> None:
+        rule_map = mc.load_rule_map()
+        self.assertIn("[BUG]", rule_map)
+        self.assertIn("type: bug", rule_map["[BUG]"])
+
+    def test_wip_marker_present(self) -> None:
+        rule_map = mc.load_rule_map()
+        self.assertIn("[WIP]", rule_map)
+        self.assertIn("status: in-progress", rule_map["[WIP]"])
+
+    def test_all_keys_are_uppercase(self) -> None:
+        rule_map = mc.load_rule_map()
+        for key in rule_map:
+            self.assertEqual(key, key.upper(), f"Key '{key}' is not uppercase")
+
+
+class TriageUnlabeledIssuesTests(unittest.TestCase):
+    def _make_repo(self, issues: list[_Issue]) -> _Repo:
+        return _Repo(open_issues=issues, agent_issues=[], milestone_issues=[])
+
+    def test_empty_list_returns_empty(self) -> None:
+        repo = self._make_repo([])
+        result = mc.triage_unlabeled_issues(repo, [], dry_run=False)
+        self.assertEqual(result, [])
+
+    def test_bug_marker_applies_bug_labels(self) -> None:
+        issue = _Issue(10, "[BUG] Something broken", "")
+        repo = self._make_repo([issue])
+        triaged = mc.triage_unlabeled_issues(repo, [issue], dry_run=False)
+        self.assertIn(10, triaged)
+        self.assertIn("type: bug", issue.added_labels)
+        self.assertIn("priority: high", issue.added_labels)
+
+    def test_wip_marker_applies_in_progress_label(self) -> None:
+        issue = _Issue(11, "[WIP] Feature in flight", "")
+        repo = self._make_repo([issue])
+        mc.triage_unlabeled_issues(repo, [issue], dry_run=False)
+        self.assertIn("status: in-progress", issue.added_labels)
+
+    def test_wip_and_bug_markers_combine(self) -> None:
+        issue = _Issue(12, "[WIP] [BUG] Fix in progress", "")
+        repo = self._make_repo([issue])
+        mc.triage_unlabeled_issues(repo, [issue], dry_run=False)
+        self.assertIn("type: bug", issue.added_labels)
+        self.assertIn("priority: high", issue.added_labels)
+        self.assertIn("status: in-progress", issue.added_labels)
+
+    def test_no_marker_applies_needs_manual_triage(self) -> None:
+        issue = _Issue(13, "Add some feature", "")
+        repo = self._make_repo([issue])
+        mc.triage_unlabeled_issues(repo, [issue], dry_run=False)
+        self.assertIn("status: needs-manual-triage", issue.added_labels)
+        self.assertIn("priority: medium", issue.added_labels)
+
+    def test_triage_posts_comment(self) -> None:
+        issue = _Issue(14, "[BUG] Crash on start", "")
+        repo = self._make_repo([issue])
+        mc.triage_unlabeled_issues(repo, [issue], dry_run=False)
+        self.assertEqual(len(issue.comments), 1)
+        self.assertIn("Labels applied automatically", issue.comments[0])
+
+    def test_dry_run_does_not_modify_issue(self) -> None:
+        issue = _Issue(15, "[BUG] Crash on start", "")
+        repo = self._make_repo([issue])
+        mc.triage_unlabeled_issues(repo, [issue], dry_run=True)
+        self.assertEqual(issue.added_labels, [])
+        self.assertEqual(issue.comments, [])
+
+    def test_label_not_in_repo_is_skipped(self) -> None:
+        issue = _Issue(16, "[BUG] Something", "")
+        repo = _Repo(
+            open_issues=[issue],
+            agent_issues=[],
+            milestone_issues=[],
+            repo_labels=[],  # no labels exist
+        )
+        result = mc.triage_unlabeled_issues(repo, [issue], dry_run=False)
+        self.assertEqual(result, [])
+        self.assertEqual(issue.added_labels, [])
+
+    def test_returns_triaged_issue_numbers(self) -> None:
+        issues = [_Issue(i, f"Issue {i}", "") for i in range(20, 23)]
+        repo = self._make_repo(issues)
+        result = mc.triage_unlabeled_issues(repo, issues, dry_run=False)
+        self.assertEqual(sorted(result), [20, 21, 22])
 
 
 if __name__ == "__main__":
