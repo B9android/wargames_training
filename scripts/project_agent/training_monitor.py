@@ -228,7 +228,7 @@ def build_results_comment(run, summary: dict, config: dict, transition_error: st
 
 def main() -> None:
     """Fetch a W&B run and sync results to the linked experiment issue."""
-    from github import Github
+    from github import Auth, Github
     import wandb
 
     env = require_env(["REPO_NAME", "WANDB_RUN_ID", "ISSUE_NUMBER", "GITHUB_TOKEN"])
@@ -238,7 +238,8 @@ def main() -> None:
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
     repo_root = Path(__file__).resolve().parents[2]
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(repo_name)
     issue = retry(lambda: repo.get_issue(issue_number))
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta, timezone
 
-from github import Github
+from github import Auth, Github
 
 from common import agent_signature, log_event, require_env, retry
 from dependency_resolver import blocked_parent_rollup
@@ -167,7 +167,8 @@ def main() -> None:
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
     now = datetime.now(timezone.utc)
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(repo_name)
     issues_created = process_at_risk_milestones(repo, now, dry_run=dry_run)
     mark_stale_issues(repo, now, dry_run=dry_run)

@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from github import Github
+from github import Auth, Github
 
 from common import agent_signature, log_event, require_env, retry
 
@@ -97,7 +97,8 @@ def main() -> None:
     run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     marker = f"<!-- agent:release-sync:{milestone_number} -->"
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(repo_name)
     milestone = retry(lambda: repo.get_milestone(milestone_number))
 
