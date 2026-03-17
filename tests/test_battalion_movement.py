@@ -100,8 +100,9 @@ class TestRotationLimits(unittest.TestCase):
     def test_normal_rotation_is_applied(self) -> None:
         """Rotation within max_turn_rate changes theta by the exact amount."""
         b = make_battalion(theta=0.0)
-        b.rotate(0.05)
-        self.assertAlmostEqual(b.theta, 0.05)
+        delta = 0.5 * b.max_turn_rate
+        b.rotate(delta)
+        self.assertAlmostEqual(b.theta, delta)
 
     def test_positive_excess_rotation_is_clamped(self) -> None:
         """delta_theta larger than max_turn_rate is clamped to max_turn_rate."""
