@@ -1,0 +1,44 @@
+name: "🗺️ Seed v1 Roadmap Issues"
+
+# Runs automatically whenever this branch is pushed, and can also be
+# triggered manually.  Idempotent — skips issues that already exist.
+
+on:
+  push:
+    branches:
+      - "copilot/**"
+      - "main"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (print planned issues without creating them)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: seed-v1-issues-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  seed-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Seed v1 roadmap issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+        working-directory: scripts/project_agent
+        run: python seed_v1_issues.py
