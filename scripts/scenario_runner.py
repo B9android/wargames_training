@@ -17,6 +17,8 @@ import math
 import sys
 from pathlib import Path
 
+import numpy as np
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -34,8 +36,13 @@ def build_scenario() -> tuple[Battalion, Battalion]:
     return blue, red
 
 
-def step(blue: Battalion, red: Battalion) -> float:
-    """Advance one simulation step. Returns total damage dealt this step."""
+def step(blue: Battalion, red: Battalion, rng: np.random.Generator | None = None) -> float:
+    """Advance one simulation step. Returns total damage dealt this step.
+
+    *rng* is accepted so that callers can pass a seeded generator; stochastic
+    elements (e.g. morale noise, accuracy roll) should draw from it when
+    added rather than from the global RNG state.
+    """
     damage = 0.0
     damage += blue.fire_at(red, intensity=1.0)
     damage += red.fire_at(blue, intensity=1.0)
@@ -43,7 +50,13 @@ def step(blue: Battalion, red: Battalion) -> float:
 
 
 def run_scenario(steps: int = 200, seed: int = 42) -> dict:
-    """Run the full scenario and return a summary metrics dict."""
+    """Run the full scenario and return a summary metrics dict.
+
+    *seed* is used to initialise a ``numpy.random.Generator`` that is threaded
+    through every ``step()`` call.  All stochastic elements should draw from
+    that generator so results remain reproducible for a given seed.
+    """
+    rng = np.random.default_rng(seed)
     blue, red = build_scenario()
 
     initial_blue = blue.strength
@@ -51,7 +64,7 @@ def run_scenario(steps: int = 200, seed: int = 42) -> dict:
     total_damage = 0.0
 
     for _ in range(steps):
-        total_damage += step(blue, red)
+        total_damage += step(blue, red, rng=rng)
 
     return {
         "steps": steps,

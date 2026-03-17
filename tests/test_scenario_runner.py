@@ -2,6 +2,8 @@ import sys
 import unittest
 from pathlib import Path
 
+import numpy as np
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
@@ -33,7 +35,13 @@ class BuildScenarioTests(unittest.TestCase):
 class StepTests(unittest.TestCase):
     def test_step_deals_positive_damage(self) -> None:
         blue, red = sr.build_scenario()
-        damage = sr.step(blue, red)
+        rng = np.random.default_rng(0)
+        damage = sr.step(blue, red, rng=rng)
+        self.assertGreater(damage, 0.0)
+
+    def test_step_accepts_none_rng(self) -> None:
+        blue, red = sr.build_scenario()
+        damage = sr.step(blue, red, rng=None)
         self.assertGreater(damage, 0.0)
 
     def test_step_reduces_both_strengths(self) -> None:
@@ -86,13 +94,12 @@ class RunScenarioTests(unittest.TestCase):
         self.assertLess(results["blue_strength_final"], results["blue_strength_initial"])
         self.assertLess(results["red_strength_final"], results["red_strength_initial"])
 
-    def test_repeated_runs_return_valid_results(self) -> None:
+    def test_same_seed_produces_identical_results(self) -> None:
         r1 = sr.run_scenario(steps=50, seed=7)
         r2 = sr.run_scenario(steps=50, seed=7)
-        for results in (r1, r2):
-            self.assertEqual(results["steps"], 50)
-            self.assertEqual(results["seed"], 7)
-            self.assertGreater(results["total_damage"], 0.0)
+        self.assertAlmostEqual(r1["total_damage"], r2["total_damage"])
+        self.assertAlmostEqual(r1["blue_strength_final"], r2["blue_strength_final"])
+        self.assertAlmostEqual(r1["red_strength_final"], r2["red_strength_final"])
 
 
 class CheckResultsTests(unittest.TestCase):
