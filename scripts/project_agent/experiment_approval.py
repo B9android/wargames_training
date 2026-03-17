@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from github import Github
+from github import Auth, Github
 
 from common import AgentError, agent_signature, log_event, require_env, retry
 from experiment_lifecycle import (
@@ -60,7 +60,8 @@ def main() -> None:
     dry_run = env.get("DRY_RUN", "false").lower() == "true"
     repo_root = repo_root_from_file(__file__)
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(repo_name)
     issue = retry(lambda: repo.get_issue(issue_number))
 
