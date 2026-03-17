@@ -56,10 +56,9 @@ class EmitStepOutputsTests(unittest.TestCase):
         self.assertEqual(result["issue_number"], "99")
 
     def test_pre_filter_labels_respected_even_if_not_in_repo(self) -> None:
-        """is_epic must be true even when the label was filtered out of labels_to_apply."""
+        """is_epic must be true even when the epic label would be filtered out downstream."""
         # Simulate: triage classified as epic but repo doesn't have 'type: epic' yet.
         classified = ["type: epic", "priority: high"]
-        labels_to_apply: list[str] = []  # all filtered out by apply_labels()
         result = self._call(classified, issue_number=10)
         self.assertEqual(result["is_epic"], "true")
 
