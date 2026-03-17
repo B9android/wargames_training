@@ -177,7 +177,7 @@ def compute_fire_damage(
     dist = np.sqrt(dx ** 2 + dy ** 2)
 
     # Linear range falloff: full damage at dist=0, zero damage at fire_range
-    rf = max(0.0, 1.0 - dist / shooter.fire_range)
+    range_factor = max(0.0, 1.0 - dist / shooter.fire_range)
 
     # Angle-of-attack bonus
     angle_mult = _hit_angle_multiplier(shooter, target)
@@ -186,7 +186,7 @@ def compute_fire_damage(
     shooter_strength_factor = max(0.0, shooter.strength)
 
     base_damage = BASE_FIRE_DAMAGE * float(intensity)
-    damage = base_damage * rf * angle_mult * shooter_strength_factor
+    damage = base_damage * range_factor * angle_mult * shooter_strength_factor
     return float(damage)
 
 

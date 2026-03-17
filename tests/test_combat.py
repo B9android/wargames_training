@@ -268,8 +268,8 @@ class TestComputeFireDamage(unittest.TestCase):
         # Place target at x=1 (almost point-blank) facing shooter
         target = Battalion(x=1.0, y=0.0, theta=np.pi, strength=1.0, team=1)
         dist = 1.0
-        rf = 1.0 - dist / shooter.fire_range
-        expected = BASE_FIRE_DAMAGE * 1.0 * rf * 1.0 * 1.0
+        range_factor = 1.0 - dist / shooter.fire_range
+        expected = BASE_FIRE_DAMAGE * 1.0 * range_factor * 1.0 * 1.0
         self.assertAlmostEqual(compute_fire_damage(shooter, target, 1.0), expected, places=10)
 
     def test_negative_intensity_clamped_to_zero(self) -> None:
