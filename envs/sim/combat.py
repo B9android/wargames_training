@@ -102,7 +102,7 @@ def in_fire_arc(attacker: Battalion, target: Battalion) -> bool:
     dx = target.x - attacker.x
     dy = target.y - attacker.y
     angle_to_target = np.arctan2(dy, dx)
-    angle_diff = abs((angle_to_target - attacker.theta + np.pi) % (2 * np.pi) - np.pi)
+    angle_diff = abs(_angle_diff(angle_to_target, attacker.theta))
     return bool(angle_diff < attacker.fire_arc)
 
 
