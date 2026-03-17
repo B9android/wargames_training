@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from github import Github
+from github import Auth, Github
 
 from common import extract_marker, log_event, require_env
 from projects_v2 import ProjectsV2Client
@@ -171,7 +171,8 @@ def main() -> None:
     ISSUE_NUMBER = int(env["ISSUE_NUMBER"])
     DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(REPO_NAME)
 
     # Initialize projects v2 client

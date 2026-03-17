@@ -13,7 +13,7 @@ Responsibilities:
 
 import os
 import re
-from github import Github
+from github import Auth, Github
 from common import agent_signature, log_event, require_env, retry
 from experiment_lifecycle import (
     AGENT_LABEL,
@@ -226,7 +226,8 @@ def main():
     repo_root = repo_root_from_file(__file__)
     
     # Connect to GitHub
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     repo = gh.get_repo(REPO_NAME)
     issue = retry(lambda: repo.get_issue(int(ISSUE_NUMBER)))
     policy = load_experiment_policy(repo_root)

@@ -78,14 +78,15 @@ def deterministic_report(context: dict[str, object]) -> str:
 
 
 def main() -> None:
-    from github import Github
+    from github import Auth, Github
     from openai import OpenAI
 
     env = require_env(["REPO_NAME", "GITHUB_TOKEN", "OPENAI_API_KEY"])
     repo_name = env["REPO_NAME"]
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     ai = OpenAI(api_key=env["OPENAI_API_KEY"])
     repo = gh.get_repo(repo_name)
 
@@ -169,7 +170,7 @@ def main() -> None:
         return
 
     new_issue = retry(
-        lambda title=title, body=report_body, labels=tuple(labels_to_apply): repo.create_issue(
+        lambda title=title, body=report_body, labels=list(labels_to_apply): repo.create_issue(
             title=title,
             body=body,
             labels=labels,

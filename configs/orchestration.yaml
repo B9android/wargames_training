@@ -37,6 +37,8 @@ markers:
     labels: ["type: feature", "priority: medium"]
   "[EPIC]":
     labels: ["type: epic", "priority: high"]
+  "[WIP]":
+    labels: ["status: in-progress"]
 
 state_machine:
   issue:

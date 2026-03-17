@@ -175,7 +175,7 @@ def apply_milestone(result: dict[str, object]) -> str | None:
 def main() -> None:
     global REPO_NAME, ISSUE_NUMBER, DRY_RUN, ai, repo, issue, all_labels, all_milestones
 
-    from github import Github
+    from github import Auth, Github
     from openai import OpenAI
 
     env = require_env(["REPO_NAME", "ISSUE_NUMBER", "GITHUB_TOKEN"])
@@ -184,7 +184,8 @@ def main() -> None:
     openai_api_key = os.environ.get("OPENAI_API_KEY")
     DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
-    gh = Github(env["GITHUB_TOKEN"])
+    auth = Auth.Token(env["GITHUB_TOKEN"])
+    gh = Github(auth=auth)
     ai = OpenAI(api_key=openai_api_key) if openai_api_key else None
     repo = gh.get_repo(REPO_NAME)
     issue = repo.get_issue(ISSUE_NUMBER)
