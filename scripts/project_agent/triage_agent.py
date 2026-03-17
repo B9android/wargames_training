@@ -172,6 +172,40 @@ def apply_milestone(result: dict[str, object]) -> str | None:
     return milestone_title
 
 
+def emit_step_outputs(
+    classified_labels: list[str],
+    issue_number: int,
+    *,
+    output_path: str | None = None,
+) -> None:
+    """Write GitHub Actions step outputs for downstream job chaining.
+
+    Uses the *classified* (pre-filter) label list so cascade jobs fire even when
+    the corresponding repo labels have not been created yet.
+
+    Args:
+        classified_labels: Label names as determined by triage (pre repo-filter).
+        issue_number: The GitHub issue number being triaged.
+        output_path: Path of the $GITHUB_OUTPUT file; defaults to the env var.
+    """
+    dest = output_path or os.environ.get("GITHUB_OUTPUT", "")
+    if not dest:
+        return
+
+    # Normalize labels defensively in case upstream data is malformed.
+    if isinstance(classified_labels, list):
+        normalized_labels = [str(label) for label in classified_labels]
+    else:
+        normalized_labels = []
+
+    is_epic = "type: epic" in normalized_labels
+    is_experiment = "type: experiment" in normalized_labels
+    with open(dest, "a", encoding="utf-8") as _out:
+        _out.write(f"is_epic={'true' if is_epic else 'false'}\n")
+        _out.write(f"is_experiment={'true' if is_experiment else 'false'}\n")
+        _out.write(f"issue_number={issue_number}\n")
+
+
 def main() -> None:
     global REPO_NAME, ISSUE_NUMBER, DRY_RUN, ai, repo, issue, all_labels, all_milestones
 
@@ -243,6 +277,13 @@ Please review and adjust as needed.
         retry(lambda body=comment_body: issue.create_comment(body))
 
     log_event("triage_complete", issue=ISSUE_NUMBER, mode=mode, labels=labels_to_apply, dry_run=DRY_RUN)
+
+    # Emit GitHub Actions step outputs for downstream job chaining.
+    # Classification is based on the full label list from triage (pre-filter) so
+    # cascade jobs run even when repo labels haven't been created yet.
+    classified_labels = result.get("labels", [])
+    emit_step_outputs(classified_labels, ISSUE_NUMBER)
+
     print(f"{'[dry-run] ' if DRY_RUN else ''}✅ Triaged issue #{ISSUE_NUMBER}")
 
 
