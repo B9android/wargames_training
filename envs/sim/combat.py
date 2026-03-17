@@ -46,6 +46,9 @@ def compute_damage(attacker: Battalion, target: Battalion, intensity: float) -> 
     Negative intensity is clamped to zero (no accidental healing).
     """
     intensity = max(0.0, intensity)
+    # If the attacker has no effective fire range, it cannot deal damage.
+    if attacker.fire_range <= 0:
+        return 0.0
     if not attacker.can_fire_at(target):
         return 0.0
     dx = target.x - attacker.x
