@@ -15,19 +15,105 @@ Agents are trained using PPO, self-play, and eventually league training and hier
 
 ## Getting Started
 
-1. Clone the repository
-2. Create a virtual environment: `python -m venv .venv`
-3. Activate it: `.venv\Scripts\activate` (Windows)
-4. Install dependencies: `pip install -r requirements.txt`
+### 1 — Clone the repository
+
+```bash
+git clone https://github.com/B9android/wargames_training.git
+cd wargames_training
+```
+
+### 2 — Create a virtual environment
+
+**Linux / macOS**
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+```
+
+**Windows (PowerShell)**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+### 3 — Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4 — Set up W&B experiment tracking
+
+```bash
+# Create a free account at https://wandb.ai if you don't have one
+wandb login
+```
+
+The default W&B project is configured in `configs/default.yaml`:
+
+```yaml
+wandb:
+  project: "wargames_training"
+  entity: null   # set to your W&B team/org name if using a shared workspace
+```
+
+### 5 — Run a quick smoke test
+
+```bash
+pytest tests/ -q
+```
+
+### 6 — Launch a training run
+
+```bash
+python training/train.py
+```
 
 ## Project Structure
 
-- **envs/** — Gymnasium environments and simulation engine
-- **models/** — Neural network architectures  
-- **training/** — Training scripts and callbacks
-- **configs/** — YAML configuration files
-- **scripts/project_agent/** — GitHub automation agents
-- **notebooks/** — Jupyter notebooks for analysis and debugging
+```
+wargames_training/
+├── configs/             # YAML config files (default.yaml, experiment_*.yaml)
+├── envs/                # Gymnasium environments and simulation engine
+│   └── sim/             # Core sim: battalion, combat, terrain modules
+├── models/              # Neural network architectures
+├── notebooks/           # Jupyter notebooks for analysis and debugging
+├── scripts/
+│   └── project_agent/   # GitHub automation agents
+├── tests/               # Unit tests
+└── training/            # Training scripts and callbacks
+```
+
+## GitHub Labels & Milestones
+
+All required labels (`type:`, `priority:`, `status:`, `domain:`) and milestones
+(M0–M4) are bootstrapped automatically.
+
+**To create labels and milestones** in a fresh fork, dispatch the workflow:
+
+1. Go to **Actions → 🏷️ Bootstrap: Labels & Milestones**
+2. Set `dry_run = false` and click **Run workflow**
+
+Or run locally from the repository root:
+
+```bash
+GITHUB_TOKEN=<your-pat> REPO_NAME=B9android/wargames_training \
+    python scripts/project_agent/setup_labels_and_milestones.py
+```
+
+## Triaging Issues
+
+The triage agent runs automatically when a new issue is opened (`.github/workflows/agent-triage.yml`). It reads title markers and applies labels + milestone:
+
+| Title marker | Labels applied |
+|---|---|
+| `[BUG]` | `type: bug`, `priority: high` |
+| `[EXP]` | `type: experiment`, `priority: medium` |
+| `[EPIC]` | `type: epic`, `priority: high` |
+| `[FEAT]` / `[FEATURE]` | `type: feature`, `priority: medium` |
+| `[RESEARCH]` | `type: research`, `priority: low` |
+
+To retriage an issue manually, dispatch **Actions → 🤖 Agent: Triage** with the issue number.
 
 ## For Operators
 
@@ -40,10 +126,14 @@ The project uses GitHub Actions for automated orchestration of experiments, mile
 - Release sync verification
 - Local test commands
 
-**Environment Setup:**
+**Required secrets / environment variables:**
 
-- `GITHUB_TOKEN`: Personal access token for GitHub API (required for all agents)
-- `DRY_RUN=true`: Run orchestration agents in dry-run mode (no mutations)
+| Name | Purpose |
+|---|---|
+| `GITHUB_TOKEN` | GitHub API access (provided automatically in Actions) |
+| `OPENAI_API_KEY` | Optional — enables AI triage fallback |
+| `GH_PAT_PROJECT` | PAT with `project` scope — required for Project board automation |
+| `DRY_RUN=true` | Set to run any agent in read-only / audit mode |
 
 ## Key Conventions
 
@@ -52,7 +142,7 @@ The project uses GitHub Actions for automated orchestration of experiments, mile
 - Angles are represented as (cos θ, sin θ) pairs — never raw radians
 - Positions are normalized by map dimensions
 - Every training run **must** be logged to W&B with a config dict
-- Every significant training run should have a corresponding GitHub issue using the [EXP] template
+- Every significant training run should have a corresponding GitHub issue using the `[EXP]` template
 
 ## Current Version: v1
 
