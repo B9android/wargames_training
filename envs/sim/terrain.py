@@ -188,6 +188,9 @@ class TerrainMap:
             Number of sample points including both endpoints.  Higher
             values give more accurate results at the cost of more lookups.
         """
+        if num_samples < 2:
+            raise ValueError(f"num_samples must be >= 2, got {num_samples}")
+
         if self.elevation is None:
             return True
 
