@@ -172,6 +172,8 @@ GitHub Actions run AI agents for routine project management:
 
 ## 🧪 Testing
 
+No automated test suite has been added yet. Once tests are introduced, they will be run with:
+
 ```bash
 pytest
 ```
