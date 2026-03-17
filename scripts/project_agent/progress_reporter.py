@@ -170,7 +170,7 @@ def main() -> None:
         return
 
     new_issue = retry(
-        lambda title=title, body=report_body, labels=tuple(labels_to_apply): repo.create_issue(
+        lambda title=title, body=report_body, labels=list(labels_to_apply): repo.create_issue(
             title=title,
             body=body,
             labels=labels,
