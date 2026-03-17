@@ -136,23 +136,36 @@ class TestRotationLimits(unittest.TestCase):
 
     def test_theta_wraps_above_two_pi(self) -> None:
         """theta wraps back into [0, 2π) when it would exceed 2π."""
-        b = make_battalion(theta=2 * np.pi - 0.05)
-        # Use 0.06, which is within max_turn_rate (0.1), so wrapping is
-        # tested in isolation without any clamping.
-        b.rotate(0.06)
+        b = make_battalion(theta=0.0)
+        # Choose a delta based on max_turn_rate so this test remains valid if
+        # max_turn_rate changes. Ensure the delta is strictly within the limit
+        # so that clamping does not affect the wraparound behavior being tested.
+        delta = 0.5 * b.max_turn_rate
+        # Start slightly below 2π so that applying `delta` crosses the boundary
+        # by a known amount (delta - start_offset).
+        start_offset = delta / 2.0
+        b.theta = 2 * np.pi - start_offset
+        b.rotate(delta)
         self.assertGreaterEqual(b.theta, 0.0)
         self.assertLess(b.theta, 2 * np.pi)
-        self.assertAlmostEqual(b.theta, (2 * np.pi - 0.05 + 0.06) % (2 * np.pi))
+        expected_theta = (2 * np.pi - start_offset + delta) % (2 * np.pi)
+        self.assertAlmostEqual(b.theta, expected_theta)
 
     def test_theta_wraps_below_zero(self) -> None:
         """theta wraps back into [0, 2π) when it would go below 0."""
-        b = make_battalion(theta=0.05)
-        # Use -0.06, which is within max_turn_rate (0.1), so wrapping is
-        # tested in isolation without any clamping.
-        b.rotate(-0.06)
+        b = make_battalion(theta=0.0)
+        # Choose a delta based on max_turn_rate so this test remains valid if
+        # max_turn_rate changes, and ensure it is within the limit.
+        delta = 0.5 * b.max_turn_rate
+        # Start slightly above 0 so that applying `-delta` crosses the boundary
+        # by a known amount (delta - start_offset).
+        start_offset = delta / 2.0
+        b.theta = start_offset
+        b.rotate(-delta)
         self.assertGreaterEqual(b.theta, 0.0)
         self.assertLess(b.theta, 2 * np.pi)
-        self.assertAlmostEqual(b.theta, (0.05 - 0.06) % (2 * np.pi))
+        expected_theta = (start_offset - delta) % (2 * np.pi)
+        self.assertAlmostEqual(b.theta, expected_theta)
 
     def test_multiple_rotations_accumulate_correctly(self) -> None:
         """Successive rotations accumulate and stay within [0, 2π)."""
