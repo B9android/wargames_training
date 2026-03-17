@@ -1,24 +1,25 @@
-"""
-Issue Writer Agent.
-Given a context string (e.g. training results, a research finding, a blocker),
-generates and creates 1-5 well-structured follow-up GitHub issues.
-"""
-import os
+"""Issue Writer Agent: generates and creates follow-up GitHub issues from context."""
+
+from __future__ import annotations
+
 import json
-from github import Github
-from openai import OpenAI
+import os
+from datetime import datetime, timezone
 
-REPO_NAME = os.environ["REPO_NAME"]
-CONTEXT = os.environ.get("AGENT_CONTEXT", "")
-TARGET_VERSION = os.environ.get("TARGET_VERSION", "v1")
+from common import agent_signature, log_event, require_env, retry
+from dependency_resolver import (
+    blocked_parent_rollup,
+    dependency_blocker_context,
+    extract_issue_references,
+)
+from projects_v2 import ProjectsV2Client
 
-gh = Github(os.environ["GITHUB_TOKEN"])
-ai = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-repo = gh.get_repo(REPO_NAME)
+AGENT_CREATED_LABEL = "status: agent-created"
 
-all_labels = [l.name for l in repo.get_labels()]
-all_milestones = {m.title: m.number for m in repo.get_milestones(state="open")}
-open_issues = [{"number": i.number, "title": i.title} for i in repo.get_issues(state="open")]
+
+def extract_parent_issue_numbers(text: str) -> list[int]:
+    return extract_issue_references(text)
+
 
 SYSTEM_PROMPT = """
 You are a project management agent for wargames_training, a reinforcement learning
@@ -47,50 +48,182 @@ Issue body should include:
 ## Acceptance Criteria
 - [ ] item
 ## Notes
+
+If parent references are provided, include a `## Parent Work` section that links them.
 """
 
-USER_PROMPT = f"""
+def build_user_prompt(
+    context: str,
+    target_version: str,
+    all_labels: list[str],
+    all_milestones: dict[str, int],
+    open_issues: list[dict[str, object]],
+    dependency_rollup: list[dict[str, object]],
+) -> str:
+    return f"""
 Context provided:
-{CONTEXT}
+{context}
 
-Target version: {TARGET_VERSION}
+Target version: {target_version}
 Available labels: {json.dumps(all_labels)}
 Available milestones: {json.dumps(list(all_milestones.keys()))}
 Existing open issues (avoid duplicates): {json.dumps(open_issues[:30])}
+Dependency blockers (prioritize these when proposing next work):
+{dependency_blocker_context(dependency_rollup)}
 
 Generate follow-up issues.
 """
 
-response = ai.chat.completions.create(
-    model="gpt-4o",
-    messages=[
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": USER_PROMPT},
-    ],
-    response_format={"type": "json_object"},
-)
 
-result = json.loads(response.choices[0].message.content)
-created = []
+def main() -> None:
+    from github import Github
+    from openai import OpenAI
 
-for issue_data in result.get("issues", []):
-    labels_to_apply = [l for l in issue_data.get("labels", []) if l in all_labels]
-    labels_to_apply.append("status: agent-created")
+    env = require_env(["REPO_NAME", "GITHUB_TOKEN", "OPENAI_API_KEY"])
+    repo_name = env["REPO_NAME"]
+    context = os.environ.get("AGENT_CONTEXT", "")
+    target_version = os.environ.get("TARGET_VERSION", "v1")
+    dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+    parent_issues = extract_parent_issue_numbers(context)
 
-    milestone_obj = None
-    milestone_title = issue_data.get("milestone")
-    if milestone_title and milestone_title in all_milestones:
-        milestone_obj = repo.get_milestone(all_milestones[milestone_title])
+    gh = Github(env["GITHUB_TOKEN"])
+    ai = OpenAI(api_key=env["OPENAI_API_KEY"])
+    repo = gh.get_repo(repo_name)
+    
+    # Initialize projects v2 client for board management
+    projects_client = ProjectsV2Client(env["GITHUB_TOKEN"], repo_name)
+    
+    # Get active sprint ID for auto-assignment
+    active_sprint_id = None
+    try:
+        active_sprint_id = projects_client.get_active_sprint_id()
+    except Exception as exc:
+        log_event("active_sprint_query_failed", error=str(exc))
 
-    body = issue_data["body"] + "\n\n---\n> *Created automatically by issue writer agent.*"
+    all_labels = [label.name for label in retry(lambda: list(repo.get_labels()))]
+    all_milestones = {
+        milestone.title: milestone.number
+        for milestone in retry(lambda: list(repo.get_milestones(state="open")))
+    }
+    open_issue_objects = retry(lambda: list(repo.get_issues(state="open")))
+    open_issues = [
+        {"number": issue.number, "title": issue.title}
+        for issue in open_issue_objects[:30]
+    ]
+    dependency_rollup = blocked_parent_rollup(open_issue_objects)
 
-    new_issue = repo.create_issue(
-        title=issue_data["title"],
-        body=body,
-        labels=labels_to_apply,
-        milestone=milestone_obj,
+    user_prompt = build_user_prompt(
+        context,
+        target_version,
+        all_labels,
+        all_milestones,
+        open_issues,
+        dependency_rollup,
     )
-    created.append(new_issue.number)
-    print(f"✅ Created issue #{new_issue.number}: {issue_data['title']}")
 
-print(f"\n✅ Total issues created: {len(created)}")
+    try:
+        response = retry(
+            lambda: ai.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+                timeout=60,
+            )
+        )
+        result = json.loads(response.choices[0].message.content)
+    except Exception as exc:
+        log_event("issue_writer_ai_failed", error=str(exc))
+        raise
+
+    created: list[int] = []
+    planned_titles: list[str] = []
+
+    for issue_data in result.get("issues", []):
+        labels_to_apply = [label for label in issue_data.get("labels", []) if label in all_labels]
+        if AGENT_CREATED_LABEL not in labels_to_apply:
+            labels_to_apply.append(AGENT_CREATED_LABEL)
+
+        milestone_obj = None
+        milestone_title = issue_data.get("milestone")
+        if milestone_title and milestone_title in all_milestones:
+            milestone_obj = retry(
+                lambda milestone_key=milestone_title: repo.get_milestone(all_milestones[milestone_key])
+            )
+
+        if parent_issues:
+            parent_links = "\n".join(
+                f"- #{number}: https://github.com/{repo_name}/issues/{number}"
+                for number in parent_issues
+            )
+            parent_section = "\n\n## Parent Work\n" + "\n".join(
+                f"- Part of #{number}" for number in parent_issues
+            )
+        else:
+            parent_links = "- None detected from context"
+            parent_section = ""
+
+        attribution = (
+            "\n\n---\n"
+            + agent_signature("issue_writer", context="follow-up issue generation")
+            + "\n"
+            f"> Target version: `{target_version}`\n"
+            f"> Generated at: `{datetime.now(timezone.utc).isoformat()}`\n"
+            "> Parent references:\n"
+            f"{parent_links}"
+        )
+
+        body = issue_data["body"] + parent_section + attribution
+        issue_title = issue_data["title"]
+
+        if dry_run:
+            planned_titles.append(issue_title)
+            print(f"[dry-run] Would create issue: {issue_title}")
+            continue
+
+        new_issue = retry(
+            lambda title=issue_title, body=body, labels=tuple(labels_to_apply), milestone=milestone_obj: repo.create_issue(
+                title=title,
+                body=body,
+                labels=labels,
+                milestone=milestone,
+            )
+        )
+        created.append(new_issue.number)
+        log_event("issue_created", issue_number=new_issue.number, title=issue_title)
+        print(f"Created issue #{new_issue.number}: {issue_title}")
+        
+        # Add to project board with custom fields
+        if projects_client:
+            field_updates = {
+                "Version": (target_version, "SINGLE_SELECT"),
+            }
+            if active_sprint_id:
+                field_updates["Sprint"] = (active_sprint_id, "ITERATION")
+            
+            try:
+                projects_client.ensure_issue_in_project_with_fields(
+                    new_issue.number,
+                    field_updates=field_updates,
+                )
+                log_event("issue_added_to_project", issue=new_issue.number)
+            except Exception as exc:
+                log_event("project_board_sync_failed", issue=new_issue.number, error=str(exc))
+
+    log_event(
+        "issue_writer_complete",
+        created_count=len(created),
+        created=created,
+        dry_run=dry_run,
+        planned_count=len(planned_titles),
+        planned_titles=planned_titles,
+    )
+    prefix = "[dry-run] " if dry_run else ""
+    total = len(planned_titles) if dry_run else len(created)
+    print(f"\n{prefix}Total issues processed: {total}")
+
+
+if __name__ == "__main__":
+    main()

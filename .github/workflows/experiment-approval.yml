@@ -1,15 +1,18 @@
-name: "🤖 Agent: Milestone Health Check"
+name: "🛡️ Experiment: Approval Gate"
 
 on:
   workflow_dispatch:
     inputs:
+      issue_number:
+        description: "Experiment issue number to approve"
+        required: true
       dry_run:
         description: "Dry-run mode (no GitHub writes)"
         type: boolean
         default: false
 
 concurrency:
-  group: agent-milestone-check
+  group: experiment-approval-${{ github.event.inputs.issue_number }}
   cancel-in-progress: false
 
 permissions:
@@ -17,23 +20,24 @@ permissions:
   contents: read
 
 jobs:
-  milestone-check:
+  approve_experiment:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install PyGithub
+      - run: pip install PyGithub pyyaml
       - name: Preflight secrets
         run: |
           if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
             echo "GITHUB_TOKEN is required" >&2
             exit 1
           fi
-      - name: Run milestone health check
+      - name: Approve experiment issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
           REPO_NAME: ${{ github.repository }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
-        run: python scripts/project_agent/milestone_checker.py
+        run: python scripts/project_agent/experiment_approval.py

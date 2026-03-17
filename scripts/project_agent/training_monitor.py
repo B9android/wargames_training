@@ -1,66 +1,297 @@
-"""
-Training Monitor Agent.
-Fetches W&B run results and posts them as a comment to the linked GitHub issue.
+"""Training monitor agent for syncing W&B results to experiment issues."""
 
-Triggered via workflow_dispatch with:
-  WANDB_RUN_ID  — W&B run path: "entity/project/run_id"
-  ISSUE_NUMBER  — GitHub issue number for the linked experiment
-"""
+from __future__ import annotations
+
 import os
-from github import Github
-import wandb
+import re
+from pathlib import Path
 
-REPO_NAME = os.environ["REPO_NAME"]
-WANDB_RUN_ID = os.environ["WANDB_RUN_ID"]
-ISSUE_NUMBER = int(os.environ["ISSUE_NUMBER"])
+from common import AgentError, agent_signature, log_event, require_env, retry
+from state_machine import load_state_machine
 
-gh = Github(os.environ["GITHUB_TOKEN"])
-repo = gh.get_repo(REPO_NAME)
-issue = repo.get_issue(ISSUE_NUMBER)
+STATUS_LABEL_TO_STATE = {
+    "status: approved": "approved",
+    "status: in-progress": "in-progress",
+    "status: blocked": "blocked",
+    "status: stale": "stale",
+    "status: complete": "complete",
+    "status: failed": "failed",
+    "status: cancelled": "cancelled",
+}
+TARGET_STATE_TO_LABEL = {
+    "approved": "status: approved",
+    "in-progress": "status: in-progress",
+    "blocked": "status: blocked",
+    "stale": "status: stale",
+    "complete": "status: complete",
+    "failed": "status: failed",
+    "cancelled": "status: cancelled",
+}
+RUN_STATE_TO_TARGET_STATE = {
+    "running": "in-progress",
+    "finished": "complete",
+    "failed": "failed",
+    "crashed": "failed",
+}
 
-# Authenticate and fetch the W&B run
-api = wandb.Api()
-run = api.run(WANDB_RUN_ID)
 
-summary = dict(run.summary)
-config = dict(run.config)
+def update_issue_outcome(
+    issue,
+    run_state: str,
+    *,
+    run_failed: bool,
+    dry_run: bool,
+    issue_number: int,
+) -> None:
+    """Update the outcome section based on W&B run state."""
+    outcome_map = {
+        "running": "Running",
+        "finished": "Success - hypothesis confirmed" if not run_failed else "Mixed - partial confirmation",
+        "failed": "Crashed - technical failure",
+        "crashed": "Crashed - technical failure",
+    }
+    new_outcome = outcome_map.get(run_state, "Running")
 
-# Build a readable metrics table (skip internal W&B keys)
-metric_rows = "\n".join(
-    f"| `{k}` | `{round(v, 4) if isinstance(v, float) else v}` |"
-    for k, v in sorted(summary.items())
-    if not k.startswith("_") and isinstance(v, (int, float, str, bool))
-)
+    body = issue.body or ""
+    outcome_pattern = r"(### Outcome\n)(.*)(?=\n###|\Z)"
+    if not re.search(outcome_pattern, body, re.DOTALL):
+        return
 
-config_rows = "\n".join(
-    f"| `{k}` | `{v}` |"
-    for k, v in list(config.items())[:20]
-)
+    updated_body = re.sub(
+        outcome_pattern,
+        r"\1" + new_outcome,
+        body,
+        flags=re.DOTALL,
+    )
+    if updated_body == body:
+        return
 
-runtime_s = summary.get("_runtime")
-runtime_str = f"{int(runtime_s // 60)}m {int(runtime_s % 60)}s" if runtime_s else "N/A"
+    if dry_run:
+        print(f"[dry-run] Would update outcome to: {new_outcome}")
+    else:
+        retry(lambda: issue.edit(body=updated_body))
+    log_event(
+        "training_monitor_issue_outcome_updated",
+        issue_number=issue_number,
+        new_outcome=new_outcome,
+        dry_run=dry_run,
+    )
 
-comment_body = f"""## 📊 Training Run Results
+
+def infer_experiment_state(label_names: set[str]) -> str:
+    """Infer the current experiment state from issue labels."""
+    for label_name, state in STATUS_LABEL_TO_STATE.items():
+        if label_name in label_names:
+            return state
+    return "triaged"
+
+
+def desired_target_state(run_state: str) -> str | None:
+    """Map W&B run state to lifecycle target state."""
+    return RUN_STATE_TO_TARGET_STATE.get(run_state)
+
+
+def plan_label_changes(current_labels: set[str], target_state: str) -> tuple[list[str], list[str]]:
+    """Compute status labels to add and remove."""
+    status_labels = set(STATUS_LABEL_TO_STATE.keys())
+    target_label = TARGET_STATE_TO_LABEL[target_state]
+    labels_to_remove = sorted(label for label in current_labels if label in status_labels and label != target_label)
+    labels_to_add = [] if target_label in current_labels else [target_label]
+    return labels_to_add, labels_to_remove
+
+
+def validate_run_transition(repo_root: Path, current_state: str, target_state: str) -> tuple[bool, str]:
+    """Validate lifecycle transition implied by W&B state."""
+    decision = load_state_machine(repo_root).can_transition("experiment", current_state, target_state)
+    return decision.is_allowed, decision.reason
+
+
+def apply_label_changes(issue, labels_to_add: list[str], labels_to_remove: list[str], *, dry_run: bool) -> None:
+    """Apply label changes with retry and dry-run support."""
+    for label in labels_to_remove:
+        if dry_run:
+            print(f"[dry-run] Would remove label: {label}")
+        else:
+            retry(lambda label=label: issue.remove_from_labels(label))
+    for label in labels_to_add:
+        if dry_run:
+            print(f"[dry-run] Would add label: {label}")
+        else:
+            retry(lambda label=label: issue.add_to_labels(label))
+
+
+def sync_issue_labels(
+    issue,
+    run_state: str,
+    *,
+    repo_root: Path,
+    dry_run: bool,
+    issue_number: int,
+) -> str | None:
+    """Sync issue labels to the lifecycle target state for the W&B run state."""
+    current_labels = {label.name for label in issue.labels}
+    target_state = desired_target_state(run_state)
+    if target_state is None:
+        return None
+
+    current_state = infer_experiment_state(current_labels)
+    is_allowed, reason = validate_run_transition(repo_root, current_state, target_state)
+    if not is_allowed:
+        transition_note = (
+            "## Training Run State Sync\n\n"
+            "Lifecycle update was skipped because the target transition is invalid.\n\n"
+            f"- Current state: `{current_state}`\n"
+            f"- Requested state: `{target_state}`\n"
+            f"- Reason: `{reason}`\n\n"
+            + agent_signature("training_monitor", context="state transition validation")
+        )
+        if dry_run:
+            print(f"[dry-run] Would post invalid transition comment to issue #{issue_number}")
+        else:
+            retry(lambda: issue.create_comment(transition_note))
+        log_event(
+            "training_monitor_transition_blocked",
+            issue_number=issue_number,
+            current_state=current_state,
+            target_state=target_state,
+            reason=reason,
+            dry_run=dry_run,
+        )
+        return reason
+
+    labels_to_add, labels_to_remove = plan_label_changes(current_labels, target_state)
+    apply_label_changes(issue, labels_to_add, labels_to_remove, dry_run=dry_run)
+    if labels_to_add or labels_to_remove:
+        log_event(
+            "training_monitor_labels_updated",
+            issue_number=issue_number,
+            added=labels_to_add,
+            removed=labels_to_remove,
+            target_state=target_state,
+            dry_run=dry_run,
+        )
+    return None
+
+
+def metric_rows_from_summary(summary: dict) -> str:
+    """Render markdown table rows from scalar run summary metrics."""
+    return "\n".join(
+        f"| `{key}` | `{round(value, 4) if isinstance(value, float) else value}` |"
+        for key, value in sorted(summary.items())
+        if not key.startswith("_") and isinstance(value, (int, float, str, bool))
+    )
+
+
+def config_rows_from_config(config: dict, *, limit: int = 20) -> str:
+    """Render markdown table rows from run config values."""
+    return "\n".join(f"| `{key}` | `{value}` |" for key, value in list(config.items())[:limit])
+
+
+def format_runtime(summary: dict) -> str:
+    """Render runtime from summary metadata."""
+    runtime_seconds = summary.get("_runtime")
+    if not runtime_seconds:
+        return "N/A"
+    return f"{int(runtime_seconds // 60)}m {int(runtime_seconds % 60)}s"
+
+
+def build_results_comment(run, summary: dict, config: dict, transition_error: str | None) -> str:
+    """Build the final issue comment body for a run sync."""
+    metric_rows = metric_rows_from_summary(summary)
+    config_rows = config_rows_from_config(config)
+    runtime = format_runtime(summary)
+    transition_line = f"> Lifecycle sync note: `{transition_error}`\n\n" if transition_error else ""
+    return f"""## Training Run Results
 
 **W&B Run:** [{run.name}]({run.url})
 **State:** `{run.state}`
-**Runtime:** {runtime_str}
+**Runtime:** {runtime}
 
 ### Summary Metrics
 
 | Metric | Value |
 |---|---|
-{metric_rows or "| — | No scalar metrics recorded |"}
+{metric_rows or "| - | No scalar metrics recorded |"}
 
 ### Config Highlights
 
 | Parameter | Value |
 |---|---|
-{config_rows or "| — | No config recorded |"}
+{config_rows or "| - | No config recorded |"}
 
 ---
-> *Posted automatically by training monitor agent. [View full run on W&B]({run.url})*
+{agent_signature("training_monitor", context="training result synchronization")}
+
+{transition_line}> [View full run on W&B]({run.url})
 """
 
-issue.create_comment(comment_body)
-print(f"✅ Posted W&B results for run '{run.name}' to issue #{ISSUE_NUMBER}")
+
+def main() -> None:
+    """Fetch a W&B run and sync results to the linked experiment issue."""
+    from github import Github
+    import wandb
+
+    env = require_env(["REPO_NAME", "WANDB_RUN_ID", "ISSUE_NUMBER", "GITHUB_TOKEN"])
+    repo_name = env["REPO_NAME"]
+    wandb_run_id = env["WANDB_RUN_ID"]
+    issue_number = int(env["ISSUE_NUMBER"])
+    dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+    repo_root = Path(__file__).resolve().parents[2]
+
+    gh = Github(env["GITHUB_TOKEN"])
+    repo = gh.get_repo(repo_name)
+    issue = retry(lambda: repo.get_issue(issue_number))
+
+    api = wandb.Api()
+    try:
+        run = retry(lambda: api.run(wandb_run_id), retries=3)
+    except Exception as exc:
+        if not dry_run:
+            retry(
+                lambda: issue.create_comment(
+                    "## Training Run Results\n\n"
+                    f"Failed to fetch W&B run `{wandb_run_id}`: `{exc}`\n\n"
+                    "Please verify the run id and WANDB_API_KEY configuration.\n\n"
+                    + agent_signature("training_monitor", context="training monitor failure handling")
+                )
+            )
+        raise AgentError(f"Could not fetch W&B run {wandb_run_id}: {exc}") from exc
+
+    summary = dict(run.summary)
+    config = dict(run.config)
+
+    run_failed = getattr(run, "failed", False) or run.state in ("failed", "crashed")
+    update_issue_outcome(
+        issue,
+        run.state,
+        run_failed=run_failed,
+        dry_run=dry_run,
+        issue_number=issue_number,
+    )
+    transition_error = sync_issue_labels(
+        issue,
+        run.state,
+        repo_root=repo_root,
+        dry_run=dry_run,
+        issue_number=issue_number,
+    )
+
+    comment_body = build_results_comment(run, summary, config, transition_error)
+    if dry_run:
+        print(f"[dry-run] Would post W&B results for run '{run.name}' to issue #{issue_number}")
+    else:
+        retry(lambda: issue.create_comment(comment_body))
+
+    log_event(
+        "training_monitor_posted",
+        issue=issue_number,
+        run=wandb_run_id,
+        state=run.state,
+        dry_run=dry_run,
+    )
+    prefix = "[dry-run] " if dry_run else ""
+    print(f"{prefix}Posted W&B results for run '{run.name}' to issue #{issue_number}")
+
+
+if __name__ == "__main__":
+    main()

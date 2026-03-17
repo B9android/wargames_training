@@ -1,0 +1,382 @@
+name: "Orchestration V2 Control Plane"
+
+on:
+  issues:
+    types: [opened]
+  milestones:
+    types: [closed]
+  schedule:
+    - cron: "0 8 * * *"
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "orchestrate action"
+        required: true
+        default: triage
+        type: choice
+        options:
+          - triage
+          - experiment-approve
+          - experiment-kickoff
+          - milestone-check
+          - progress-report
+          - release-sync
+          - epic-decompose
+          - sprint-start
+          - sprint-close
+          - sync-pr-status
+      issue_number:
+        description: "Issue number (required for triage, experiment-*, epic-decompose)"
+        required: false
+      pr_number:
+        description: "PR number (required for sync-pr-status)"
+        required: false
+      milestone_number:
+        description: "Milestone number (required for release-sync)"
+        required: false
+      sprint_name:
+        description: "Sprint name (required for sprint-start, sprint-close)"
+        required: false
+      dry_run:
+        description: "Dry-run mode (no writes)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: orchestration-v2-${{ github.event_name }}-${{ github.event.issue.number || github.event.inputs.issue_number || github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+  contents: write
+
+jobs:
+  preflight_dispatch_inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate workflow_dispatch inputs
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Not a workflow_dispatch run; skipping dispatch input checks."
+            exit 0
+          fi
+
+          ACTION="${{ github.event.inputs.action }}"
+          ISSUE_NUMBER="${{ github.event.inputs.issue_number }}"
+          MILESTONE_NUMBER="${{ github.event.inputs.milestone_number }}"
+          PR_NUMBER="${{ github.event.inputs.pr_number }}"
+          SPRINT_NAME="${{ github.event.inputs.sprint_name }}"
+
+          case "$ACTION" in
+            triage|experiment-approve|experiment-kickoff|epic-decompose)
+              if [ -z "$ISSUE_NUMBER" ]; then
+                echo "issue_number is required when action=$ACTION" >&2
+                exit 1
+              fi
+              ;;
+            release-sync)
+              if [ -z "$MILESTONE_NUMBER" ]; then
+                echo "milestone_number is required when action=release-sync" >&2
+                exit 1
+              fi
+              ;;
+            sync-pr-status)
+              if [ -z "$PR_NUMBER" ]; then
+                echo "pr_number is required when action=sync-pr-status" >&2
+                exit 1
+              fi
+              ;;
+            sprint-start|sprint-close)
+              if [ -z "$SPRINT_NAME" ]; then
+                echo "sprint_name is required when action=$ACTION" >&2
+                exit 1
+              fi
+              ;;
+          esac
+
+  preflight_trigger_contract:
+    needs: preflight_dispatch_inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate event payload contract
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ] && [ -z "${{ github.event.issue.number }}" ]; then
+            echo "Issue event missing issue number." >&2
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "milestones" ] && [ "${{ github.event.action }}" = "closed" ] && [ -z "${{ github.event.milestone.number }}" ]; then
+            echo "Milestone close event missing milestone number." >&2
+            exit 1
+          fi
+
+  triage:
+    needs: preflight_trigger_contract
+    if: |
+      (github.event_name == 'issues') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'triage')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub openai pyyaml
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "OPENAI_API_KEY not set. Triage will run in rule-first mode only."
+          fi
+      - name: Run triage agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/triage_agent.py
+
+  experiment_kickoff:
+    needs: preflight_trigger_contract
+    if: |
+      (github.event_name == 'issues' && startsWith(github.event.issue.title, '[EXP]')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'experiment-kickoff')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub pyyaml
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run experiment kickoff agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/experiment_kickoff.py
+
+  experiment_approve:
+    needs: preflight_trigger_contract
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'experiment-approve'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub pyyaml
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run experiment approval agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/experiment_approval.py
+
+  milestone_check:
+    needs: preflight_trigger_contract
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 8 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'milestone-check')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run milestone health check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/milestone_checker.py
+
+  progress_report:
+    needs: preflight_trigger_contract
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 9 * * 1') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'progress-report')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub openai
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "OPENAI_API_KEY is required" >&2
+            exit 1
+          fi
+      - name: Run weekly progress report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPO_NAME: ${{ github.repository }}
+        run: python scripts/project_agent/progress_reporter.py
+
+  release_sync:
+    needs: preflight_trigger_contract
+    if: |
+      (github.event_name == 'milestones' && github.event.action == 'closed') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'release-sync')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run release coordinator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          MILESTONE_NUMBER: ${{ github.event.milestone.number || github.event.inputs.milestone_number }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/release_coordinator.py
+      - name: Commit and push doc updates
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true'
+        run: |
+          if git diff --quiet -- docs/CHANGELOG.md docs/ROADMAP.md; then
+            echo "No release doc changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/CHANGELOG.md docs/ROADMAP.md
+          git commit -m "chore(agent): sync release docs for milestone #${{ github.event.milestone.number || github.event.inputs.milestone_number }}"
+          git push
+
+  epic_decompose:
+    needs: preflight_trigger_contract
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'epic-decompose'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub pyyaml
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run epic decomposer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EPIC_NUMBER: ${{ github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/epic_decomposer.py
+
+  sprint_start:
+    needs: preflight_trigger_contract
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'sprint-start'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub pyyaml
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run sprint manager (start)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTION: start
+          SPRINT_NAME: ${{ github.event.inputs.sprint_name }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/sprint_manager.py
+
+  sprint_close:
+    needs: preflight_trigger_contract
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'sprint-close'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub pyyaml
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run sprint manager (close)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTION: close
+          SPRINT_NAME: ${{ github.event.inputs.sprint_name }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/sprint_manager.py
+
+  sync_pr_status:
+    needs: preflight_trigger_contract
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'sync-pr-status'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install PyGithub pyyaml
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+      - name: Run PR linker (status sync)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/pr_linker.py
+

@@ -9,6 +9,7 @@ body:
         ## Experiment Log
         Use this template for every training run worth tracking.
         Results should be filled in after the run completes.
+        Kickoff now requires reviewer approval via the `status: approved` label.
 
   - type: textarea
     id: hypothesis
@@ -31,6 +32,17 @@ body:
         - Changes from baseline: reward_flank_weight = 0.5 → 2.0
         - W&B run: [link]
         - Git commit: abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: linked_work
+    attributes:
+      label: Linked Issue or Epic
+      description: Link the parent work item this experiment supports.
+      placeholder: |
+        Part of #123
+        Related to #145
     validations:
       required: true
 

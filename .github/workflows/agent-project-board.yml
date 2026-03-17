@@ -1,0 +1,60 @@
+name: "🤖 Agent: Project Board Sync"
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (no GitHub mutations)"
+        required: true
+        default: true
+        type: boolean
+      delete_duplicates:
+        description: "Delete duplicate matching projects"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: agent-project-board
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  project_board_sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+          # IMPORTANT: GITHUB_TOKEN does not have project (beta) scope.
+          # To manage project boards, supply a PAT with 'project' scope
+          # as GH_PAT_PROJECT in repo secrets and use that here instead.
+          # See: https://docs.github.com/en/issues/planning-and-tracking-with-projects
+          echo "Note: project board mutations require a PAT with 'project' scope."
+
+      - name: Run board sync agent
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_PROJECT || secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ "${{ github.event.inputs.delete_duplicates }}" = "true" ]; then
+            ARGS="$ARGS --delete-duplicates"
+          fi
+          python scripts/project_agent/setup_project_board.py $ARGS

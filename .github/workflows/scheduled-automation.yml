@@ -1,0 +1,68 @@
+name: "🤖 Scheduled Automation"
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC
+    - cron: "0 6 * * *"
+  
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: "Tasks to run (comma-separated)"
+        required: false
+        default: "all"
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: write
+
+jobs:
+  scheduled_automation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyGithub pyyaml
+
+      - name: Run sprint auto-transition
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTION: auto-transition
+          REPO_NAME: ${{ github.repository }}
+        working-directory: scripts/project_agent
+        run: python sprint_manager.py || echo "Sprint auto-transition completed with warnings"
+
+      - name: Sync version/sprint status to ROADMAP
+        if: github.event_name == 'schedule' || contains(github.event.inputs.tasks, 'all') || contains(github.event.inputs.tasks, 'roadmap')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+        working-directory: scripts/project_agent
+        run: python release_coordinator.py || echo "Roadmap sync completed with warnings"
+
+      - name: Check for stale issues
+        if: github.event_name == 'schedule' || contains(github.event.inputs.tasks, 'all') || contains(github.event.inputs.tasks, 'milestone')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+        working-directory: scripts/project_agent
+        run: python milestone_checker.py || echo "Milestone checker completed with warnings"
+
+      - name: Commit any changes
+        if: always()
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          if ! git diff --quiet; then
+            git add -A
+            git commit -m "chore: scheduled automation updates"
+            git push
+          fi

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Project Roadmap
+    url: https://github.com/B9android/wargames_training/blob/main/docs/ROADMAP.md
+    about: Review active milestones and version scope before opening an issue.
+  - name: Experiment Workflow Guide
+    url: https://github.com/B9android/wargames_training/blob/main/.github/ISSUE_TEMPLATE/experiment.yml
+    about: Use the Experiment template for all training runs and tracked hypotheses.

@@ -9,6 +9,14 @@ on:
       issue_number:
         description: "GitHub Issue number for this experiment"
         required: true
+      dry_run:
+        description: "Dry-run mode (no GitHub writes)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: training-monitor-${{ github.event.inputs.issue_number }}
+  cancel-in-progress: false
 
 permissions:
   issues: write
@@ -23,6 +31,17 @@ jobs:
           python-version: "3.11"
       - run: pip install PyGithub wandb
 
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+          if [ -z "${{ secrets.WANDB_API_KEY }}" ]; then
+            echo "WANDB_API_KEY is required" >&2
+            exit 1
+          fi
+
       - name: Fetch W&B results and post to issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,4 +49,5 @@ jobs:
           REPO_NAME: ${{ github.repository }}
           WANDB_RUN_ID: ${{ github.event.inputs.wandb_run_id }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python scripts/project_agent/training_monitor.py

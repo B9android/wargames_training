@@ -1,0 +1,140 @@
+version: 1
+
+labels:
+  type:
+    - "type: bug"
+    - "type: experiment"
+    - "type: research"
+    - "type: feature"
+    - "type: epic"
+    - "type: chore"
+  priority:
+    - "priority: critical"
+    - "priority: high"
+    - "priority: medium"
+    - "priority: low"
+  status:
+    - "status: needs-manual-triage"
+    - "status: approved"
+    - "status: in-progress"
+    - "status: blocked"
+    - "status: stale"
+    - "status: complete"
+    - "status: failed"
+    - "status: cancelled"
+    - "status: agent-created"
+
+markers:
+  "[BUG]":
+    labels: ["type: bug", "priority: high"]
+  "[EXP]":
+    labels: ["type: experiment", "priority: medium"]
+  "[RESEARCH]":
+    labels: ["type: research", "priority: low"]
+  "[FEAT]":
+    labels: ["type: feature", "priority: medium"]
+  "[FEATURE]":
+    labels: ["type: feature", "priority: medium"]
+  "[EPIC]":
+    labels: ["type: epic", "priority: high"]
+
+state_machine:
+  issue:
+    allowed_transitions:
+      null: [triaged]
+      triaged: [approved, in-progress, blocked, cancelled]
+      approved: [in-progress, blocked, cancelled]
+      in-progress: [blocked, stale, complete, failed, cancelled]
+      blocked: [in-progress, stale, cancelled]
+      stale: [in-progress, cancelled]
+      complete: []
+      failed: [in-progress, cancelled]
+      cancelled: []
+  experiment:
+    allowed_transitions:
+      null: [triaged]
+      triaged: [approved, cancelled]
+      approved: [in-progress, cancelled]
+      in-progress: [blocked, stale, complete, failed, cancelled]
+      blocked: [in-progress, cancelled]
+      stale: [in-progress, cancelled]
+      complete: []
+      failed: [in-progress, cancelled]
+      cancelled: []
+  epic:
+    allowed_transitions:
+      null: [triaged]
+      triaged: [planned, cancelled]
+      planned: [in-progress, blocked, cancelled]
+      in-progress: [blocked, stale, complete, failed, cancelled]
+      blocked: [in-progress, stale, cancelled]
+      stale: [in-progress, cancelled]
+      complete: []
+      failed: [in-progress, cancelled]
+      cancelled: []
+  sprint:
+    allowed_transitions:
+      null: [planning]
+      planning: [active, cancelled]
+      active: [completed, cancelled]
+      completed: [archived, cancelled]
+      archived: []
+  pr:
+    allowed_transitions:
+      null: [linked, draft]
+      draft: [linked, closed]
+      linked: [ready, draft, closed]
+      ready: [merged, closed]
+      merged: []
+      closed: []
+  version:
+    allowed_transitions:
+      null: [planning]
+      planning: [active, cancelled]
+      active: [released, cancelled]
+      released: [archived, cancelled]
+      archived: []
+
+policies:
+  experiment:
+    require_approval_before_kickoff: true
+    require_parent_issue_reference: true
+    required_sections:
+      - Hypothesis
+      - Experiment Setup
+      - Linked Issue or Epic
+  epic:
+    require_version: true
+    require_goal: true
+    auto_decompose: true
+    auto_assign_sprint: true
+    required_sections:
+      - Goal
+      - Acceptance Criteria
+      - Implementation Plan
+  feature:
+    require_priority: true
+  sprint:
+    default_duration_days: 14
+    auto_transition: true
+    auto_archive_old_sprints: true
+  pr:
+    auto_link_to_issue: true
+    auto_assign_sprint: true
+    auto_update_issue_on_merge: true
+  version:
+    auto_transition: true
+
+relationships:
+  epic_to_issues:
+    cardinality: "1:N"
+    link_marker: "<!-- parent-epic:%s -->"
+    auto_create: true
+  sprint_to_issues:
+    cardinality: "1:N"
+    link_marker: "<!-- sprint:%s -->"
+    cascade_update: true
+  pr_to_issue:
+    cardinality: "1:1"
+    link_marker: "<!-- linked-issue:%s -->"
+    bidirectional: true

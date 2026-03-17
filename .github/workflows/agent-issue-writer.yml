@@ -13,6 +13,14 @@ on:
         default: "v1"
         type: choice
         options: ["v1", "v2", "v3", "v4"]
+      dry_run:
+        description: "Dry-run mode (generate issues but do not create them)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: agent-issue-writer-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   issues: write
@@ -27,6 +35,16 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install PyGithub openai
+      - name: Preflight secrets
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is required" >&2
+            exit 1
+          fi
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "OPENAI_API_KEY is required" >&2
+            exit 1
+          fi
       - name: Run issue writer agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -34,4 +52,5 @@ jobs:
           REPO_NAME: ${{ github.repository }}
           AGENT_CONTEXT: ${{ github.event.inputs.context }}
           TARGET_VERSION: ${{ github.event.inputs.target_version }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python scripts/project_agent/issue_writer.py
