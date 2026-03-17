@@ -30,28 +30,28 @@ class TestMoveBoundaryClamping(unittest.TestCase):
     def test_move_at_exactly_max_speed_is_not_clamped(self) -> None:
         """Velocity equal to max_speed is not scaled down."""
         b = make_battalion()
-        # Pure x velocity at exactly max_speed (50.0)
-        b.move(50.0, 0.0, dt=0.1)
-        self.assertAlmostEqual(b.x, 5.0)
+        # Pure x velocity at exactly max_speed
+        b.move(b.max_speed, 0.0, dt=0.1)
+        self.assertAlmostEqual(b.x, b.max_speed * 0.1)
         self.assertAlmostEqual(b.y, 0.0)
 
     def test_excess_speed_is_clamped_to_max_speed(self) -> None:
         """Velocity magnitude exceeding max_speed is clamped."""
         b = make_battalion()
-        # Speed = 100.0, which is double max_speed (50.0)
-        b.move(100.0, 0.0, dt=0.1)
-        # After clamping: vx = 50.0, so x += 50.0 * 0.1 = 5.0
-        self.assertAlmostEqual(b.x, 5.0)
+        # Speed is greater than max_speed; should be clamped to max_speed
+        b.move(2.0 * b.max_speed, 0.0, dt=0.1)
+        # After clamping: vx = max_speed, so x += max_speed * 0.1
+        self.assertAlmostEqual(b.x, b.max_speed * 0.1)
         self.assertAlmostEqual(b.y, 0.0)
 
     def test_excess_diagonal_speed_is_clamped(self) -> None:
         """Diagonal velocity exceeding max_speed is clamped while preserving direction."""
         b = make_battalion()
-        # Both components equal; speed = sqrt(2) * 100 >> max_speed
+        # Both components equal; speed is much larger than max_speed
         vx, vy = 100.0, 100.0
         b.move(vx, vy, dt=0.1)
         # Clamped to max_speed along (1/sqrt(2), 1/sqrt(2)) direction
-        expected = (50.0 / np.sqrt(2)) * 0.1
+        expected = (b.max_speed / np.sqrt(2)) * 0.1
         self.assertAlmostEqual(b.x, expected)
         self.assertAlmostEqual(b.y, expected)
 
@@ -80,9 +80,9 @@ class TestMoveBoundaryClamping(unittest.TestCase):
     def test_large_negative_speed_is_clamped(self) -> None:
         """Large negative velocity is also clamped to max_speed magnitude."""
         b = make_battalion()
-        b.move(-200.0, 0.0, dt=0.1)
-        # Clamped to -50.0; x += -50.0 * 0.1 = -5.0
-        self.assertAlmostEqual(b.x, -5.0)
+        b.move(-4.0 * b.max_speed, 0.0, dt=0.1)
+        # Clamped to -max_speed; x += -max_speed * 0.1
+        self.assertAlmostEqual(b.x, -b.max_speed * 0.1)
         self.assertAlmostEqual(b.y, 0.0)
 
     def test_custom_dt_scales_movement(self) -> None:
