@@ -34,6 +34,21 @@ from envs.sim.combat import (
 # ---------------------------------------------------------------------------
 
 
+class TestCombatConstants(unittest.TestCase):
+    """Tests for combat module constants and backwards-compat aliases."""
+
+    def test_base_damage_multiplier_alias(self) -> None:
+        # BACKWARDS-COMPAT: BASE_DAMAGE_MULTIPLIER should match BASE_FIRE_DAMAGE.
+        self.assertEqual(
+            BASE_DAMAGE_MULTIPLIER,
+            BASE_FIRE_DAMAGE,
+            msg=(
+                "BASE_DAMAGE_MULTIPLIER should remain a backwards-compat alias "
+                "for BASE_FIRE_DAMAGE; if this changes, update tests and callers."
+            ),
+        )
+
+
 def _make_pair(dist: float = 100.0, theta: float = 0.0):
     """Return (shooter, target) facing each other along the x-axis."""
     shooter = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0)
