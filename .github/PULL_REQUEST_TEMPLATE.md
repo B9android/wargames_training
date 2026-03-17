@@ -17,19 +17,30 @@ Closes #
 
 ## Testing
 <!-- How did you verify this works? -->
+- [ ] `pytest tests/ -q` passes (all existing tests green)
 - [ ] `check_env` passes (if env changes)
 - [ ] Training run completed without errors
-- [ ] Existing tests pass
-- [ ] New tests added (if applicable)
+- [ ] New tests added for new public functions / behaviours
 
 ## Experiment Results (if applicable)
-<!-- Link W&B run, paste key metrics -->
+<!-- Link W&B run, paste key metrics. Required for any training change. -->
+- [ ] `[EXP]` GitHub issue opened with hypothesis (link: #)
 - W&B Run:
 - Win rate vs baseline:
 - Notes:
 
-## Checklist
-- [ ] Code follows project style
-- [ ] Config changes documented
-- [ ] CHANGELOG.md updated
+## Conventions Checklist
+<!-- Verify all applicable items before requesting review. -->
+- [ ] New observations normalized to `[−1, 1]` or `[0, 1]`
+- [ ] Angles represented as `(cos θ, sin θ)` / `(cos(theta), sin(theta))` — no raw radians
+- [ ] Positions normalized by map dimensions
+- [ ] W&B config dict passed to `wandb.init()` for any training change
+- [ ] No multi-agent complexity added (v1 scope — see [Playbook §3](docs/development_playbook.md#3-risk-first-ordering))
 - [ ] No hardcoded paths or secrets
+
+## General Checklist
+- [ ] Code follows project style
+- [ ] Config changes documented in `configs/`
+- [ ] `docs/CHANGELOG.md` updated if public interface changed
+- [ ] `docs/development_playbook.md` updated if a project convention changed
+- [ ] Feature checklist from [Playbook §7](docs/development_playbook.md#7-feature-checklists) copied and completed above
