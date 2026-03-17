@@ -243,7 +243,8 @@ jobs:
     if: |
       github.event_name == 'issues' &&
       github.event.action == 'labeled' &&
-      github.event.label.name == 'status: approved'
+      github.event.label.name == 'status: approved' &&
+      (startsWith(github.event.issue.title, '[EXP]') || contains(github.event.issue.labels.*.name, 'type: experiment'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -574,7 +575,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install PyGithub wandb
+      - run: pip install PyGithub wandb pyyaml
       - name: Preflight secrets
         run: |
           if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then

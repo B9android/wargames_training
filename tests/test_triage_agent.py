@@ -22,65 +22,53 @@ class TriageAgentTests(unittest.TestCase):
         self.assertEqual(ta.choose_milestone("[BUG] issue"), "M2: Other")
 
 
-class TriageOutputTests(unittest.TestCase):
-    """Tests for the GitHub Actions output emission added for job chaining."""
+class EmitStepOutputsTests(unittest.TestCase):
+    """Tests for triage_agent.emit_step_outputs() — the GitHub Actions output writer."""
 
-    def _run_output_emission(self, labels: list[str], issue_number: int) -> dict[str, str]:
-        """Helper: run the output emission block and return parsed key=value pairs."""
+    def _call(self, labels: list[str], issue_number: int) -> dict[str, str]:
+        """Call emit_step_outputs with a temp file and return parsed key=value pairs."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
             output_path = tmp.name
-
-        orig_issue = ta.ISSUE_NUMBER
-        orig_env = os.environ.get("GITHUB_OUTPUT")
         try:
-            ta.ISSUE_NUMBER = issue_number
-            os.environ["GITHUB_OUTPUT"] = output_path
-
-            is_epic = "type: epic" in labels
-            is_experiment = "type: experiment" in labels
-            github_output_file = os.environ.get("GITHUB_OUTPUT", "")
-            if github_output_file:
-                with open(github_output_file, "a", encoding="utf-8") as _out:
-                    _out.write(f"is_epic={'true' if is_epic else 'false'}\n")
-                    _out.write(f"is_experiment={'true' if is_experiment else 'false'}\n")
-                    _out.write(f"issue_number={issue_number}\n")
-
+            ta.emit_step_outputs(labels, issue_number, output_path=output_path)
             with open(output_path, encoding="utf-8") as fh:
                 lines = [line.strip() for line in fh if "=" in line]
             return dict(pair.split("=", 1) for pair in lines)
         finally:
-            ta.ISSUE_NUMBER = orig_issue
-            if orig_env is None:
-                os.environ.pop("GITHUB_OUTPUT", None)
-            else:
-                os.environ["GITHUB_OUTPUT"] = orig_env
             Path(output_path).unlink(missing_ok=True)
 
     def test_epic_labels_emit_is_epic_true(self) -> None:
-        result = self._run_output_emission(["type: epic", "priority: high"], issue_number=42)
+        result = self._call(["type: epic", "priority: high"], issue_number=42)
         self.assertEqual(result["is_epic"], "true")
         self.assertEqual(result["is_experiment"], "false")
         self.assertEqual(result["issue_number"], "42")
 
     def test_experiment_labels_emit_is_experiment_true(self) -> None:
-        result = self._run_output_emission(["type: experiment", "priority: medium"], issue_number=7)
+        result = self._call(["type: experiment", "priority: medium"], issue_number=7)
         self.assertEqual(result["is_epic"], "false")
         self.assertEqual(result["is_experiment"], "true")
         self.assertEqual(result["issue_number"], "7")
 
     def test_non_epic_non_experiment_labels_emit_false(self) -> None:
-        result = self._run_output_emission(["type: bug", "priority: high"], issue_number=99)
+        result = self._call(["type: bug", "priority: high"], issue_number=99)
         self.assertEqual(result["is_epic"], "false")
         self.assertEqual(result["is_experiment"], "false")
         self.assertEqual(result["issue_number"], "99")
 
-    def test_no_github_output_env_does_not_raise(self) -> None:
-        """If GITHUB_OUTPUT is not set (local dev), emission must be a no-op."""
+    def test_pre_filter_labels_respected_even_if_not_in_repo(self) -> None:
+        """is_epic must be true even when the label was filtered out of labels_to_apply."""
+        # Simulate: triage classified as epic but repo doesn't have 'type: epic' yet.
+        classified = ["type: epic", "priority: high"]
+        labels_to_apply: list[str] = []  # all filtered out by apply_labels()
+        result = self._call(classified, issue_number=10)
+        self.assertEqual(result["is_epic"], "true")
+
+    def test_no_output_path_and_no_env_var_is_noop(self) -> None:
+        """emit_step_outputs must be silent when neither arg nor env var is set."""
         orig = os.environ.pop("GITHUB_OUTPUT", None)
         try:
-            github_output_file = os.environ.get("GITHUB_OUTPUT", "")
-            if github_output_file:  # Should be falsy — no file write
-                self.fail("Should not attempt to write when GITHUB_OUTPUT is unset")
+            # Should not raise even though there is nowhere to write.
+            ta.emit_step_outputs(["type: epic"], 1)
         finally:
             if orig is not None:
                 os.environ["GITHUB_OUTPUT"] = orig
