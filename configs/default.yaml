@@ -1,1 +1,51 @@
 # Default hyperparameters & settings
+
+# ── Weights & Biases ─────────────────────────────────────────────────────────
+wandb:
+  project: wargames_training
+  entity: B9android        # override with your W&B username/org
+  tags: []
+  notes: ""
+  mode: online             # "online" | "offline" | "disabled"
+
+# ── Environment ──────────────────────────────────────────────────────────────
+env:
+  map_width: 1000          # metres
+  map_height: 1000         # metres
+  max_steps: 500           # steps per episode
+  battalion_width: 60      # metres — visual width of a battalion line
+  render_mode: null        # null | "human" | "rgb_array"
+
+# ── Training ─────────────────────────────────────────────────────────────────
+training:
+  total_timesteps: 500000
+  n_envs: 4                # parallel environments
+  seed: 42
+  eval_freq: 10000         # steps between policy evaluations
+  n_eval_episodes: 20
+  save_freq: 50000         # steps between checkpoint saves
+  checkpoint_dir: checkpoints/
+
+# ── PPO Hyperparameters ───────────────────────────────────────────────────────
+ppo:
+  learning_rate: 0.0003
+  n_steps: 2048            # steps per env per update
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+
+# ── Policy Network ────────────────────────────────────────────────────────────
+policy:
+  type: MlpPolicy          # "MlpPolicy" | "TransformerPolicy"
+  net_arch: [128, 128]     # hidden layer sizes
+  activation_fn: tanh      # "tanh" | "relu"
+
+# ── Opponent ──────────────────────────────────────────────────────────────────
+opponent:
+  type: scripted           # "scripted" | "self" | "league"
+  scripted_strategy: advance_and_fire

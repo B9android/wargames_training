@@ -1,0 +1,40 @@
+name: "🔧 Bootstrap: Labels & Milestones"
+
+on:
+  workflow_dispatch:        # run manually from the Actions tab
+  push:
+    branches: [main]
+    paths:
+      - "scripts/project_agent/setup_labels.py"
+      - "scripts/project_agent/setup_milestones.py"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Create labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+        run: python scripts/project_agent/setup_labels.py
+
+      - name: Create milestones
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+        run: python scripts/project_agent/setup_milestones.py

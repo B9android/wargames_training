@@ -1,2 +1,15 @@
 checkpoints/
 logs/
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+wandb/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+*.ipynb_checkpoints
