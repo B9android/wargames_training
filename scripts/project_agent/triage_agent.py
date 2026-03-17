@@ -191,8 +191,15 @@ def emit_step_outputs(
     dest = output_path or os.environ.get("GITHUB_OUTPUT", "")
     if not dest:
         return
-    is_epic = "type: epic" in classified_labels
-    is_experiment = "type: experiment" in classified_labels
+
+    # Normalize labels defensively in case upstream data is malformed.
+    if isinstance(classified_labels, list):
+        normalized_labels = [str(label) for label in classified_labels]
+    else:
+        normalized_labels = []
+
+    is_epic = "type: epic" in normalized_labels
+    is_experiment = "type: experiment" in normalized_labels
     with open(dest, "a", encoding="utf-8") as _out:
         _out.write(f"is_epic={'true' if is_epic else 'false'}\n")
         _out.write(f"is_experiment={'true' if is_experiment else 'false'}\n")
