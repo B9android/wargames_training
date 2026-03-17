@@ -59,7 +59,8 @@ def triage_unlabeled_issues(repo, unlabeled: list, *, dry_run: bool) -> list[int
     recognizable marker receive ``status: needs-manual-triage`` and
     ``priority: medium`` so they are still surfaced in project views.
 
-    Returns the list of issue numbers that were successfully labelled.
+    Returns the list of issue numbers that were successfully labelled, or
+    would be labelled when ``dry_run`` is True.
     """
     if not unlabeled:
         return []
