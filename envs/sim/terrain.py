@@ -138,7 +138,8 @@ class TerrainMap:
     def get_elevation(self, x: float, y: float) -> float:
         """Return the elevation at world position ``(x, y)``.
 
-        Uses nearest-cell lookup.  Returns ``0.0`` when no elevation
+        Uses cell lookup based on the containing grid cell (via
+        :meth:`_to_grid_coords`).  Returns ``0.0`` when no elevation
         grid is present (flat terrain).
         """
         if self.elevation is None or self.elevation.size == 0:
@@ -149,7 +150,8 @@ class TerrainMap:
     def get_cover(self, x: float, y: float) -> float:
         """Return the cover value in ``[0, 1]`` at world position ``(x, y)``.
 
-        Uses nearest-cell lookup.  Returns ``0.0`` (no cover) when no
+        Uses cell lookup based on the containing grid cell (via
+        :meth:`_to_grid_coords`).  Returns ``0.0`` (no cover) when no
         cover grid is present.
         """
         if self.cover is None or self.cover.size == 0:
