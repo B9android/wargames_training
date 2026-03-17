@@ -12,7 +12,12 @@ BASE_DAMAGE_MULTIPLIER = 0.05
 
 
 def range_factor(dist: float, fire_range: float) -> float:
-    """Linear damage falloff: 1.0 at zero range, 0.0 at max fire_range, clipped to [0, 1]."""
+    """Linear damage falloff: 1.0 at zero range, 0.0 at max fire_range, clipped to [0, 1].
+
+    Raises ValueError if fire_range is not positive.
+    """
+    if fire_range <= 0:
+        raise ValueError(f"fire_range must be positive, got {fire_range}")
     return float(np.clip(1.0 - dist / fire_range, 0.0, 1.0))
 
 
@@ -38,10 +43,10 @@ def compute_damage(attacker: Battalion, target: Battalion, intensity: float) -> 
 
     Returns 0.0 if the target is out of range or outside the frontal fire arc.
     Damage falls off linearly from full intensity at zero range to zero at fire_range.
+    Negative intensity is clamped to zero (no accidental healing).
     """
-    if not in_fire_range(attacker, target):
-        return 0.0
-    if not in_fire_arc(attacker, target):
+    intensity = max(0.0, intensity)
+    if not attacker.can_fire_at(target):
         return 0.0
     dx = target.x - attacker.x
     dy = target.y - attacker.y

@@ -1,13 +1,5 @@
 import math
-import sys
 import unittest
-from pathlib import Path
-
-import numpy as np
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from envs.sim.battalion import Battalion
 from envs.sim import combat
@@ -41,6 +33,14 @@ class TestRangeFactor(unittest.TestCase):
     def test_clamped_to_one_at_negative_dist(self) -> None:
         # Negative distance is nonsensical but should not blow up.
         self.assertAlmostEqual(combat.range_factor(-10.0, 200.0), 1.0)
+
+    def test_raises_for_zero_fire_range(self) -> None:
+        with self.assertRaises(ValueError):
+            combat.range_factor(0.0, 0.0)
+
+    def test_raises_for_negative_fire_range(self) -> None:
+        with self.assertRaises(ValueError):
+            combat.range_factor(50.0, -100.0)
 
     def test_three_quarter_damage_at_quarter_range(self) -> None:
         self.assertAlmostEqual(combat.range_factor(50.0, 200.0), 0.75)
@@ -158,6 +158,11 @@ class TestComputeDamage(unittest.TestCase):
         target = _make_target(x=50.0)
         self.assertAlmostEqual(combat.compute_damage(attacker, target, 0.0), 0.0)
 
+    def test_negative_intensity_gives_zero_damage(self) -> None:
+        attacker = _make_attacker(theta=0.0)
+        target = _make_target(x=50.0)
+        self.assertAlmostEqual(combat.compute_damage(attacker, target, -1.0), 0.0)
+
 
 class TestResolveFire(unittest.TestCase):
     """Tests for resolve_fire which mutates target strength."""
@@ -174,6 +179,12 @@ class TestResolveFire(unittest.TestCase):
         target = _make_target(x=1.0, strength=0.0)
         combat.resolve_fire(attacker, target, 1000.0)
         self.assertGreaterEqual(target.strength, 0.0)
+
+    def test_negative_intensity_does_not_heal_target(self) -> None:
+        attacker = _make_attacker(theta=0.0)
+        target = _make_target(x=50.0, strength=0.7)
+        combat.resolve_fire(attacker, target, -5.0)
+        self.assertAlmostEqual(target.strength, 0.7)
 
     def test_no_damage_out_of_range_leaves_strength_unchanged(self) -> None:
         attacker = _make_attacker(theta=0.0)
