@@ -237,8 +237,8 @@ Use these checklists when opening a PR.  Copy the relevant section into your PR 
 ```markdown
 ## Model Architecture Checklist
 - [ ] New module added under `models/`
-- [ ] Input shape matches current observation spec (check `battalion_env.observation_space`)
-- [ ] Output shape matches current action spec (check `battalion_env.action_space`)
+- [ ] Input shape matches current observation spec (check the `observation_space` of the Gymnasium environment used in your training script)
+- [ ] Output shape matches current action spec (check the `action_space` of the same environment)
 - [ ] Architecture registered / instantiable from a config key
 - [ ] Forward pass tested with a dummy observation tensor
 - [ ] `pytest tests/ -q` green
