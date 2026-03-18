@@ -37,6 +37,7 @@ on:
           - sync-pr-status
           - project-sync
           - training-complete
+          - seed-roadmap
       issue_number:
         description: "Issue number (triage, experiment-*, epic-decompose, project-sync, training-complete)"
         required: false
@@ -613,5 +614,40 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: training-complete-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # SEED ROADMAP — bootstrap v2/v3/v4/v5 labels, milestones & issues
+  # ─────────────────────────────────────────────────────────────────
+  seed_roadmap:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'seed-roadmap'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: seed-roadmap
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub PyYAML
+      - name: Bootstrap v2–v5 labels and milestones (M5–M10)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/setup_labels_and_milestones.py
+      - name: Seed v2/v3/v4/v5 roadmap issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/seed_v2_v3_vfuture_issues.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-roadmap-report-${{ github.run_id }}
           path: agent-artifacts/
           if-no-files-found: ignore

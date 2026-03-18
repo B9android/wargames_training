@@ -21,7 +21,7 @@ ATTRIBUTION = (
     "\n\n---\n"
     "> 🤖 *Strategist Forge* created this issue automatically as part of v2/v3/v4/v5 roadmap seeding.\n"
     f"> Generated at: `{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}`\n"
-    "> Label `status: agent-created` was applied automatically.\n"
+    "> Label `status: agent-created` was requested; it may be absent if the label does not exist on this repository.\n"
 )
 
 # ---------------------------------------------------------------------------
@@ -1835,31 +1835,33 @@ ALL_ISSUES: list[dict] = (
 # ---------------------------------------------------------------------------
 
 
-def get_or_create_milestone(repo, title: str) -> object | None:
-    """Return existing milestone or None if not found and can't create."""
-    for ms in repo.get_milestones(state="open"):
+def get_milestone_by_title(repo, title: str) -> object | None:
+    """Return the milestone whose title matches (open or closed), or None."""
+    for ms in repo.get_milestones(state="all"):
         if ms.title == title:
             return ms
     return None
 
 
-def issue_exists(repo, title: str) -> bool:
-    """Check if an open issue with exactly this title already exists."""
-    for issue in repo.get_issues(state="open"):
-        if issue.title == title:
-            return True
-    # Also check closed issues to avoid re-creating closed duplicates
-    for issue in repo.get_issues(state="closed"):
-        if issue.title == title:
-            return True
-    return False
+def existing_titles(repo) -> set[str]:
+    """Return a normalized (lower-stripped) set of all non-PR issue titles (open + closed).
+
+    Fetching all titles once upfront avoids one API round-trip per issue
+    during the creation loop.
+    """
+    titles: set[str] = set()
+    for item in repo.get_issues(state="all"):
+        # The issues API can return pull requests; filter them out.
+        if getattr(item, "pull_request", None) is None:
+            titles.add(item.title.strip().lower())
+    return titles
 
 
-def create_issue(repo, issue_def: dict, *, dry_run: bool) -> str:
+def create_issue(repo, issue_def: dict, known: set[str], *, dry_run: bool) -> str:
     """Create a single GitHub issue. Returns 'created', 'exists', or 'skipped'."""
     title = issue_def["title"]
 
-    if issue_exists(repo, title):
+    if title.strip().lower() in known:
         print(f"  ↩ exists: {title[:80]}")
         return "exists"
 
@@ -1867,7 +1869,7 @@ def create_issue(repo, issue_def: dict, *, dry_run: bool) -> str:
         print(f"  [dry-run] Would create: {title[:80]}")
         return "skipped"
 
-    # Resolve labels (create any missing labels on the fly)
+    # Resolve labels; warn and skip any that are not found on this repository.
     label_objects = []
     for label_name in issue_def.get("labels", []):
         try:
@@ -1878,7 +1880,7 @@ def create_issue(repo, issue_def: dict, *, dry_run: bool) -> str:
     # Resolve milestone
     milestone_obj = None
     if issue_def.get("milestone"):
-        milestone_obj = get_or_create_milestone(repo, issue_def["milestone"])
+        milestone_obj = get_milestone_by_title(repo, issue_def["milestone"])
         if milestone_obj is None:
             print(f"    [warn] Milestone not found: {issue_def['milestone']} — issue will have no milestone")
 
@@ -1928,6 +1930,11 @@ def run() -> int:
     print(f"Connected to {repo.full_name}{'  [DRY RUN]' if dry_run else ''}")
     print(f"Total issues to seed: {len(ALL_ISSUES)}")
 
+    # Fetch all existing issue titles once to avoid N×2 API calls in the loop.
+    print("\nFetching existing issue titles...")
+    known = existing_titles(repo)
+    print(f"  {len(known)} existing issues found.")
+
     # Group by section for readable output
     sections = [
         ("── v2 Epics", V2_EPICS),
@@ -1945,7 +1952,7 @@ def run() -> int:
     for section_name, issues in sections:
         print(f"\n{section_name} ({len(issues)} issues)")
         for issue_def in issues:
-            result = create_issue(repo, issue_def, dry_run=dry_run)
+            result = create_issue(repo, issue_def, known, dry_run=dry_run)
             total_stats[result] = total_stats.get(result, 0) + 1
 
     print(
