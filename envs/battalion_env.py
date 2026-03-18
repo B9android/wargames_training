@@ -113,8 +113,18 @@ class BattalionEnv(gym.Env):
     max_steps:
         Episode length cap (default 500).
     terrain:
-        Optional :class:`~envs.sim.terrain.TerrainMap`.  Defaults to a
-        flat open plain.
+        Optional :class:`~envs.sim.terrain.TerrainMap`.  When supplied,
+        *randomize_terrain* is forced to ``False`` and this fixed map is
+        used for every episode.  Defaults to a flat open plain.
+    randomize_terrain:
+        When ``True`` (default) and no fixed *terrain* is supplied, a new
+        procedural terrain is generated from the seeded RNG at the start
+        of each episode.  Set to ``False`` to keep a static flat plain.
+    hill_speed_factor:
+        Movement speed multiplier applied to units on maximum-elevation
+        terrain.  Must be in ``(0, 1]``.  A value of ``0.5`` means units
+        on the highest hill travel at half their normal speed; ``1.0``
+        disables the hill penalty entirely.
     render_mode:
         Render mode.  Must be ``None`` (the only currently supported value).
         Passing any other string raises ``ValueError``.
@@ -128,6 +138,8 @@ class BattalionEnv(gym.Env):
         map_height: float = MAP_HEIGHT,
         max_steps: int = MAX_STEPS,
         terrain: Optional[TerrainMap] = None,
+        randomize_terrain: bool = True,
+        hill_speed_factor: float = 0.5,
         render_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
@@ -141,6 +153,10 @@ class BattalionEnv(gym.Env):
             raise ValueError(f"map_height must be positive, got {map_height}")
         if int(max_steps) < 1:
             raise ValueError(f"max_steps must be >= 1, got {max_steps}")
+        if not (0.0 < float(hill_speed_factor) <= 1.0):
+            raise ValueError(
+                f"hill_speed_factor must be in (0, 1], got {hill_speed_factor}"
+            )
         if render_mode is not None and render_mode not in self.metadata["render_modes"]:
             raise ValueError(
                 f"Unsupported render_mode {render_mode!r}. "
@@ -151,6 +167,11 @@ class BattalionEnv(gym.Env):
         self.map_height = float(map_height)
         self.map_diagonal = math.sqrt(self.map_width ** 2 + self.map_height ** 2)
         self.max_steps = int(max_steps)
+        self.hill_speed_factor = float(hill_speed_factor)
+        # When an explicit terrain is supplied, terrain randomisation is
+        # disabled so the caller's fixed map is used every episode.
+        self._fixed_terrain: Optional[TerrainMap] = terrain
+        self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
         self.terrain: TerrainMap = (
             terrain if terrain is not None else TerrainMap.flat(map_width, map_height)
         )
@@ -199,11 +220,25 @@ class BattalionEnv(gym.Env):
     ) -> tuple[np.ndarray, dict]:
         """Reset the environment and return the initial observation.
 
+        When *randomize_terrain* is ``True`` (the default when no fixed
+        terrain map is passed to ``__init__``), a new procedural terrain
+        is generated from the seeded RNG on every call.  Passing the same
+        *seed* therefore always produces the same terrain layout and unit
+        positions.
+
         Blue spawns in the western half of the map facing roughly east;
         Red spawns in the eastern half facing roughly west.
         """
         super().reset(seed=seed)
         rng = self.np_random
+
+        # Generate a fresh terrain map from the seeded RNG each episode.
+        if self.randomize_terrain:
+            self.terrain = TerrainMap.generate_random(
+                rng=rng,
+                width=self.map_width,
+                height=self.map_height,
+            )
 
         # Blue: western quarter, roughly eastward
         bx = float(rng.uniform(0.1 * self.map_width, 0.4 * self.map_width))
@@ -248,9 +283,12 @@ class BattalionEnv(gym.Env):
         # --- Apply agent action to Blue ---
         # Rotation (Battalion.rotate clamps to max_turn_rate internally)
         self.blue.rotate(rotate_cmd * self.blue.max_turn_rate)
-        # Forward/backward movement along current heading
-        vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed
-        vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed
+        # Forward/backward movement along current heading, slowed on hills
+        speed_mod = self.terrain.get_speed_modifier(
+            self.blue.x, self.blue.y, self.hill_speed_factor
+        )
+        vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
+        vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
         self.blue.move(vx, vy, dt=DT)
         # Clamp to map bounds
         self.blue.x = float(np.clip(self.blue.x, 0.0, self.map_width))
@@ -374,8 +412,11 @@ class BattalionEnv(gym.Env):
         # Advance if outside 80 % of fire range
         dist = math.sqrt(dx ** 2 + dy ** 2)
         if dist > r.fire_range * 0.8:
-            vx = math.cos(r.theta) * r.max_speed
-            vy = math.sin(r.theta) * r.max_speed
+            speed_mod = self.terrain.get_speed_modifier(
+                r.x, r.y, self.hill_speed_factor
+            )
+            vx = math.cos(r.theta) * r.max_speed * speed_mod
+            vy = math.sin(r.theta) * r.max_speed * speed_mod
             r.move(vx, vy, dt=DT)
             r.x = float(np.clip(r.x, 0.0, self.map_width))
             r.y = float(np.clip(r.y, 0.0, self.map_height))
