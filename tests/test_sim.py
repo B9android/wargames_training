@@ -79,10 +79,10 @@ class TestBattleResolution(unittest.TestCase):
         self.assertLessEqual(result.steps, 500)
 
     def test_battle_produces_a_winner(self) -> None:
-        """The result must declare a winner (not a draw) for a symmetric fight."""
-        # Run the symmetric scenario: both sides identical, so one must rout
-        # first due to RNG.  In rare cases both rout simultaneously (draw=None)
-        # — allow either outcome, but the key invariant is that the episode ENDS.
+        """For a symmetric fight, the episode must end and at least one side takes damage."""
+        # Run the symmetric scenario: both sides are identical, so RNG decides who routs
+        # first. In rare cases both can rout simultaneously (winner=None) — allow either
+        # outcome, but the key invariant is that combat occurs and the episode ENDS.
         engine = _seeded_engine(dist=150.0, seed=42)
         result = engine.run()
         # At most one side should still be at full strength
