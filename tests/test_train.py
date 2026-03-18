@@ -151,6 +151,179 @@ class TestWandbCallback(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# training/train.py — RewardBreakdownCallback
+# ---------------------------------------------------------------------------
+
+
+class TestRewardBreakdownCallback(unittest.TestCase):
+    """Unit tests for RewardBreakdownCallback in training/train.py."""
+
+    def _make_cb(self, log_freq: int = 1000):
+        """Create a callback with pre-initialised step accumulators for 1 env."""
+        from training.train import RewardBreakdownCallback
+        cb = RewardBreakdownCallback(log_freq=log_freq)
+        cb.num_timesteps = 0
+        # Manually initialise step accumulators (normally done in _on_training_start).
+        cb._step_sums = [{k: 0.0 for k in cb._COMPONENT_KEYS}]
+        return cb
+
+    def _make_cb_n(self, n_envs: int, log_freq: int = 1000):
+        """Create a callback with pre-initialised step accumulators for n envs."""
+        from training.train import RewardBreakdownCallback
+        cb = RewardBreakdownCallback(log_freq=log_freq)
+        cb.num_timesteps = 0
+        cb._step_sums = [{k: 0.0 for k in cb._COMPONENT_KEYS} for _ in range(n_envs)]
+        return cb
+
+    def _make_info(self, **overrides) -> dict:
+        base = {
+            "reward/delta_enemy_strength": 0.5,
+            "reward/delta_own_strength": -0.2,
+            "reward/survival_bonus": 0.0,
+            "reward/win_bonus": 0.0,
+            "reward/loss_penalty": 0.0,
+            "reward/time_penalty": -0.01,
+            "reward/total": 0.29,
+        }
+        base.update(overrides)
+        return base
+
+    def test_instantiates(self) -> None:
+        from training.train import RewardBreakdownCallback
+        cb = RewardBreakdownCallback(log_freq=500)
+        self.assertEqual(cb.log_freq, 500)
+        self.assertEqual(cb._ep_count, 0)
+
+    def test_accumulates_per_step_not_just_terminal(self) -> None:
+        """Components should be summed across all steps, not only the terminal one."""
+        from training import train as train_mod
+
+        with patch.object(train_mod, "wandb"):
+            cb = self._make_cb(log_freq=1000)
+
+            # Step 1 — not done
+            cb.num_timesteps = 1
+            cb.locals = {
+                "infos": [self._make_info(**{"reward/delta_enemy_strength": 1.0})],
+                "dones": np.array([False]),
+            }
+            cb._on_step()
+
+            # Step 2 — done (episode ends)
+            cb.num_timesteps = 2
+            cb.locals = {
+                "infos": [self._make_info(**{"reward/delta_enemy_strength": 2.0})],
+                "dones": np.array([True]),
+            }
+            cb._on_step()
+
+            # Episode sum should include BOTH steps' delta_enemy_strength.
+            self.assertEqual(cb._ep_count, 1)
+            self.assertAlmostEqual(
+                cb._ep_sums["reward/delta_enemy_strength"], 3.0
+            )
+
+    def test_logs_episode_means_at_log_freq(self) -> None:
+        """Flush should occur when num_timesteps % log_freq == 0 and ep_count > 0."""
+        from training import train as train_mod
+
+        with patch.object(train_mod, "wandb") as mock_wandb:
+            cb = self._make_cb(log_freq=10)
+
+            # Simulate one complete episode — done=True at t=10.
+            cb.num_timesteps = 10
+            cb.locals = {
+                "infos": [self._make_info(**{"reward/total": 5.0})],
+                "dones": np.array([True]),
+            }
+            cb._on_step()
+
+            mock_wandb.log.assert_called_once()
+            logged = mock_wandb.log.call_args[0][0]
+            self.assertIn("reward_breakdown/total", logged)
+            self.assertAlmostEqual(logged["reward_breakdown/total"], 5.0)
+
+    def test_no_log_when_no_episodes_completed(self) -> None:
+        """No W&B log when log_freq is met but no episodes have finished."""
+        from training import train as train_mod
+
+        with patch.object(train_mod, "wandb") as mock_wandb:
+            cb = self._make_cb(log_freq=10)
+            cb.num_timesteps = 10
+            # done=False — no episode completed.
+            cb.locals = {
+                "infos": [self._make_info()],
+                "dones": np.array([False]),
+            }
+            cb._on_step()
+            mock_wandb.log.assert_not_called()
+
+    def test_accumulators_reset_after_flush(self) -> None:
+        """Episode accumulators must be zeroed after logging."""
+        from training import train as train_mod
+
+        with patch.object(train_mod, "wandb"):
+            cb = self._make_cb(log_freq=10)
+            cb.num_timesteps = 10
+            cb.locals = {
+                "infos": [self._make_info()],
+                "dones": np.array([True]),
+            }
+            cb._on_step()
+
+            self.assertEqual(cb._ep_count, 0)
+            for v in cb._ep_sums.values():
+                self.assertAlmostEqual(v, 0.0)
+
+    def test_on_training_end_flushes_remaining_episodes(self) -> None:
+        """_on_training_end must log any episodes accumulated since the last flush."""
+        from training import train as train_mod
+
+        with patch.object(train_mod, "wandb") as mock_wandb:
+            cb = self._make_cb(log_freq=10000)  # large → won't auto-flush
+            cb.num_timesteps = 50
+
+            # Complete one episode.
+            cb.locals = {
+                "infos": [self._make_info(**{"reward/total": 7.0})],
+                "dones": np.array([True]),
+            }
+            cb._on_step()
+
+            # Should NOT have logged yet (50 % 10000 ≠ 0).
+            mock_wandb.log.assert_not_called()
+
+            # End of training — should flush.
+            cb._on_training_end()
+            mock_wandb.log.assert_called_once()
+            logged = mock_wandb.log.call_args[0][0]
+            self.assertAlmostEqual(logged["reward_breakdown/total"], 7.0)
+
+    def test_multi_env_episode_boundaries(self) -> None:
+        """Multiple parallel envs finishing simultaneously are each counted."""
+        from training import train as train_mod
+
+        with patch.object(train_mod, "wandb") as mock_wandb:
+            cb = self._make_cb_n(n_envs=2, log_freq=10)
+            cb.num_timesteps = 10
+
+            # Two envs both finish at the same step.
+            cb.locals = {
+                "infos": [
+                    self._make_info(**{"reward/total": 4.0}),
+                    self._make_info(**{"reward/total": 6.0}),
+                ],
+                "dones": np.array([True, True]),
+            }
+            cb._on_step()
+
+            # 2 episodes; mean total should be (4+6)/2 = 5.
+            mock_wandb.log.assert_called_once()
+            logged = mock_wandb.log.call_args[0][0]
+            self.assertAlmostEqual(logged["reward_breakdown/total"], 5.0)
+
+
+# ---------------------------------------------------------------------------
 # training/train.py — short integration run (no W&B, no Hydra)
 # ---------------------------------------------------------------------------
 
@@ -255,6 +428,17 @@ class TestTrainWandbInit(unittest.TestCase):
                     "map_height": 1000.0,
                     "max_steps": 50,
                     "num_envs": 1,
+                    "randomize_terrain": True,
+                    "hill_speed_factor": 0.5,
+                    "curriculum_level": 5,
+                },
+                "reward": {
+                    "delta_enemy_strength": 5.0,
+                    "delta_own_strength": 5.0,
+                    "survival_bonus": 0.0,
+                    "win_bonus": 10.0,
+                    "loss_penalty": -10.0,
+                    "time_penalty": -0.01,
                 },
                 "training": {
                     "total_timesteps": 64,

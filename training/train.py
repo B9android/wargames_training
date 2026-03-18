@@ -46,6 +46,7 @@ from stable_baselines3.common.env_util import make_vec_env
 
 import wandb
 from envs.battalion_env import BattalionEnv
+from envs.reward import RewardWeights
 from models.mlp_policy import BattalionMlpPolicy
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,89 @@ class WandbCallback(BaseCallback):
             )
 
 
+class RewardBreakdownCallback(BaseCallback):
+    """Logs per-component reward breakdown to W&B at episode boundaries.
+
+    Accumulates reward components from ``info`` dicts (populated by
+    :class:`~envs.battalion_env.BattalionEnv`) across all parallel
+    environments every step and rolls them into per-episode totals when
+    an episode ends.  The episode means are logged to W&B every
+    ``log_freq`` timesteps.  Any remaining episodes at the end of
+    training are flushed in ``_on_training_end()``.
+
+    Parameters
+    ----------
+    log_freq:
+        How often (in environment steps) to flush accumulated episode
+        means to W&B.
+    verbose:
+        Verbosity level (0 = silent, 1 = info).
+    """
+
+    _COMPONENT_KEYS: tuple[str, ...] = (
+        "reward/delta_enemy_strength",
+        "reward/delta_own_strength",
+        "reward/survival_bonus",
+        "reward/win_bonus",
+        "reward/loss_penalty",
+        "reward/time_penalty",
+        "reward/total",
+    )
+
+    def __init__(self, log_freq: int = 1000, verbose: int = 0) -> None:
+        super().__init__(verbose)
+        self.log_freq = log_freq
+        # Per-env step accumulators, indexed by env index.  Initialised in
+        # _on_training_start() once the number of parallel envs is known.
+        self._step_sums: list[dict[str, float]] = []
+        # Completed-episode accumulators (sum across episodes and episode count).
+        self._ep_sums: dict[str, float] = {k: 0.0 for k in self._COMPONENT_KEYS}
+        self._ep_count: int = 0
+
+    def _on_training_start(self) -> None:
+        """Initialise per-env step accumulators once the env count is known."""
+        n_envs = self.training_env.num_envs  # type: ignore[union-attr]
+        self._step_sums = [
+            {k: 0.0 for k in self._COMPONENT_KEYS} for _ in range(n_envs)
+        ]
+
+    def _on_step(self) -> bool:
+        infos = self.locals.get("infos", [])
+        dones = self.locals.get("dones", np.zeros(len(infos), dtype=bool))
+
+        for env_idx, (info, done) in enumerate(zip(infos, dones)):
+            # Accumulate each component value for this step.
+            for key in self._COMPONENT_KEYS:
+                self._step_sums[env_idx][key] += float(info.get(key, 0.0))
+
+            if done:
+                # Episode complete — transfer step sums to episode accumulators.
+                for key in self._COMPONENT_KEYS:
+                    self._ep_sums[key] += self._step_sums[env_idx][key]
+                    self._step_sums[env_idx][key] = 0.0
+                self._ep_count += 1
+
+        if self.num_timesteps % self.log_freq == 0 and self._ep_count > 0:
+            self._flush()
+        return True
+
+    def _on_training_end(self) -> None:
+        """Flush any remaining accumulated episodes at the end of training."""
+        if self._ep_count > 0:
+            self._flush()
+
+    def _flush(self) -> None:
+        """Log episode means to W&B and reset accumulators."""
+        means = {
+            f"reward_breakdown/{k.split('/')[-1]}": v / self._ep_count
+            for k, v in self._ep_sums.items()
+        }
+        means["time/total_timesteps"] = self.num_timesteps
+        wandb.log(means, step=self.num_timesteps)
+        self._ep_sums = {k: 0.0 for k in self._COMPONENT_KEYS}
+        self._ep_count = 0
+
+
 # ---------------------------------------------------------------------------
 # Training entry point
 # ---------------------------------------------------------------------------
@@ -139,12 +223,36 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     # Environments
     # ------------------------------------------------------------------
+    _default_w = RewardWeights()
+    reward_weights = RewardWeights(
+        delta_enemy_strength=float(
+            OmegaConf.select(cfg, "reward.delta_enemy_strength", default=_default_w.delta_enemy_strength)
+        ),
+        delta_own_strength=float(
+            OmegaConf.select(cfg, "reward.delta_own_strength", default=_default_w.delta_own_strength)
+        ),
+        survival_bonus=float(
+            OmegaConf.select(cfg, "reward.survival_bonus", default=_default_w.survival_bonus)
+        ),
+        win_bonus=float(
+            OmegaConf.select(cfg, "reward.win_bonus", default=_default_w.win_bonus)
+        ),
+        loss_penalty=float(
+            OmegaConf.select(cfg, "reward.loss_penalty", default=_default_w.loss_penalty)
+        ),
+        time_penalty=float(
+            OmegaConf.select(cfg, "reward.time_penalty", default=_default_w.time_penalty)
+        ),
+    )
+
     env_kwargs = dict(
         map_width=cfg.env.map_width,
         map_height=cfg.env.map_height,
         max_steps=cfg.env.max_steps,
-        randomize_terrain=cfg.env.randomize_terrain,
-        hill_speed_factor=cfg.env.hill_speed_factor,
+        randomize_terrain=OmegaConf.select(cfg, "env.randomize_terrain", default=True),
+        hill_speed_factor=OmegaConf.select(cfg, "env.hill_speed_factor", default=0.5),
+        curriculum_level=int(OmegaConf.select(cfg, "env.curriculum_level", default=5)),
+        reward_weights=reward_weights,
     )
 
     # Basic config validation to avoid invalid vectorized envs or callback frequencies.
@@ -193,6 +301,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     wandb_cb = WandbCallback(log_freq=cfg.wandb.log_freq)
+    reward_breakdown_cb = RewardBreakdownCallback(log_freq=cfg.wandb.log_freq)
 
     # ------------------------------------------------------------------
     # PPO model
@@ -220,7 +329,7 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     model.learn(
         total_timesteps=cfg.training.total_timesteps,
-        callback=CallbackList([checkpoint_cb, eval_cb, wandb_cb]),
+        callback=CallbackList([checkpoint_cb, eval_cb, wandb_cb, reward_breakdown_cb]),
         progress_bar=False,
         reset_num_timesteps=True,
     )
