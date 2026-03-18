@@ -1,0 +1,36 @@
+# configs/self_play.yaml
+# Self-play training configuration.
+#
+# This file is an override for configs/default.yaml.  Run self-play training with:
+#
+#   python training/train.py --config-name self_play
+#
+# All keys not listed here fall back to configs/default.yaml defaults.
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  tags: ["v1", "ppo", "self-play"]
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  num_envs: 8
+  curriculum_level: 5                # Start at full scripted difficulty before pool warms up
+
+# ── PPO training ──────────────────────────────────────────────────────────
+training:
+  total_timesteps: 2000000           # 2 M steps — enough for pool to cycle many times
+
+# ── Self-play specific ────────────────────────────────────────────────────
+self_play:
+  enabled: true
+  pool_dir: "checkpoints/pool"       # Directory for snapshot .zip files
+  pool_max_size: 10                  # Keep the 10 most recent policy snapshots
+  snapshot_freq: 50000               # Save snapshot every N environment steps
+  eval_freq: 50000                   # Evaluate win-rate vs pool every N environment steps
+  n_eval_episodes: 20                # Episodes per win-rate evaluation
+  use_latest_for_eval: false         # false = sample uniformly; true = always use latest
+
+# ── Evaluation ────────────────────────────────────────────────────────────
+eval:
+  eval_freq: 100000                  # Standard scripted-opponent evaluation frequency
+  checkpoint_freq: 100000
