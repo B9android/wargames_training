@@ -28,10 +28,9 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-import numpy as np
 from stable_baselines3 import PPO
 
-from envs.battalion_env import BattalionEnv
+from envs.battalion_env import BattalionEnv, DESTROYED_THRESHOLD
 
 
 def evaluate(
@@ -59,7 +58,14 @@ def evaluate(
     -------
     float
         Win rate in ``[0, 1]``.
+
+    Raises
+    ------
+    ValueError
+        If *n_episodes* is less than 1.
     """
+    if n_episodes < 1:
+        raise ValueError(f"n_episodes must be >= 1, got {n_episodes}.")
     env = BattalionEnv()
     model = PPO.load(checkpoint_path, env=env)
 
@@ -76,11 +82,11 @@ def evaluate(
         # Blue wins if Red routed/destroyed but Blue did not.
         red_lost = (
             info.get("red_routed", False)
-            or env.red.strength <= 0.01  # type: ignore[union-attr]
+            or env.red.strength <= DESTROYED_THRESHOLD  # type: ignore[union-attr]
         )
         blue_lost = (
             info.get("blue_routed", False)
-            or env.blue.strength <= 0.01  # type: ignore[union-attr]
+            or env.blue.strength <= DESTROYED_THRESHOLD  # type: ignore[union-attr]
         )
         if red_lost and not blue_lost:
             wins += 1
@@ -103,20 +109,22 @@ def main(argv: Optional[list[str]] = None) -> None:
         "--n-episodes",
         type=int,
         default=50,
-        help="Number of evaluation episodes (default: 50).",
+        help="Number of evaluation episodes (default: 50, minimum: 1).",
     )
-    parser.add_argument(
+    action_group = parser.add_mutually_exclusive_group()
+    action_group.add_argument(
         "--deterministic",
+        dest="deterministic",
         action="store_true",
-        default=True,
-        help="Use deterministic actions (default: True).",
+        help="Use deterministic actions (default).",
     )
-    parser.add_argument(
+    action_group.add_argument(
         "--stochastic",
         dest="deterministic",
         action="store_false",
         help="Use stochastic actions instead of deterministic.",
     )
+    parser.set_defaults(deterministic=True)
     parser.add_argument(
         "--seed",
         type=int,
@@ -125,6 +133,8 @@ def main(argv: Optional[list[str]] = None) -> None:
     )
 
     args = parser.parse_args(argv)
+    if args.n_episodes < 1:
+        parser.error(f"--n-episodes must be >= 1, got {args.n_episodes}.")
 
     win_rate = evaluate(
         checkpoint_path=args.checkpoint,
@@ -132,7 +142,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         deterministic=args.deterministic,
         seed=args.seed,
     )
-    print(f"Win rate: {win_rate:.2%} ({int(win_rate * args.n_episodes)}/{args.n_episodes})")
+    print(f"Win rate: {win_rate:.2%} ({round(win_rate * args.n_episodes)}/{args.n_episodes})")
 
 
 if __name__ == "__main__":
