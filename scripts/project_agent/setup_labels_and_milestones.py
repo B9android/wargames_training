@@ -65,6 +65,37 @@ LABEL_DEFINITIONS: dict[str, tuple[str, str]] = {
     "v1: evaluation":    ("fef2c0", "v1 evaluation framework"),
     "v1: visualization": ("fef2c0", "v1 visualisation work"),
     "v1: documentation": ("fef2c0", "v1 documentation work"),
+    # ── v2: work-stream labels ──────────────────────────────────────────────
+    "v2: environment":   ("d4edda", "v2 PettingZoo multi-agent environment"),
+    "v2: mappo":         ("d4edda", "v2 MAPPO implementation"),
+    "v2: curriculum":    ("d4edda", "v2 2v2 curriculum"),
+    "v2: metrics":       ("d4edda", "v2 coordination metrics & analysis"),
+    "v2: scaling":       ("d4edda", "v2 NvN scaling"),
+    "v2: self-play":     ("d4edda", "v2 multi-agent self-play"),
+    "v2: documentation": ("d4edda", "v2 documentation & release"),
+    # ── v3: work-stream labels ──────────────────────────────────────────────
+    "v3: smdp":          ("cce5ff", "v3 SMDP/Options framework"),
+    "v3: brigade":       ("cce5ff", "v3 brigade commander layer"),
+    "v3: division":      ("cce5ff", "v3 division commander layer"),
+    "v3: hrl-curriculum":("cce5ff", "v3 hierarchical curriculum"),
+    "v3: temporal":      ("cce5ff", "v3 temporal abstraction"),
+    "v3: policy-lib":    ("cce5ff", "v3 per-echelon policy library"),
+    "v3: evaluation":    ("cce5ff", "v3 HRL evaluation"),
+    "v3: documentation": ("cce5ff", "v3 documentation & release"),
+    # ── v4: work-stream labels ──────────────────────────────────────────────
+    "v4: league-infra":  ("f8d7da", "v4 league infrastructure"),
+    "v4: main-agent":    ("f8d7da", "v4 main agent training"),
+    "v4: exploiters":    ("f8d7da", "v4 exploiter agents"),
+    "v4: nash":          ("f8d7da", "v4 Nash distribution sampling"),
+    "v4: diversity":     ("f8d7da", "v4 strategy diversity metrics"),
+    "v4: distributed":   ("f8d7da", "v4 distributed training"),
+    "v4: documentation": ("f8d7da", "v4 documentation & release"),
+    # ── v5: work-stream labels ──────────────────────────────────────────────
+    "v5: interface":     ("e2d9f3", "v5 human-playable interface"),
+    "v5: coa":           ("e2d9f3", "v5 course of action generator"),
+    "v5: explainability":("e2d9f3", "v5 strategy explainability"),
+    "v5: validation":    ("e2d9f3", "v5 historical scenario validation"),
+    "v5: deployment":    ("e2d9f3", "v5 policy export & deployment"),
     # ── misc ───────────────────────────────────────────────────────────────
     "status: needs-experiment": ("0075ca", "Requires an experiment to proceed"),
     "enhancement":              ("a2eeef", "Improvement to existing functionality"),
@@ -100,6 +131,36 @@ MILESTONE_DEFINITIONS: list[dict] = [
         "title": "M4: v1 Complete",
         "description": "All v1 acceptance criteria met; system ready for v2 multi-agent work.",
         "due_date": "2026-12-31",
+    },
+    {
+        "title": "M5: 2v2 MARL",
+        "description": "Two-battalion cooperative MAPPO policy beats scripted 2v2 opponents.",
+        "due_date": "2027-03-31",
+    },
+    {
+        "title": "M6: v2 Complete",
+        "description": "All v2 acceptance criteria met; NvN self-play and coordination metrics in place.",
+        "due_date": "2027-06-30",
+    },
+    {
+        "title": "M7: HRL Battalion→Brigade",
+        "description": "Brigade commander layer trained on frozen battalion policies; outperforms flat MARL.",
+        "due_date": "2027-09-30",
+    },
+    {
+        "title": "M8: v3 Complete",
+        "description": "All v3 acceptance criteria met; three-echelon HRL architecture functional.",
+        "due_date": "2027-12-31",
+    },
+    {
+        "title": "M9: League Training",
+        "description": "AlphaStar-style league with main agents and exploiters running stably.",
+        "due_date": "2028-04-30",
+    },
+    {
+        "title": "M10: v4 Complete",
+        "description": "All v4 acceptance criteria met; Nash distribution sampling and strategy diversity operational.",
+        "due_date": "2028-08-31",
     },
 ]
 
