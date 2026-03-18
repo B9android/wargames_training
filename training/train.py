@@ -105,7 +105,10 @@ class RewardBreakdownCallback(BaseCallback):
 
     Accumulates reward components from ``info`` dicts (populated by
     :class:`~envs.battalion_env.BattalionEnv`) across all parallel
-    environments and logs their episode means every ``log_freq`` timesteps.
+    environments every step and rolls them into per-episode totals when
+    an episode ends.  The episode means are logged to W&B every
+    ``log_freq`` timesteps.  Any remaining episodes at the end of
+    training are flushed in ``_on_training_end()``.
 
     Parameters
     ----------
@@ -129,35 +132,55 @@ class RewardBreakdownCallback(BaseCallback):
     def __init__(self, log_freq: int = 1000, verbose: int = 0) -> None:
         super().__init__(verbose)
         self.log_freq = log_freq
-        # Accumulators: sum of per-episode component values and count of episodes.
+        # Per-env step accumulators, indexed by env index.  Initialised in
+        # _on_training_start() once the number of parallel envs is known.
+        self._step_sums: list[dict[str, float]] = []
+        # Completed-episode accumulators (sum across episodes and episode count).
         self._ep_sums: dict[str, float] = {k: 0.0 for k in self._COMPONENT_KEYS}
         self._ep_count: int = 0
+
+    def _on_training_start(self) -> None:
+        """Initialise per-env step accumulators once the env count is known."""
+        n_envs = self.training_env.num_envs  # type: ignore[union-attr]
+        self._step_sums = [
+            {k: 0.0 for k in self._COMPONENT_KEYS} for _ in range(n_envs)
+        ]
 
     def _on_step(self) -> bool:
         infos = self.locals.get("infos", [])
         dones = self.locals.get("dones", np.zeros(len(infos), dtype=bool))
-        for info, done in zip(infos, dones):
-            if not done:
-                continue
-            # Accumulate episode totals only at terminal steps.
-            for key in self._COMPONENT_KEYS:
-                self._ep_sums[key] += float(info.get(key, 0.0))
-            self._ep_count += 1
 
-        if (
-            self.num_timesteps % self.log_freq == 0
-            and self._ep_count > 0
-        ):
-            means = {
-                f"reward_breakdown/{k.split('/')[-1]}": v / self._ep_count
-                for k, v in self._ep_sums.items()
-            }
-            means["time/total_timesteps"] = self.num_timesteps
-            wandb.log(means, step=self.num_timesteps)
-            # Reset accumulators after logging.
-            self._ep_sums = {k: 0.0 for k in self._COMPONENT_KEYS}
-            self._ep_count = 0
+        for env_idx, (info, done) in enumerate(zip(infos, dones)):
+            # Accumulate each component value for this step.
+            for key in self._COMPONENT_KEYS:
+                self._step_sums[env_idx][key] += float(info.get(key, 0.0))
+
+            if done:
+                # Episode complete — transfer step sums to episode accumulators.
+                for key in self._COMPONENT_KEYS:
+                    self._ep_sums[key] += self._step_sums[env_idx][key]
+                    self._step_sums[env_idx][key] = 0.0
+                self._ep_count += 1
+
+        if self.num_timesteps % self.log_freq == 0 and self._ep_count > 0:
+            self._flush()
         return True
+
+    def _on_training_end(self) -> None:
+        """Flush any remaining accumulated episodes at the end of training."""
+        if self._ep_count > 0:
+            self._flush()
+
+    def _flush(self) -> None:
+        """Log episode means to W&B and reset accumulators."""
+        means = {
+            f"reward_breakdown/{k.split('/')[-1]}": v / self._ep_count
+            for k, v in self._ep_sums.items()
+        }
+        means["time/total_timesteps"] = self.num_timesteps
+        wandb.log(means, step=self.num_timesteps)
+        self._ep_sums = {k: 0.0 for k in self._COMPONENT_KEYS}
+        self._ep_count = 0
 
 
 # ---------------------------------------------------------------------------
