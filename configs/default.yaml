@@ -16,6 +16,8 @@ env:
   map_height: 1000.0
   max_steps: 500
   num_envs: 8                        # parallel training environments
+  randomize_terrain: true            # generate new terrain each episode
+  hill_speed_factor: 0.5             # speed multiplier on max-elevation hills
 
 # ── PPO training ──────────────────────────────────────────────────────────
 training:

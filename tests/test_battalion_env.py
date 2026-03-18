@@ -21,6 +21,7 @@ from envs.battalion_env import (
     MAP_WIDTH,
     MAP_HEIGHT,
 )
+from envs.sim.terrain import TerrainMap
 
 
 # ---------------------------------------------------------------------------
@@ -434,6 +435,131 @@ class TestEnvChecker(unittest.TestCase):
     def test_check_env_passes(self) -> None:
         env = make_env()
         # check_env raises on any violation; success means no exception.
+        check_env(env, warn=True, skip_render_check=True)
+        env.close()
+
+
+# ---------------------------------------------------------------------------
+# Terrain randomization
+# ---------------------------------------------------------------------------
+
+
+class TestTerrainRandomization(unittest.TestCase):
+    """Verify terrain-randomization behaviour in BattalionEnv."""
+
+    def test_default_env_has_randomize_terrain_enabled(self) -> None:
+        env = BattalionEnv()
+        self.assertTrue(env.randomize_terrain)
+        env.close()
+
+    def test_fixed_terrain_disables_randomization(self) -> None:
+        fixed = TerrainMap.flat(1000.0, 1000.0)
+        env = BattalionEnv(terrain=fixed)
+        self.assertFalse(env.randomize_terrain)
+        env.close()
+
+    def test_randomize_terrain_false_disables_randomization(self) -> None:
+        env = BattalionEnv(randomize_terrain=False)
+        self.assertFalse(env.randomize_terrain)
+        env.close()
+
+    def test_same_seed_produces_same_terrain(self) -> None:
+        """reset(seed=N) must yield identical terrain on repeated calls."""
+        env = BattalionEnv()
+        env.reset(seed=77)
+        elev_a = env.terrain.elevation.copy()
+        cov_a = env.terrain.cover.copy()
+        env.reset(seed=77)
+        elev_b = env.terrain.elevation.copy()
+        cov_b = env.terrain.cover.copy()
+        np.testing.assert_array_equal(elev_a, elev_b)
+        np.testing.assert_array_equal(cov_a, cov_b)
+        env.close()
+
+    def test_different_seeds_produce_different_terrain(self) -> None:
+        """Different seeds must generate different terrain layouts."""
+        env = BattalionEnv()
+        env.reset(seed=1)
+        elev_a = env.terrain.elevation.copy()
+        env.reset(seed=2)
+        elev_b = env.terrain.elevation.copy()
+        self.assertFalse(
+            np.array_equal(elev_a, elev_b),
+            "Different seeds produced identical terrain.",
+        )
+        env.close()
+
+    def test_terrain_changes_each_episode_without_seed(self) -> None:
+        """Consecutive resets without a fixed seed generate different terrain.
+
+        Two independent resets with no seed override both derive from the
+        internal counter-based RNG state, which advances between calls.
+        A collision of the full 20×20 elevation grid is astronomically
+        unlikely, so we treat differing arrays as the expected outcome.
+        """
+        env = BattalionEnv()
+        env.reset()
+        elev_a = env.terrain.elevation.copy()
+        env.reset()
+        elev_b = env.terrain.elevation.copy()
+        self.assertFalse(
+            np.array_equal(elev_a, elev_b),
+            "Consecutive resets without a seed produced identical terrain.",
+        )
+        env.close()
+
+    def test_invalid_hill_speed_factor_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(hill_speed_factor=0.0)
+        with self.assertRaises(ValueError):
+            BattalionEnv(hill_speed_factor=-0.1)
+        with self.assertRaises(ValueError):
+            BattalionEnv(hill_speed_factor=1.1)
+
+    def test_hill_speed_factor_one_accepted(self) -> None:
+        env = BattalionEnv(hill_speed_factor=1.0)
+        env.close()
+
+    def test_hills_slow_blue_movement(self) -> None:
+        """On hills (hill_speed_factor < 1), Blue moves a shorter distance."""
+        import math
+
+        # Build a uniform high-elevation terrain so every cell is a hill
+        elev = np.ones((4, 4), dtype=np.float32)
+        cov = np.zeros((4, 4), dtype=np.float32)
+        hill_terrain = TerrainMap.from_arrays(1000.0, 1000.0, elev, cov)
+
+        env_hill = BattalionEnv(terrain=hill_terrain, hill_speed_factor=0.5)
+        env_flat = BattalionEnv(terrain=TerrainMap.flat(1000.0, 1000.0), hill_speed_factor=0.5)
+
+        for env in (env_hill, env_flat):
+            env.reset(seed=0)
+            # Force Blue to a fixed position facing east
+            env.blue.x = 200.0
+            env.blue.y = 500.0
+            env.blue.theta = 0.0  # facing east
+
+        x_before_hill = env_hill.blue.x
+        x_before_flat = env_flat.blue.x
+
+        # Take one step with full forward movement and no fire
+        action = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+        env_hill.step(action)
+        env_flat.step(action)
+
+        dx_hill = env_hill.blue.x - x_before_hill
+        dx_flat = env_flat.blue.x - x_before_flat
+
+        # Hill should produce less or equal displacement than flat
+        self.assertLessEqual(dx_hill, dx_flat + 1e-6)
+        # Hill displacement must be meaningfully less
+        self.assertLess(dx_hill, dx_flat - 1e-6)
+
+        env_hill.close()
+        env_flat.close()
+
+    def test_env_checker_passes_with_terrain_randomization(self) -> None:
+        env = BattalionEnv(randomize_terrain=True)
         check_env(env, warn=True, skip_render_check=True)
         env.close()
 

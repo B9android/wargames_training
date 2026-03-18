@@ -190,5 +190,146 @@ class TestApplyCoverModifier(unittest.TestCase):
         self.assertAlmostEqual(result, 0.6)
 
 
+# ---------------------------------------------------------------------------
+# get_speed_modifier
+# ---------------------------------------------------------------------------
+
+
+class TestGetSpeedModifier(unittest.TestCase):
+    def test_flat_terrain_returns_full_speed(self) -> None:
+        tm = TerrainMap.flat(500.0, 500.0, rows=4, cols=4)
+        self.assertAlmostEqual(tm.get_speed_modifier(100.0, 100.0), 1.0)
+
+    def test_no_elevation_grid_returns_full_speed(self) -> None:
+        tm = TerrainMap(width=500.0, height=500.0, elevation=None, cover=None)
+        self.assertAlmostEqual(tm.get_speed_modifier(100.0, 100.0), 1.0)
+
+    def test_max_elevation_cell_returns_hill_speed_factor(self) -> None:
+        # Single-cell map with elevation=1.0 — should return hill_speed_factor
+        elev = np.array([[1.0]], dtype=np.float32)
+        cov = np.zeros((1, 1), dtype=np.float32)
+        tm = TerrainMap.from_arrays(100.0, 100.0, elev, cov)
+        self.assertAlmostEqual(tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=0.5), 0.5)
+
+    def test_intermediate_elevation_interpolates(self) -> None:
+        # 1×2 grid: left=0.0, right=1.0
+        elev = np.array([[0.0, 1.0]], dtype=np.float32)
+        cov = np.zeros_like(elev)
+        tm = TerrainMap.from_arrays(200.0, 100.0, elev, cov)
+        # Left cell (flat) → full speed
+        self.assertAlmostEqual(tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=0.5), 1.0)
+        # Right cell (max elev) → hill_speed_factor
+        self.assertAlmostEqual(tm.get_speed_modifier(150.0, 50.0, hill_speed_factor=0.5), 0.5)
+
+    def test_hill_speed_factor_one_disables_penalty(self) -> None:
+        elev = np.array([[1.0]], dtype=np.float32)
+        cov = np.zeros((1, 1), dtype=np.float32)
+        tm = TerrainMap.from_arrays(100.0, 100.0, elev, cov)
+        self.assertAlmostEqual(tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=1.0), 1.0)
+
+    def test_speed_modifier_bounded_between_factor_and_one(self) -> None:
+        rng = np.random.default_rng(7)
+        tm = TerrainMap.generate_random(rng=rng, width=500.0, height=500.0)
+        for x in np.linspace(0.0, 500.0, 10):
+            for y in np.linspace(0.0, 500.0, 10):
+                mod = tm.get_speed_modifier(float(x), float(y), hill_speed_factor=0.5)
+                self.assertGreaterEqual(mod, 0.5 - 1e-6)
+                self.assertLessEqual(mod, 1.0 + 1e-6)
+
+    def test_invalid_hill_speed_factor_raises(self) -> None:
+        tm = TerrainMap.flat(100.0, 100.0)
+        with self.assertRaises(ValueError):
+            tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=0.0)
+        with self.assertRaises(ValueError):
+            tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=-0.1)
+        with self.assertRaises(ValueError):
+            tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=1.1)
+
+
+# ---------------------------------------------------------------------------
+# TerrainMap.generate_random
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateRandom(unittest.TestCase):
+    def _rng(self, seed: int = 0) -> np.random.Generator:
+        return np.random.default_rng(seed)
+
+    def test_returns_terrain_map_instance(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(), 1000.0, 1000.0)
+        self.assertIsInstance(tm, TerrainMap)
+
+    def test_dimensions_are_correct(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(), 500.0, 300.0)
+        self.assertAlmostEqual(tm.width, 500.0)
+        self.assertAlmostEqual(tm.height, 300.0)
+
+    def test_grid_shape_matches_rows_cols(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, rows=10, cols=15)
+        self.assertEqual(tm.elevation.shape, (10, 15))
+        self.assertEqual(tm.cover.shape, (10, 15))
+
+    def test_elevation_normalised_to_unit_interval(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(1), 1000.0, 1000.0, num_hills=5)
+        self.assertGreaterEqual(float(tm.elevation.min()), 0.0)
+        self.assertLessEqual(float(tm.elevation.max()), 1.0 + 1e-6)
+
+    def test_cover_clipped_to_unit_interval(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(2), 1000.0, 1000.0, num_forests=5)
+        self.assertGreaterEqual(float(tm.cover.min()), 0.0)
+        self.assertLessEqual(float(tm.cover.max()), 1.0 + 1e-6)
+
+    def test_same_seed_produces_same_terrain(self) -> None:
+        tm_a = TerrainMap.generate_random(self._rng(42), 1000.0, 1000.0)
+        tm_b = TerrainMap.generate_random(self._rng(42), 1000.0, 1000.0)
+        np.testing.assert_array_equal(tm_a.elevation, tm_b.elevation)
+        np.testing.assert_array_equal(tm_a.cover, tm_b.cover)
+
+    def test_different_seeds_produce_different_terrain(self) -> None:
+        tm_a = TerrainMap.generate_random(self._rng(1), 1000.0, 1000.0)
+        tm_b = TerrainMap.generate_random(self._rng(2), 1000.0, 1000.0)
+        # It is astronomically unlikely that two different seeds produce
+        # identical elevation grids.
+        self.assertFalse(np.array_equal(tm_a.elevation, tm_b.elevation))
+
+    def test_zero_hills_produces_flat_elevation(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, num_hills=0)
+        np.testing.assert_array_equal(tm.elevation, np.zeros_like(tm.elevation))
+
+    def test_zero_forests_produces_zero_cover(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, num_forests=0)
+        np.testing.assert_array_equal(tm.cover, np.zeros_like(tm.cover))
+
+    def test_elevation_has_nonzero_values_with_hills(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(3), 1000.0, 1000.0, num_hills=3)
+        self.assertGreater(float(tm.elevation.max()), 0.0)
+
+    def test_cover_has_nonzero_values_with_forests(self) -> None:
+        tm = TerrainMap.generate_random(self._rng(4), 1000.0, 1000.0, num_forests=3)
+        self.assertGreater(float(tm.cover.max()), 0.0)
+
+    def test_invalid_rows_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, rows=0)
+
+    def test_invalid_cols_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, cols=0)
+
+    def test_negative_num_hills_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, num_hills=-1)
+
+    def test_negative_num_forests_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, num_forests=-1)
+
+    def test_invalid_forest_cover_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, forest_cover=-0.1)
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, forest_cover=1.1)
+
+
 if __name__ == "__main__":
     unittest.main()
