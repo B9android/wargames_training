@@ -151,6 +151,11 @@ class EloRegistry:
         """Return a copy of all *stored* ratings (excludes pure baselines)."""
         return dict(self._ratings)
 
+    @property
+    def can_save(self) -> bool:
+        """``True`` when the registry has a backing file and can be persisted."""
+        return self._path is not None
+
     # ------------------------------------------------------------------
     # Update
     # ------------------------------------------------------------------
@@ -192,7 +197,8 @@ class EloRegistry:
         Raises
         ------
         ValueError
-            If *outcome* is outside ``[0, 1]`` or *n_games* < 1.
+            If *outcome* is outside ``[0, 1]``, *n_games* < 1, or *agent*
+            is a key in :data:`BASELINE_RATINGS` (baselines are immutable).
         """
         if not 0.0 <= outcome <= 1.0:
             raise ValueError(
@@ -201,6 +207,11 @@ class EloRegistry:
         if n_games < 1:
             raise ValueError(
                 f"n_games must be >= 1, got {n_games!r}."
+            )
+        if agent in BASELINE_RATINGS:
+            raise ValueError(
+                f"Cannot update rating for baseline opponent '{agent}'. "
+                "Baseline ratings are fixed and cannot be modified."
             )
 
         r_agent = self.get_rating(agent)

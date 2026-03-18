@@ -213,6 +213,11 @@ class EloEvalCallback(BaseCallback):
         Key used to identify this training run in the registry.
     eval_freq:
         How often (in environment steps) to trigger evaluation.
+    env_kwargs:
+        Keyword arguments forwarded to :class:`~envs.battalion_env.BattalionEnv`
+        when creating evaluation environments.  This ensures Elo evaluation
+        uses the same map size, terrain settings, and reward weights as the
+        training run.
     seed:
         Base random seed for evaluation episodes.
     verbose:
@@ -226,6 +231,7 @@ class EloEvalCallback(BaseCallback):
         registry: EloRegistry,
         agent_name: str,
         eval_freq: int,
+        env_kwargs: Optional[dict] = None,
         seed: Optional[int] = None,
         verbose: int = 0,
     ) -> None:
@@ -235,6 +241,7 @@ class EloEvalCallback(BaseCallback):
         self.registry = registry
         self.agent_name = agent_name
         self.eval_freq = eval_freq
+        self.env_kwargs = env_kwargs or {}
         self.seed = seed
         self._last_eval_step: int = 0
 
@@ -257,6 +264,7 @@ class EloEvalCallback(BaseCallback):
                 n_episodes=self.n_eval_episodes,
                 deterministic=True,
                 seed=self.seed,
+                env_kwargs=self.env_kwargs,
             )
             outcome = (result.wins + 0.5 * result.draws) / result.n_episodes
             delta = self.registry.update(
@@ -278,7 +286,9 @@ class EloEvalCallback(BaseCallback):
                     elo_rating,
                     delta,
                 )
-        self.registry.save()
+        # Persist only when the registry has a backing file.
+        if self.registry.can_save:
+            self.registry.save()
         wandb.log(log_dict, step=self.num_timesteps)
 
 
@@ -464,6 +474,7 @@ def main(cfg: DictConfig) -> None:
             registry=elo_registry,
             agent_name=run_id,
             eval_freq=elo_eval_freq,
+            env_kwargs=dict(env_kwargs),
             seed=cfg.training.seed,
             verbose=1,
         )

@@ -47,7 +47,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from stable_baselines3 import PPO
 
 from envs.battalion_env import BattalionEnv, DESTROYED_THRESHOLD
-from training.elo import EloRegistry, BASELINE_RATINGS
+from training.elo import EloRegistry
 
 # ---------------------------------------------------------------------------
 # EvaluationResult
@@ -119,7 +119,11 @@ class _RandomPolicy:
 # ---------------------------------------------------------------------------
 
 
-def _make_env(opponent: str) -> BattalionEnv:
+def _make_env(
+    opponent: str,
+    seed: Optional[int] = None,
+    env_kwargs: Optional[dict] = None,
+) -> BattalionEnv:
     """Create a :class:`BattalionEnv` configured for *opponent*.
 
     Parameters
@@ -127,6 +131,14 @@ def _make_env(opponent: str) -> BattalionEnv:
     opponent:
         One of ``"scripted_l1"`` … ``"scripted_l5"``, ``"random"``, or a
         file-system path to an SB3 ``.zip`` checkpoint.
+    seed:
+        Random seed forwarded to :class:`_RandomPolicy` when the opponent
+        is ``"random"``, making random-opponent evaluation reproducible.
+    env_kwargs:
+        Additional keyword arguments forwarded to :class:`BattalionEnv`
+        (e.g. ``map_width``, ``reward_weights``).  ``curriculum_level`` and
+        ``red_policy`` are always controlled by *opponent* and are stripped
+        from *env_kwargs* if present.
 
     Returns
     -------
@@ -139,6 +151,12 @@ def _make_env(opponent: str) -> BattalionEnv:
     FileNotFoundError
         If *opponent* looks like a path but does not exist on disk.
     """
+    # Strip keys that are controlled by the opponent spec to avoid conflicts.
+    base: dict = {
+        k: v for k, v in (env_kwargs or {}).items()
+        if k not in ("curriculum_level", "red_policy")
+    }
+
     if opponent.startswith("scripted_l"):
         try:
             level = int(opponent[len("scripted_l"):])
@@ -151,10 +169,10 @@ def _make_env(opponent: str) -> BattalionEnv:
             raise ValueError(
                 f"Scripted level must be between 1 and 5, got {level}."
             )
-        return BattalionEnv(curriculum_level=level)
+        return BattalionEnv(curriculum_level=level, **base)
 
     if opponent == "random":
-        return BattalionEnv(red_policy=_RandomPolicy())
+        return BattalionEnv(red_policy=_RandomPolicy(seed=seed), **base)
 
     # Treat as a checkpoint path.
     opp_path = Path(opponent)
@@ -165,7 +183,7 @@ def _make_env(opponent: str) -> BattalionEnv:
             "Provide 'scripted_l1'–'scripted_l5', 'random', or a valid path."
         )
     opp_model = PPO.load(opponent)
-    return BattalionEnv(red_policy=opp_model)
+    return BattalionEnv(red_policy=opp_model, **base)
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +217,8 @@ def run_episodes_with_model(
     n_episodes: int = 50,
     deterministic: bool = True,
     seed: Optional[int] = None,
+    env: Optional[BattalionEnv] = None,
+    env_kwargs: Optional[dict] = None,
 ) -> EvaluationResult:
     """Run evaluation episodes using an already-loaded model object.
 
@@ -219,6 +239,14 @@ def run_episodes_with_model(
         Whether the policy acts deterministically.
     seed:
         Base random seed; episode *i* uses ``seed + i`` when provided.
+        Also used to seed :class:`_RandomPolicy` when ``opponent="random"``.
+    env:
+        Pre-built :class:`BattalionEnv` to reuse.  When provided the caller
+        owns the environment and is responsible for closing it.  When
+        ``None``, a new environment is created and closed automatically.
+    env_kwargs:
+        Extra keyword arguments forwarded to :class:`BattalionEnv` when
+        creating a new environment (ignored when *env* is provided).
 
     Returns
     -------
@@ -232,19 +260,23 @@ def run_episodes_with_model(
     if n_episodes < 1:
         raise ValueError(f"n_episodes must be >= 1, got {n_episodes}.")
 
-    env = _make_env(opponent)
+    owns_env = env is None
+    active_env: BattalionEnv = (
+        env if env is not None
+        else _make_env(opponent, seed=seed, env_kwargs=env_kwargs)
+    )
     wins = draws = losses = 0
 
     for ep in range(n_episodes):
         ep_seed = None if seed is None else seed + ep
-        obs, _ = env.reset(seed=ep_seed)
+        obs, _ = active_env.reset(seed=ep_seed)
         done = False
         while not done:
             action, _ = model.predict(obs, deterministic=deterministic)
-            obs, _reward, terminated, truncated, info = env.step(action)
+            obs, _reward, terminated, truncated, info = active_env.step(action)
             done = terminated or truncated
 
-        outcome = _classify_outcome(info, env)
+        outcome = _classify_outcome(info, active_env)
         if outcome == 1:
             wins += 1
         elif outcome == -1:
@@ -252,7 +284,8 @@ def run_episodes_with_model(
         else:
             draws += 1
 
-    env.close()
+    if owns_env:
+        active_env.close()
     return EvaluationResult(
         wins=wins,
         draws=draws,
@@ -270,6 +303,7 @@ def evaluate_detailed(
     deterministic: bool = True,
     seed: Optional[int] = None,
     opponent: str = "scripted_l5",
+    env_kwargs: Optional[dict] = None,
 ) -> EvaluationResult:
     """Load a checkpoint and run *n_episodes*, returning a full result struct.
 
@@ -285,6 +319,9 @@ def evaluate_detailed(
         Base random seed; episode *i* uses ``seed + i`` when provided.
     opponent:
         Opponent identifier — see module docstring for valid values.
+    env_kwargs:
+        Extra keyword arguments forwarded to :class:`BattalionEnv`
+        (e.g. ``map_width``, ``reward_weights``).
 
     Returns
     -------
@@ -297,16 +334,21 @@ def evaluate_detailed(
     """
     if n_episodes < 1:
         raise ValueError(f"n_episodes must be >= 1, got {n_episodes}.")
-    env = _make_env(opponent)
-    model = PPO.load(checkpoint_path, env=env)
-    result = run_episodes_with_model(
-        model,
-        opponent=opponent,
-        n_episodes=n_episodes,
-        deterministic=deterministic,
-        seed=seed,
-    )
-    env.close()
+    # Create a single env and reuse it for both model loading and episode runs.
+    env = _make_env(opponent, seed=seed, env_kwargs=env_kwargs)
+    try:
+        model = PPO.load(checkpoint_path, env=env)
+        result = run_episodes_with_model(
+            model,
+            opponent=opponent,
+            n_episodes=n_episodes,
+            deterministic=deterministic,
+            seed=seed,
+            env=env,  # reuse the already-created env; caller closes below
+            env_kwargs=env_kwargs,
+        )
+    finally:
+        env.close()
     return result
 
 

@@ -491,5 +491,259 @@ class TestTrainWandbInit(unittest.TestCase):
         self.assertIn("v1", call_kwargs["tags"])
 
 
+# ---------------------------------------------------------------------------
+# training/train.py — EloEvalCallback
+# ---------------------------------------------------------------------------
+
+
+class TestEloEvalCallback(unittest.TestCase):
+    """Unit tests for EloEvalCallback in training/train.py."""
+
+    def _make_fake_result(self, wins: int = 1, losses: int = 1, n: int = 2):
+        """Build a fake EvaluationResult (wins + losses = n)."""
+        from training.evaluate import EvaluationResult
+        draws = n - wins - losses
+        return EvaluationResult(
+            wins=wins,
+            draws=draws,
+            losses=losses,
+            n_episodes=n,
+            win_rate=wins / n,
+            draw_rate=draws / n,
+            loss_rate=losses / n,
+        )
+
+    def test_instantiates(self) -> None:
+        """EloEvalCallback initialises with the expected attributes."""
+        from training.elo import EloRegistry
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        cb = EloEvalCallback(
+            opponents=["scripted_l3"],
+            n_eval_episodes=5,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+            seed=42,
+        )
+        self.assertEqual(cb.eval_freq, 100)
+        self.assertEqual(cb.agent_name, "test_agent")
+        self.assertEqual(cb.opponents, ["scripted_l3"])
+        self.assertEqual(cb.n_eval_episodes, 5)
+        self.assertEqual(cb.seed, 42)
+
+    def test_env_kwargs_stored(self) -> None:
+        """env_kwargs passed to the constructor are stored on the callback."""
+        from training.elo import EloRegistry
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        kw = {"map_width": 500.0, "max_steps": 100}
+        cb = EloEvalCallback(
+            opponents=["scripted_l3"],
+            n_eval_episodes=2,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+            env_kwargs=kw,
+        )
+        self.assertEqual(cb.env_kwargs["map_width"], 500.0)
+        self.assertEqual(cb.env_kwargs["max_steps"], 100)
+
+    def test_on_step_does_not_trigger_before_freq(self) -> None:
+        """_on_step does not run evaluation before eval_freq steps."""
+        from training import train as train_mod
+        from training.elo import EloRegistry
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        cb = EloEvalCallback(
+            opponents=["scripted_l3"],
+            n_eval_episodes=2,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+        )
+        cb.model = MagicMock()
+        cb.num_timesteps = 50  # less than eval_freq
+
+        with patch.object(train_mod, "run_episodes_with_model") as mock_run:
+            cb._on_step()
+            mock_run.assert_not_called()
+
+    def test_on_step_triggers_at_eval_freq(self) -> None:
+        """_on_step evaluates and logs to W&B when eval_freq is reached."""
+        from training import train as train_mod
+        from training.elo import EloRegistry
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        cb = EloEvalCallback(
+            opponents=["scripted_l3"],
+            n_eval_episodes=2,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+        )
+        cb.model = MagicMock()
+        cb.num_timesteps = 100
+
+        fake_result = self._make_fake_result(wins=1, losses=1, n=2)
+        with (
+            patch.object(train_mod, "run_episodes_with_model", return_value=fake_result),
+            patch.object(train_mod, "wandb") as mock_wandb,
+        ):
+            cb._on_step()
+            mock_wandb.log.assert_called_once()
+            logged = mock_wandb.log.call_args[0][0]
+            self.assertIn("elo/rating_vs_scripted_l3", logged)
+            self.assertIn("elo/win_rate_vs_scripted_l3", logged)
+            self.assertIn("elo/delta_vs_scripted_l3", logged)
+
+    def test_on_step_does_not_trigger_twice_at_same_step(self) -> None:
+        """_on_step does not re-evaluate if called twice at the same timestep."""
+        from training import train as train_mod
+        from training.elo import EloRegistry
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        cb = EloEvalCallback(
+            opponents=["scripted_l3"],
+            n_eval_episodes=2,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+        )
+        cb.model = MagicMock()
+        cb.num_timesteps = 100
+
+        fake_result = self._make_fake_result()
+        with (
+            patch.object(train_mod, "run_episodes_with_model", return_value=fake_result),
+            patch.object(train_mod, "wandb"),
+        ):
+            cb._on_step()  # first call — should trigger
+            cb._on_step()  # second call at same timestep — should NOT trigger
+
+        # run_episodes_with_model called only once (first trigger)
+        with patch.object(train_mod, "run_episodes_with_model") as mock_run:
+            cb.num_timesteps = 100  # same step
+            cb._on_step()
+            mock_run.assert_not_called()
+
+    def test_elo_registry_updated_on_win(self) -> None:
+        """Rating increases when the agent wins all evaluation episodes."""
+        from training import train as train_mod
+        from training.elo import EloRegistry, DEFAULT_RATING
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        cb = EloEvalCallback(
+            opponents=["scripted_l5"],
+            n_eval_episodes=10,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+        )
+        cb.model = MagicMock()
+        cb.num_timesteps = 100
+
+        # All wins → rating should exceed default
+        fake_result = self._make_fake_result(wins=10, losses=0, n=10)
+        with (
+            patch.object(train_mod, "run_episodes_with_model", return_value=fake_result),
+            patch.object(train_mod, "wandb"),
+        ):
+            cb._on_step()
+
+        self.assertGreater(registry.get_rating("test_agent"), DEFAULT_RATING)
+
+    def test_elo_registry_updated_on_loss(self) -> None:
+        """Rating decreases when the agent loses all evaluation episodes."""
+        from training import train as train_mod
+        from training.elo import EloRegistry, DEFAULT_RATING
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        cb = EloEvalCallback(
+            opponents=["scripted_l5"],
+            n_eval_episodes=10,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+        )
+        cb.model = MagicMock()
+        cb.num_timesteps = 100
+
+        # All losses → rating should fall below default
+        fake_result = self._make_fake_result(wins=0, losses=10, n=10)
+        with (
+            patch.object(train_mod, "run_episodes_with_model", return_value=fake_result),
+            patch.object(train_mod, "wandb"),
+        ):
+            cb._on_step()
+
+        self.assertLess(registry.get_rating("test_agent"), DEFAULT_RATING)
+
+    def test_registry_saved_to_disk(self) -> None:
+        """_run_elo_eval persists the registry when it has a file path."""
+        import tempfile
+        from training import train as train_mod
+        from training.elo import EloRegistry
+        from training.train import EloEvalCallback
+
+        with tempfile.TemporaryDirectory() as tmp:
+            reg_path = Path(tmp) / "elo.json"
+            registry = EloRegistry(path=reg_path)
+            cb = EloEvalCallback(
+                opponents=["scripted_l3"],
+                n_eval_episodes=2,
+                registry=registry,
+                agent_name="test_agent",
+                eval_freq=10,
+            )
+            cb.model = MagicMock()
+            cb.num_timesteps = 10
+
+            fake_result = self._make_fake_result()
+            with (
+                patch.object(train_mod, "run_episodes_with_model", return_value=fake_result),
+                patch.object(train_mod, "wandb"),
+            ):
+                cb._on_step()
+
+            self.assertTrue(reg_path.exists())
+
+    def test_env_kwargs_forwarded_to_run_episodes(self) -> None:
+        """env_kwargs stored on callback are forwarded to run_episodes_with_model."""
+        from training import train as train_mod
+        from training.elo import EloRegistry
+        from training.train import EloEvalCallback
+
+        registry = EloRegistry(path=None)
+        kw = {"map_width": 500.0}
+        cb = EloEvalCallback(
+            opponents=["scripted_l3"],
+            n_eval_episodes=2,
+            registry=registry,
+            agent_name="test_agent",
+            eval_freq=100,
+            env_kwargs=kw,
+        )
+        cb.model = MagicMock()
+        cb.num_timesteps = 100
+
+        fake_result = self._make_fake_result()
+        with (
+            patch.object(train_mod, "run_episodes_with_model", return_value=fake_result) as mock_run,
+            patch.object(train_mod, "wandb"),
+        ):
+            cb._on_step()
+            call_kwargs = mock_run.call_args[1]
+            self.assertIn("env_kwargs", call_kwargs)
+            self.assertEqual(call_kwargs["env_kwargs"]["map_width"], 500.0)
+
+
 if __name__ == "__main__":
     unittest.main()

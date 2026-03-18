@@ -193,6 +193,14 @@ class TestEloRegistry(unittest.TestCase):
             with self.assertRaises(ValueError):
                 reg.update("a", "scripted_l3", outcome=0.5, n_games=0)
 
+    def test_update_baseline_agent_raises(self) -> None:
+        """Attempting to update a baseline agent's rating raises ValueError."""
+        with tempfile.TemporaryDirectory() as tmp:
+            reg = self._registry(tmp)
+            for name in BASELINE_RATINGS:
+                with self.assertRaises(ValueError, msg=f"should raise for baseline '{name}'"):
+                    reg.update(name, "scripted_l3", outcome=0.5, n_games=1)
+
     # -- save / load round-trip --
 
     def test_save_creates_json_file(self) -> None:
