@@ -26,7 +26,7 @@ Typical usage::
 from __future__ import annotations
 
 import math
-from typing import Optional
+from typing import Any, Optional, Protocol, runtime_checkable
 
 import gymnasium as gym
 import numpy as np
@@ -61,7 +61,28 @@ __all__ = [
     "MAP_HEIGHT",
     "MAX_STEPS",
     "RewardWeights",
+    "RedPolicy",
 ]
+
+
+@runtime_checkable
+class RedPolicy(Protocol):
+    """Minimal interface for a policy that drives the Red battalion.
+
+    Any object implementing ``predict(obs, deterministic)`` is accepted.
+    Stable-Baselines3 :class:`~stable_baselines3.common.policies.BasePolicy`
+    and :class:`~stable_baselines3.PPO` models satisfy this protocol.
+    """
+
+    def predict(
+        self,
+        observation: np.ndarray,
+        deterministic: bool = False,
+    ) -> tuple[np.ndarray, Any]:
+        """Return ``(action, state)`` for the given observation."""
+        ...
+
+
 #: Simulation time step used for movement (seconds).
 DT: float = 0.1
 
@@ -86,12 +107,15 @@ REWARD_STEP: float = -0.01          #: Per-step time penalty.
 class BattalionEnv(gym.Env):
     """1v1 battalion RL environment.
 
-    The agent controls the **Blue** battalion; **Red** is driven by a built-in
-    scripted opponent whose behaviour is controlled by the *curriculum_level*
-    parameter.
+    The agent controls the **Blue** battalion; **Red** is driven either by a
+    built-in scripted opponent (controlled by *curriculum_level*) or by an
+    optional *red_policy* (any object with a ``predict`` method, e.g. a
+    Stable-Baselines3 ``PPO`` model).  When *red_policy* is provided it takes
+    precedence over the scripted opponent and *curriculum_level* is ignored for
+    movement and fire decisions.
 
-    Curriculum levels
-    ~~~~~~~~~~~~~~~~~
+    Curriculum levels (scripted opponent only)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     =====  =============================================
     Level  Red opponent behaviour
     =====  =============================================
@@ -153,10 +177,17 @@ class BattalionEnv(gym.Env):
     curriculum_level:
         Scripted Red opponent difficulty (1–5).  Level 1 is the easiest
         (stationary target); level 5 is full combat.  Defaults to ``5``.
+        Ignored when *red_policy* is provided.
     reward_weights:
         :class:`~envs.reward.RewardWeights` instance with per-component
         multipliers.  Defaults to ``RewardWeights()`` (standard shaped
         reward with the legacy coefficients).
+    red_policy:
+        Optional policy object for driving the Red battalion.  Must expose
+        a ``predict(obs, deterministic=False) -> (action, state)`` method
+        (satisfied by any SB3 model or policy).  When supplied, the scripted
+        opponent is bypassed.  Use :meth:`set_red_policy` to swap the policy
+        at runtime (e.g. from a training callback).
     render_mode:
         Render mode.  Must be ``None`` (the only currently supported value).
         Passing any other string raises ``ValueError``.
@@ -174,6 +205,7 @@ class BattalionEnv(gym.Env):
         hill_speed_factor: float = 0.5,
         curriculum_level: int = 5,
         reward_weights: Optional[RewardWeights] = None,
+        red_policy: Optional[RedPolicy] = None,
         render_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
@@ -220,6 +252,8 @@ class BattalionEnv(gym.Env):
             terrain if terrain is not None else TerrainMap.flat(map_width, map_height)
         )
         self.render_mode = render_mode
+        # Policy-based Red opponent (overrides scripted behaviour when set).
+        self.red_policy: Optional[RedPolicy] = red_policy
 
         # ------------------------------------------------------------------
         # Observation space — 12-dimensional, all normalised
@@ -340,15 +374,23 @@ class BattalionEnv(gym.Env):
         self.blue.x = float(np.clip(self.blue.x, 0.0, self.map_width))
         self.blue.y = float(np.clip(self.blue.y, 0.0, self.map_height))
 
-        # --- Scripted Red opponent ---
-        self._step_red()
+        # --- Red opponent (scripted or policy-based) ---
+        if self.red_policy is not None:
+            red_obs = self._get_red_obs()
+            red_action, _ = self.red_policy.predict(red_obs, deterministic=False)
+            red_action = np.asarray(red_action, dtype=np.float32)
+            red_fire_cmd = float(np.clip(red_action[2], 0.0, 1.0))
+            self._step_red_policy(red_action)
+        else:
+            red_fire_cmd = self._red_fire_intensity()
+            self._step_red()
 
         # --- Combat resolution (simultaneous) ---
         self.blue_state.reset_step_accumulators()
         self.red_state.reset_step_accumulators()
 
         raw_b2r = compute_fire_damage(self.blue, self.red, intensity=fire_cmd)
-        raw_r2b = compute_fire_damage(self.red, self.blue, intensity=self._red_fire_intensity())
+        raw_r2b = compute_fire_damage(self.red, self.blue, intensity=red_fire_cmd)
 
         # Apply terrain cover at each target's position
         raw_b2r = self.terrain.apply_cover_modifier(self.red.x, self.red.y, raw_b2r)
@@ -409,6 +451,17 @@ class BattalionEnv(gym.Env):
     def close(self) -> None:
         """Clean up resources (no-op)."""
 
+    def set_red_policy(self, policy: Optional[RedPolicy]) -> None:
+        """Swap the Red opponent policy at runtime.
+
+        Parameters
+        ----------
+        policy:
+            New policy to use for Red, or ``None`` to revert to the
+            scripted opponent.
+        """
+        self.red_policy = policy
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -442,6 +495,63 @@ class BattalionEnv(gym.Env):
         )
         # Clip to declared bounds to guard against floating-point drift
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
+
+    def _get_red_obs(self) -> np.ndarray:
+        """Build the 12-dimensional observation from **Red's** perspective.
+
+        The observation is symmetric to Blue's: Red sees itself where Blue
+        normally sits and Blue where Red normally sits.  This means a frozen
+        Red policy trained as Blue sees the same observation schema.
+        """
+        r = self.red
+        b = self.blue
+
+        dx = b.x - r.x
+        dy = b.y - r.y
+        dist = math.sqrt(dx ** 2 + dy ** 2)
+        bearing = math.atan2(dy, dx)
+
+        obs = np.array(
+            [
+                r.x / self.map_width,                    # [0] red x norm
+                r.y / self.map_height,                   # [1] red y norm
+                math.cos(r.theta),                       # [2] cos(red θ)
+                math.sin(r.theta),                       # [3] sin(red θ)
+                r.strength,                              # [4] red strength
+                r.morale,                                # [5] red morale
+                min(dist / self.map_diagonal, 1.0),      # [6] dist norm
+                math.cos(bearing),                       # [7] cos(bearing to blue)
+                math.sin(bearing),                       # [8] sin(bearing to blue)
+                b.strength,                              # [9] blue strength
+                b.morale,                                # [10] blue morale
+                min(self._step_count / self.max_steps, 1.0),  # [11] step norm
+            ],
+            dtype=np.float32,
+        )
+        return np.clip(obs, self.observation_space.low, self.observation_space.high)
+
+    def _step_red_policy(self, action: np.ndarray) -> None:
+        """Apply a policy action to the Red battalion (movement only).
+
+        Movement is applied using the same physics as Blue; fire intensity
+        is extracted from ``action[2]`` and used in :meth:`step` directly.
+
+        Parameters
+        ----------
+        action:
+            Array of shape ``(3,)``: ``[move, rotate, fire]``.
+        """
+        r = self.red
+        move_cmd   = float(np.clip(action[0], -1.0, 1.0))
+        rotate_cmd = float(np.clip(action[1], -1.0, 1.0))
+
+        r.rotate(rotate_cmd * r.max_turn_rate)
+        speed_mod = self.terrain.get_speed_modifier(r.x, r.y, self.hill_speed_factor)
+        vx = math.cos(r.theta) * move_cmd * r.max_speed * speed_mod
+        vy = math.sin(r.theta) * move_cmd * r.max_speed * speed_mod
+        r.move(vx, vy, dt=DT)
+        r.x = float(np.clip(r.x, 0.0, self.map_width))
+        r.y = float(np.clip(r.y, 0.0, self.map_height))
 
     def _step_red(self) -> None:
         """Scripted Red opponent: behaviour depends on *curriculum_level*.

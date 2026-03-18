@@ -48,6 +48,7 @@ import wandb
 from envs.battalion_env import BattalionEnv
 from envs.reward import RewardWeights
 from models.mlp_policy import BattalionMlpPolicy
+from training.self_play import OpponentPool, SelfPlayCallback, WinRateVsPoolCallback
 
 log = logging.getLogger(__name__)
 
@@ -304,6 +305,42 @@ def main(cfg: DictConfig) -> None:
     reward_breakdown_cb = RewardBreakdownCallback(log_freq=cfg.wandb.log_freq)
 
     # ------------------------------------------------------------------
+    # Self-play callbacks (optional — enabled via cfg.self_play.enabled)
+    # ------------------------------------------------------------------
+    extra_callbacks: list = []
+    if OmegaConf.select(cfg, "self_play.enabled", default=False):
+        pool_dir = _PROJECT_ROOT / cfg.self_play.pool_dir
+        pool = OpponentPool(
+            pool_dir=pool_dir,
+            max_size=int(cfg.self_play.pool_max_size),
+        )
+        sp_snapshot_freq = int(cfg.self_play.snapshot_freq)
+        sp_eval_freq = int(cfg.self_play.eval_freq)
+        sp_n_eval = int(cfg.self_play.n_eval_episodes)
+        self_play_cb = SelfPlayCallback(
+            pool=pool,
+            snapshot_freq=sp_snapshot_freq,
+            vec_env=vec_env,
+            verbose=1,
+        )
+        win_rate_cb = WinRateVsPoolCallback(
+            pool=pool,
+            eval_freq=sp_eval_freq,
+            n_eval_episodes=sp_n_eval,
+            deterministic=True,
+            use_latest=bool(cfg.self_play.use_latest_for_eval),
+            verbose=1,
+        )
+        extra_callbacks.extend([self_play_cb, win_rate_cb])
+        log.info(
+            "Self-play enabled: pool_dir=%s, pool_max_size=%d, snapshot_freq=%d, eval_freq=%d",
+            pool_dir,
+            pool.max_size,
+            sp_snapshot_freq,
+            sp_eval_freq,
+        )
+
+    # ------------------------------------------------------------------
     # PPO model
     # ------------------------------------------------------------------
     model = PPO(
@@ -329,7 +366,7 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     model.learn(
         total_timesteps=cfg.training.total_timesteps,
-        callback=CallbackList([checkpoint_cb, eval_cb, wandb_cb, reward_breakdown_cb]),
+        callback=CallbackList([checkpoint_cb, eval_cb, wandb_cb, reward_breakdown_cb, *extra_callbacks]),
         progress_bar=False,
         reset_num_timesteps=True,
     )

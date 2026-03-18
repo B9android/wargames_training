@@ -52,6 +52,16 @@ eval:
   checkpoint_freq: 100000            # save checkpoint every N timesteps
   checkpoint_dir: "checkpoints/"
 
+# ── Self-play (disabled by default; override in configs/self_play.yaml) ───
+self_play:
+  enabled: false
+  pool_dir: "checkpoints/pool"       # Directory for snapshot .zip files
+  pool_max_size: 10                  # Keep the N most recent policy snapshots
+  snapshot_freq: 50000               # Save snapshot every N environment steps
+  eval_freq: 50000                   # Evaluate win-rate vs pool every N environment steps
+  n_eval_episodes: 20                # Episodes per win-rate evaluation
+  use_latest_for_eval: false         # false = sample uniformly; true = always use latest
+
 # ── Logging ───────────────────────────────────────────────────────────────
 logging:
   level: "INFO"
