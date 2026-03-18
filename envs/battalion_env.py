@@ -39,6 +39,7 @@ from envs.sim.combat import (
     compute_fire_damage,
     morale_check,
 )
+from envs.sim.engine import DESTROYED_THRESHOLD
 from envs.sim.terrain import TerrainMap
 
 # ---------------------------------------------------------------------------
@@ -51,8 +52,8 @@ MAP_WIDTH: float = 1_000.0
 MAP_HEIGHT: float = 1_000.0
 #: Hard episode-length cap (steps).
 MAX_STEPS: int = 500
-#: Strength at or below this value is treated as "unit effectively destroyed".
-DESTROYED_THRESHOLD: float = 0.01
+#: Re-exported for convenience; authoritative value lives in envs.sim.engine.
+__all__ = ["BattalionEnv", "DESTROYED_THRESHOLD", "MAP_WIDTH", "MAP_HEIGHT", "MAX_STEPS"]
 #: Simulation time step used for movement (seconds).
 DT: float = 0.1
 
@@ -115,7 +116,8 @@ class BattalionEnv(gym.Env):
         Optional :class:`~envs.sim.terrain.TerrainMap`.  Defaults to a
         flat open plain.
     render_mode:
-        Render mode.  Currently only ``None`` is supported.
+        Render mode.  Must be ``None`` (the only currently supported value).
+        Passing any other string raises ``ValueError``.
     """
 
     metadata: dict = {"render_modes": []}
@@ -129,6 +131,21 @@ class BattalionEnv(gym.Env):
         render_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
+
+        # ------------------------------------------------------------------
+        # Argument validation
+        # ------------------------------------------------------------------
+        if float(map_width) <= 0:
+            raise ValueError(f"map_width must be positive, got {map_width}")
+        if float(map_height) <= 0:
+            raise ValueError(f"map_height must be positive, got {map_height}")
+        if int(max_steps) < 1:
+            raise ValueError(f"max_steps must be >= 1, got {max_steps}")
+        if render_mode is not None and render_mode not in self.metadata["render_modes"]:
+            raise ValueError(
+                f"Unsupported render_mode {render_mode!r}. "
+                f"Supported modes: {self.metadata['render_modes']}"
+            )
 
         self.map_width = float(map_width)
         self.map_height = float(map_height)

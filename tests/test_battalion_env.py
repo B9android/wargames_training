@@ -33,6 +33,51 @@ def make_env(**kwargs) -> BattalionEnv:
 
 
 # ---------------------------------------------------------------------------
+# __init__ validation
+# ---------------------------------------------------------------------------
+
+
+class TestInit(unittest.TestCase):
+    """Verify argument validation in BattalionEnv.__init__."""
+
+    def test_zero_map_width_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(map_width=0)
+
+    def test_negative_map_width_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(map_width=-100)
+
+    def test_zero_map_height_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(map_height=0)
+
+    def test_negative_map_height_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(map_height=-1)
+
+    def test_zero_max_steps_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(max_steps=0)
+
+    def test_negative_max_steps_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(max_steps=-5)
+
+    def test_unsupported_render_mode_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            BattalionEnv(render_mode="human")
+
+    def test_none_render_mode_accepted(self) -> None:
+        env = BattalionEnv(render_mode=None)
+        env.close()
+
+    def test_valid_positive_dims_accepted(self) -> None:
+        env = BattalionEnv(map_width=500.0, map_height=500.0, max_steps=100)
+        env.close()
+
+
+# ---------------------------------------------------------------------------
 # Observation & action spaces
 # ---------------------------------------------------------------------------
 
