@@ -399,6 +399,91 @@ def evaluate(
 
 
 # ---------------------------------------------------------------------------
+# Rendered episode helper
+# ---------------------------------------------------------------------------
+
+
+def _run_rendered_episode(
+    model: Any,
+    env: BattalionEnv,
+    step: int = 0,
+    deterministic: bool = True,
+    recorder: Optional[Any] = None,
+) -> int:
+    """Run a single episode with a live pygame renderer.
+
+    Parameters
+    ----------
+    model:
+        Loaded SB3 model (or any object with ``predict``).
+    env:
+        A :class:`BattalionEnv` instance — **must** have
+        ``render_mode="human"`` or will be rendered via the returned
+        renderer directly.
+    step:
+        Starting step counter (usually 0).
+    deterministic:
+        Whether the model acts deterministically.
+    recorder:
+        Optional :class:`~envs.rendering.recorder.EpisodeRecorder`.  When
+        provided, every step is appended to the recorder.
+
+    Returns
+    -------
+    int
+        Episode outcome: ``1`` (Blue win), ``-1`` (Blue loss), ``0`` (draw).
+    """
+    from envs.rendering.renderer import BattalionRenderer  # noqa: PLC0415
+
+    renderer = BattalionRenderer(env.map_width, env.map_height)
+    try:
+        obs, _ = env.reset(seed=step)
+        renderer.set_terrain(env.terrain)
+        current_step = 0
+        done = False
+        info: dict = {}
+
+        if recorder is not None:
+            recorder.record_step(current_step, env.blue, env.red)
+
+        while not done:
+            alive = renderer.render_frame(
+                env.blue,  # type: ignore[arg-type]
+                env.red,   # type: ignore[arg-type]
+                step=current_step,
+                info=info,
+            )
+            if not alive:
+                break
+            action, _ = model.predict(obs, deterministic=deterministic)
+            obs, reward, terminated, truncated, info = env.step(action)
+            current_step += 1
+            done = terminated or truncated
+
+            if recorder is not None:
+                recorder.record_step(
+                    current_step,
+                    env.blue,  # type: ignore[arg-type]
+                    env.red,   # type: ignore[arg-type]
+                    reward=float(reward),
+                    info=info,
+                )
+
+        # Show the terminal frame
+        if env.blue is not None and env.red is not None:
+            renderer.render_frame(
+                env.blue,
+                env.red,
+                step=current_step,
+                info=info,
+            )
+    finally:
+        renderer.close()
+
+    return _classify_outcome(info, env)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -469,18 +554,101 @@ def main(argv: Optional[list[str]] = None) -> None:
             "Defaults to the checkpoint path when not specified."
         ),
     )
+    parser.add_argument(
+        "--render",
+        action="store_true",
+        default=False,
+        help=(
+            "Open a pygame window and display each episode.  "
+            "Requires pygame to be installed and a display to be available."
+        ),
+    )
+    parser.add_argument(
+        "--record",
+        metavar="DIR",
+        default=None,
+        help=(
+            "Save each episode trajectory as a JSON file under DIR "
+            "(e.g. 'replays').  Files are named '<checkpoint>_ep<N>.json'."
+        ),
+    )
 
     args = parser.parse_args(argv)
     if args.n_episodes < 1:
         parser.error(f"--n-episodes must be >= 1, got {args.n_episodes}.")
 
-    result = evaluate_detailed(
-        checkpoint_path=args.checkpoint,
-        n_episodes=args.n_episodes,
-        deterministic=args.deterministic,
-        seed=args.seed,
-        opponent=args.opponent,
-    )
+    # ------------------------------------------------------------------
+    # Rendered / recorded path
+    # ------------------------------------------------------------------
+    if args.render or args.record:
+        env = _make_env(args.opponent, seed=args.seed)
+        model = PPO.load(args.checkpoint, env=env)
+        wins = draws = losses = 0
+        record_dir = Path(args.record) if args.record else None
+        try:
+            for ep in range(args.n_episodes):
+                recorder = None
+                if record_dir is not None:
+                    from envs.rendering.recorder import EpisodeRecorder  # noqa: PLC0415
+                    recorder = EpisodeRecorder()
+
+                if args.render:
+                    outcome = _run_rendered_episode(
+                        model,
+                        env,
+                        step=ep,
+                        deterministic=args.deterministic,
+                        recorder=recorder,
+                    )
+                else:
+                    # Record-only (no window)
+                    obs, _ = env.reset(seed=ep)
+                    done = False
+                    step_info: dict = {}
+                    current_step = 0
+                    if recorder is not None:
+                        recorder.record_step(current_step, env.blue, env.red)  # type: ignore[arg-type]
+                    while not done:
+                        action, _ = model.predict(obs, deterministic=args.deterministic)
+                        obs, reward, terminated, truncated, step_info = env.step(action)
+                        current_step += 1
+                        done = terminated or truncated
+                        if recorder is not None:
+                            recorder.record_step(current_step, env.blue, env.red, float(reward), step_info)  # type: ignore[arg-type]
+                    outcome = _classify_outcome(step_info, env)
+
+                if outcome == 1:
+                    wins += 1
+                elif outcome == -1:
+                    losses += 1
+                else:
+                    draws += 1
+
+                if recorder is not None and record_dir is not None:
+                    ckpt_stem = Path(args.checkpoint).stem
+                    save_path = record_dir / f"{ckpt_stem}_ep{ep:04d}.json"
+                    recorder.save(save_path)
+                    print(f"Recorded:  {save_path}")
+        finally:
+            env.close()
+
+        result = EvaluationResult(
+            wins=wins,
+            draws=draws,
+            losses=losses,
+            n_episodes=args.n_episodes,
+            win_rate=wins / args.n_episodes,
+            draw_rate=draws / args.n_episodes,
+            loss_rate=losses / args.n_episodes,
+        )
+    else:
+        result = evaluate_detailed(
+            checkpoint_path=args.checkpoint,
+            n_episodes=args.n_episodes,
+            deterministic=args.deterministic,
+            seed=args.seed,
+            opponent=args.opponent,
+        )
 
     # Instantiate a registry for Elo computation.  When --elo-registry is
     # given we load from (and later persist to) that file; otherwise we use an

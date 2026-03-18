@@ -189,11 +189,12 @@ class BattalionEnv(gym.Env):
         opponent is bypassed.  Use :meth:`set_red_policy` to swap the policy
         at runtime (e.g. from a training callback).
     render_mode:
-        Render mode.  Must be ``None`` (the only currently supported value).
-        Passing any other string raises ``ValueError``.
+        Render mode.  ``None`` disables rendering.  ``"human"`` opens a
+        pygame window and renders the simulation in real time; each call to
+        :meth:`render` displays the current frame.
     """
 
-    metadata: dict = {"render_modes": []}
+    metadata: dict = {"render_modes": ["human"]}
 
     def __init__(
         self,
@@ -254,6 +255,9 @@ class BattalionEnv(gym.Env):
         self.render_mode = render_mode
         # Policy-based Red opponent (overrides scripted behaviour when set).
         self.red_policy: Optional[RedPolicy] = red_policy
+
+        # Renderer — created lazily when render_mode="human".
+        self._renderer: Optional[Any] = None
 
         # ------------------------------------------------------------------
         # Observation space — 12-dimensional, all normalised
@@ -446,10 +450,34 @@ class BattalionEnv(gym.Env):
         return self._get_obs(), reward_comps.total, terminated, truncated, info
 
     def render(self) -> None:
-        """Render stub — no-op for ``render_mode=None``."""
+        """Render the current environment state.
+
+        When ``render_mode="human"`` a pygame window is opened on the first
+        call and kept alive for subsequent calls.  The window is closed by
+        :meth:`close`.  When ``render_mode`` is ``None`` this is a no-op.
+        """
+        if self.render_mode != "human":
+            return
+        if self.blue is None or self.red is None:
+            return  # nothing to render before the first reset()
+
+        if self._renderer is None:
+            from envs.rendering.renderer import BattalionRenderer  # noqa: PLC0415
+            self._renderer = BattalionRenderer(self.map_width, self.map_height)
+            self._renderer.set_terrain(self.terrain)
+
+        self._renderer.render_frame(
+            self.blue,
+            self.red,
+            terrain=self.terrain,
+            step=self._step_count,
+        )
 
     def close(self) -> None:
-        """Clean up resources (no-op)."""
+        """Clean up resources, including the pygame window if open."""
+        if self._renderer is not None:
+            self._renderer.close()
+            self._renderer = None
 
     def set_red_policy(self, policy: Optional[RedPolicy]) -> None:
         """Swap the Red opponent policy at runtime.

@@ -67,7 +67,7 @@ class TestInit(unittest.TestCase):
 
     def test_unsupported_render_mode_raises(self) -> None:
         with self.assertRaises(ValueError):
-            BattalionEnv(render_mode="human")
+            BattalionEnv(render_mode="rgb_array")
 
     def test_none_render_mode_accepted(self) -> None:
         env = BattalionEnv(render_mode=None)
