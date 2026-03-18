@@ -197,6 +197,12 @@ class SimEngine:
         blue_routing = morale_check(self.blue_state, rng=self.rng)
         red_routing = morale_check(self.red_state, rng=self.rng)
 
+        # Keep Battalion.morale and Battalion.routed in sync with CombatState
+        self.blue.morale = self.blue_state.morale
+        self.red.morale = self.red_state.morale
+        self.blue.routed = self.blue_state.is_routing
+        self.red.routed = self.red_state.is_routing
+
         self.step_count += 1
 
         return {
