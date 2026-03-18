@@ -125,7 +125,6 @@ def run_agent(agent_name: str, fn: AgentFn) -> None:
     else:
         ok = result is not None and result.ok
         end_run(success=ok, summary={
-            "agent": agent_name,
             "ok": ok,
             "successes": len(result.successes) if result else 0,
             "failures": len(result.failures) if result else 0,

@@ -43,6 +43,10 @@ def end_run(*, success: bool, summary: dict[str, Any] | str | None = None) -> No
         else:
             event_payload[key] = value
 
+    # Defensive scrub in case a caller passes conflicting reserved keys.
+    event_payload.pop("agent", None)
+    event_payload.pop("run_id", None)
+
     log_event(
         "agent_run_complete",
         agent=_agent_name,
