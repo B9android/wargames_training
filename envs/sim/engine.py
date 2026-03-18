@@ -187,9 +187,11 @@ class SimEngine:
         actual_blue_to_red = apply_casualties(self.red, self.red_state, raw_blue_to_red)
         actual_red_to_blue = apply_casualties(self.blue, self.blue_state, raw_red_to_blue)
 
-        # Track shots fired
-        self.blue_state.shots_fired += 1
-        self.red_state.shots_fired += 1
+        # Track shots fired only when a volley actually occurs
+        if raw_blue_to_red > 0.0:
+            self.blue_state.shots_fired += 1
+        if raw_red_to_blue > 0.0:
+            self.red_state.shots_fired += 1
 
         # 5. Morale checks
         blue_routing = morale_check(self.blue_state, rng=self.rng)
