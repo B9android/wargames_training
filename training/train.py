@@ -75,7 +75,7 @@ class WandbCallback(BaseCallback):
         self.log_freq = log_freq
 
     def _on_step(self) -> bool:
-        if self.n_calls % self.log_freq == 0 and len(self.model.ep_info_buffer) > 0:
+        if self.num_timesteps % self.log_freq == 0 and len(self.model.ep_info_buffer) > 0:
             ep_infos = list(self.model.ep_info_buffer)
             mean_reward = float(np.mean([ep["r"] for ep in ep_infos]))
             mean_length = float(np.mean([ep["l"] for ep in ep_infos]))
