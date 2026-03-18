@@ -189,7 +189,7 @@ def train(cfg: Dict, use_wandb: bool = True) -> Path:
                 },
                 settings=wandb.Settings(start_method="thread"),
             )
-            _RUN_ID_setter(wandb_run.id)
+            _set_run_id(wandb_run.id)
             print(f"[train] W&B run: {wandb_run.get_url()}")
         except Exception as exc:  # W&B not configured / no network
             print(f"[train] W&B init skipped: {exc}")
@@ -297,7 +297,7 @@ def train(cfg: Dict, use_wandb: bool = True) -> Path:
     return final_path
 
 
-def _RUN_ID_setter(new_id: str) -> None:
+def _set_run_id(new_id: str) -> None:
     global _RUN_ID
     _RUN_ID = new_id
 
