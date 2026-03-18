@@ -143,6 +143,8 @@ def main(cfg: DictConfig) -> None:
         map_width=cfg.env.map_width,
         map_height=cfg.env.map_height,
         max_steps=cfg.env.max_steps,
+        randomize_terrain=cfg.env.randomize_terrain,
+        hill_speed_factor=cfg.env.hill_speed_factor,
     )
 
     # Basic config validation to avoid invalid vectorized envs or callback frequencies.

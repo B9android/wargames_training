@@ -170,8 +170,8 @@ class BattalionEnv(gym.Env):
         self.hill_speed_factor = float(hill_speed_factor)
         # When an explicit terrain is supplied, terrain randomisation is
         # disabled so the caller's fixed map is used every episode.
-        self._fixed_terrain: Optional[TerrainMap] = terrain
         self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
+        self._supplied_terrain: Optional[TerrainMap] = terrain
         self.terrain: TerrainMap = (
             terrain if terrain is not None else TerrainMap.flat(map_width, map_height)
         )
@@ -239,6 +239,8 @@ class BattalionEnv(gym.Env):
                 width=self.map_width,
                 height=self.map_height,
             )
+        elif self._supplied_terrain is not None:
+            self.terrain = self._supplied_terrain
 
         # Blue: western quarter, roughly eastward
         bx = float(rng.uniform(0.1 * self.map_width, 0.4 * self.map_width))

@@ -236,6 +236,15 @@ class TestGetSpeedModifier(unittest.TestCase):
                 self.assertGreaterEqual(mod, 0.5 - 1e-6)
                 self.assertLessEqual(mod, 1.0 + 1e-6)
 
+    def test_invalid_hill_speed_factor_raises(self) -> None:
+        tm = TerrainMap.flat(100.0, 100.0)
+        with self.assertRaises(ValueError):
+            tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=0.0)
+        with self.assertRaises(ValueError):
+            tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=-0.1)
+        with self.assertRaises(ValueError):
+            tm.get_speed_modifier(50.0, 50.0, hill_speed_factor=1.1)
+
 
 # ---------------------------------------------------------------------------
 # TerrainMap.generate_random
@@ -298,6 +307,28 @@ class TestGenerateRandom(unittest.TestCase):
     def test_cover_has_nonzero_values_with_forests(self) -> None:
         tm = TerrainMap.generate_random(self._rng(4), 1000.0, 1000.0, num_forests=3)
         self.assertGreater(float(tm.cover.max()), 0.0)
+
+    def test_invalid_rows_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, rows=0)
+
+    def test_invalid_cols_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, cols=0)
+
+    def test_negative_num_hills_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, num_hills=-1)
+
+    def test_negative_num_forests_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, num_forests=-1)
+
+    def test_invalid_forest_cover_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, forest_cover=-0.1)
+        with self.assertRaises(ValueError):
+            TerrainMap.generate_random(self._rng(), 1000.0, 1000.0, forest_cover=1.1)
 
 
 if __name__ == "__main__":

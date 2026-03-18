@@ -490,16 +490,22 @@ class TestTerrainRandomization(unittest.TestCase):
         env.close()
 
     def test_terrain_changes_each_episode_without_seed(self) -> None:
-        """Consecutive resets without a fixed seed generate different terrain."""
+        """Consecutive resets without a fixed seed generate different terrain.
+
+        Two independent resets with no seed override both derive from the
+        internal counter-based RNG state, which advances between calls.
+        A collision of the full 20×20 elevation grid is astronomically
+        unlikely, so we treat differing arrays as the expected outcome.
+        """
         env = BattalionEnv()
         env.reset()
         elev_a = env.terrain.elevation.copy()
         env.reset()
         elev_b = env.terrain.elevation.copy()
-        # Not guaranteed to differ on every run, but overwhelmingly likely
-        # with a 20×20 grid; if they are equal the test is a no-op.
-        # We only assert that the environment doesn't crash.
-        self.assertIsNotNone(elev_b)
+        self.assertFalse(
+            np.array_equal(elev_a, elev_b),
+            "Consecutive resets without a seed produced identical terrain.",
+        )
         env.close()
 
     def test_invalid_hill_speed_factor_raises(self) -> None:
