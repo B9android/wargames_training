@@ -22,6 +22,7 @@ from training.self_play import (
     SelfPlayCallback,
     WinRateVsPoolCallback,
     _iter_envs,
+    _max_version_in_pool,
     evaluate_vs_pool,
 )
 
@@ -275,6 +276,28 @@ class TestOpponentPool(unittest.TestCase):
             self.assertEqual(pool2.size, 3)
             env.close()
 
+    def test_reload_deletes_excess_files_from_disk(self) -> None:
+        """When pool_dir has more files than max_size, excess are deleted on reload."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = _make_env()
+            # First pool writes 5 snapshots.
+            pool1 = OpponentPool(tmpdir, max_size=5)
+            paths = []
+            for v in range(1, 6):
+                model = _make_dummy_model(env)
+                paths.append(pool1.add(model, version=v))
+
+            # Second pool with smaller max_size=2 should delete excess files.
+            pool2 = OpponentPool(tmpdir, max_size=2)
+            self.assertEqual(pool2.size, 2)
+            # Oldest 3 should be deleted from disk.
+            for p in paths[:3]:
+                self.assertFalse(p.exists(), f"{p} should have been deleted")
+            # Newest 2 should still exist.
+            for p in paths[3:]:
+                self.assertTrue(p.exists(), f"{p} should still exist")
+            env.close()
+
     def test_snapshot_paths_property(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             env = _make_env()
@@ -331,6 +354,38 @@ class TestEvaluateVsPool(unittest.TestCase):
 class TestSelfPlayCallback(unittest.TestCase):
     """Light-weight tests for SelfPlayCallback."""
 
+    def test_invalid_snapshot_freq_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pool = OpponentPool(tmpdir, max_size=5)
+            with self.assertRaises(ValueError):
+                SelfPlayCallback(pool=pool, snapshot_freq=0)
+
+    def test_negative_snapshot_freq_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pool = OpponentPool(tmpdir, max_size=5)
+            with self.assertRaises(ValueError):
+                SelfPlayCallback(pool=pool, snapshot_freq=-1)
+
+    def test_version_initialized_from_empty_pool(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pool = OpponentPool(tmpdir, max_size=5)
+            cb = SelfPlayCallback(pool=pool, snapshot_freq=100)
+            self.assertEqual(cb._version, 0)
+
+    def test_version_initialized_from_existing_pool(self) -> None:
+        """_version should start from the max existing snapshot version on restart."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = _make_env()
+            pool1 = OpponentPool(tmpdir, max_size=5)
+            for v in range(1, 4):
+                model = _make_dummy_model(env)
+                pool1.add(model, version=v)
+
+            pool2 = OpponentPool(tmpdir, max_size=5)
+            cb = SelfPlayCallback(pool=pool2, snapshot_freq=100)
+            self.assertEqual(cb._version, 3)
+            env.close()
+
     def test_snapshot_not_taken_at_step_zero(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             pool = OpponentPool(tmpdir, max_size=5)
@@ -364,6 +419,24 @@ class TestSelfPlayCallback(unittest.TestCase):
 
 class TestWinRateVsPoolCallback(unittest.TestCase):
     """Light-weight tests for WinRateVsPoolCallback."""
+
+    def test_invalid_eval_freq_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pool = OpponentPool(tmpdir, max_size=5)
+            with self.assertRaises(ValueError):
+                WinRateVsPoolCallback(pool=pool, eval_freq=0)
+
+    def test_negative_eval_freq_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pool = OpponentPool(tmpdir, max_size=5)
+            with self.assertRaises(ValueError):
+                WinRateVsPoolCallback(pool=pool, eval_freq=-5)
+
+    def test_invalid_n_eval_episodes_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pool = OpponentPool(tmpdir, max_size=5)
+            with self.assertRaises(ValueError):
+                WinRateVsPoolCallback(pool=pool, n_eval_episodes=0)
 
     def test_no_eval_when_pool_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -430,6 +503,28 @@ class TestIterEnvs(unittest.TestCase):
         for e in envs:
             self.assertIsInstance(e, BattalionEnv)
         vec_env.close()
+
+
+# ---------------------------------------------------------------------------
+# _max_version_in_pool helper
+# ---------------------------------------------------------------------------
+
+
+class TestMaxVersionInPool(unittest.TestCase):
+    def test_empty_pool_returns_zero(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pool = OpponentPool(tmpdir, max_size=5)
+            self.assertEqual(_max_version_in_pool(pool), 0)
+
+    def test_returns_max_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = _make_env()
+            pool = OpponentPool(tmpdir, max_size=5)
+            for v in [1, 5, 3]:
+                model = _make_dummy_model(env)
+                pool.add(model, version=v)
+            self.assertEqual(_max_version_in_pool(pool), 5)
+            env.close()
 
 
 # ---------------------------------------------------------------------------

@@ -90,6 +90,8 @@ class OpponentPool:
         self.max_size = int(max_size)
         # Ordered list of snapshot file paths (oldest first).
         self._snapshots: List[Path] = []
+        # Shared RNG instance used for uniform sampling when no external RNG is given.
+        self._rng: np.random.Generator = np.random.default_rng()
         # Restore existing snapshots from disk if the directory exists.
         self._reload_from_disk()
 
@@ -141,7 +143,8 @@ class OpponentPool:
         ----------
         rng:
             Optional NumPy random generator for reproducible sampling.
-            When ``None``, the global ``numpy.random`` default is used.
+            When ``None``, the pool's internal shared RNG instance is used
+            (seeded once at pool construction time).
 
         Returns
         -------
@@ -150,7 +153,7 @@ class OpponentPool:
         """
         if not self._snapshots:
             return None
-        _rng = rng if rng is not None else np.random.default_rng()
+        _rng = rng if rng is not None else self._rng
         idx = int(_rng.integers(0, len(self._snapshots)))
         path = self._snapshots[idx]
         try:
@@ -193,13 +196,24 @@ class OpponentPool:
     # ------------------------------------------------------------------
 
     def _reload_from_disk(self) -> None:
-        """Populate *_snapshots* from existing files in *pool_dir*."""
+        """Populate *_snapshots* from existing files in *pool_dir*.
+
+        Files beyond the pool's *max_size* capacity (the oldest ones) are
+        deleted from disk to enforce the pool invariant across restarts.
+        """
         if not self.pool_dir.exists():
             return
         existing = sorted(self.pool_dir.glob("snapshot_v*.zip"))
-        # Keep only the latest *max_size* files so on-disk state is
-        # consistent with the pool invariant.
-        self._snapshots = existing[-self.max_size :]
+        # Delete excess (oldest) snapshots so on-disk state matches the pool
+        # invariant of keeping at most *max_size* files.
+        excess = existing[: max(0, len(existing) - self.max_size)]  # guard for len <= max_size
+        for path in excess:
+            try:
+                path.unlink(missing_ok=True)
+                log.debug("_reload_from_disk: deleted excess snapshot %s", path)
+            except OSError as exc:
+                log.warning("_reload_from_disk: failed to delete %s: %s", path, exc)
+        self._snapshots = existing[max(0, len(existing) - self.max_size) :]
         if self._snapshots:
             log.info(
                 "Restored %d snapshot(s) from %s", len(self._snapshots), self.pool_dir
@@ -242,10 +256,14 @@ class SelfPlayCallback(BaseCallback):
         verbose: int = 0,
     ) -> None:
         super().__init__(verbose)
+        if int(snapshot_freq) < 1:
+            raise ValueError(f"snapshot_freq must be >= 1, got {snapshot_freq}")
         self.pool = pool
-        self.snapshot_freq = snapshot_freq
+        self.snapshot_freq = int(snapshot_freq)
         self._vec_env = vec_env
-        self._version: int = 0
+        # Initialize version counter from any snapshots already in the pool so
+        # that a training restart doesn't overwrite existing snapshot files.
+        self._version: int = _max_version_in_pool(pool)
 
     def _on_step(self) -> bool:
         if self.num_timesteps % self.snapshot_freq == 0 and self.num_timesteps > 0:
@@ -319,9 +337,13 @@ class WinRateVsPoolCallback(BaseCallback):
         verbose: int = 0,
     ) -> None:
         super().__init__(verbose)
+        if int(eval_freq) < 1:
+            raise ValueError(f"eval_freq must be >= 1, got {eval_freq}")
+        if int(n_eval_episodes) < 1:
+            raise ValueError(f"n_eval_episodes must be >= 1, got {n_eval_episodes}")
         self.pool = pool
-        self.eval_freq = eval_freq
-        self.n_eval_episodes = n_eval_episodes
+        self.eval_freq = int(eval_freq)
+        self.n_eval_episodes = int(n_eval_episodes)
         self.deterministic = deterministic
         self.use_latest = use_latest
 
@@ -470,3 +492,20 @@ def _iter_envs(vec_env: VecEnv):
             inner_env = inner_env.env
         if isinstance(inner_env, BattalionEnv):
             yield inner_env
+
+
+def _max_version_in_pool(pool: OpponentPool) -> int:
+    """Return the highest version number present in *pool*'s snapshot files.
+
+    Snapshot file names follow the pattern ``snapshot_v{version:06d}.zip``.
+    Returns ``0`` if the pool is empty or no version can be parsed.
+    """
+    max_ver = 0
+    for path in pool.snapshot_paths:
+        try:
+            ver = int(path.stem.split("_v")[-1])
+            if ver > max_ver:
+                max_ver = ver
+        except (ValueError, IndexError):
+            pass
+    return max_ver
