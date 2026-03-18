@@ -105,12 +105,14 @@ pytest tests/ -q          # full suite, must be green
 - Add at least one test per new public function.
 - Tests live in `tests/` and follow existing naming (`test_<module>.py`).
 - Use `unittest.TestCase` or plain pytest functions — both are fine (see existing tests).
-- For environment changes, also run:
+- For environment changes, also run a Gymnasium environment check once the
+  battalion environment is implemented:
 
 ```python
-from envs.battalion_env import BattalionEnv
-from gymnasium.utils.env_checker import check_env
-check_env(BattalionEnv())
+# Once `BattalionEnv` is implemented in `envs/battalion_env.py`, you can run:
+# from envs.battalion_env import BattalionEnv
+# from gymnasium.utils.env_checker import check_env
+# check_env(BattalionEnv())
 ```
 
 ---
