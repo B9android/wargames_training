@@ -47,14 +47,15 @@ def end_run(*, success: bool, summary: dict[str, Any] | str | None = None) -> No
     event_payload.pop("agent", None)
     event_payload.pop("run_id", None)
 
-    log_event(
-        "agent_run_complete",
-        agent=_agent_name,
-        run_id=_run_id,
-        success=success,
-        elapsed_seconds=round(elapsed, 2),
-        **event_payload,
-    )
+    complete_payload: dict[str, Any] = {
+        "success": success,
+        "elapsed_seconds": round(elapsed, 2),
+    }
+    complete_payload.update(event_payload)
+    complete_payload["agent"] = _agent_name
+    complete_payload["run_id"] = _run_id
+
+    log_event("agent_run_complete", **complete_payload)
 
 
 def log_event(event: str, **data: object) -> None:
