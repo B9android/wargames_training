@@ -455,7 +455,7 @@ def main(cfg: DictConfig) -> None:
         run_id = (
             run.id
             if run is not None and hasattr(run, "id") and run.id
-            else f"run_{cfg.training.seed}"
+            else f"run_seed{cfg.training.seed}_{os.getpid()}"
         )
         elo_registry = EloRegistry(path=elo_registry_path)
         elo_cb = EloEvalCallback(

@@ -115,17 +115,18 @@ class EloRegistry:
     ----------
     path:
         Path to the JSON file used for persistence.  The parent directory
-        is created automatically on :meth:`save`.
+        is created automatically on :meth:`save`.  Pass ``None`` to create
+        an in-memory registry that cannot be saved to disk.
     """
 
     def __init__(
         self,
-        path: Union[str, Path] = "checkpoints/elo_registry.json",
+        path: Union[str, Path, None] = "checkpoints/elo_registry.json",
     ) -> None:
-        self._path = Path(path)
+        self._path: Path | None = Path(path) if path is not None else None
         self._ratings: dict[str, float] = {}
         self._game_counts: dict[str, int] = {}
-        if self._path.exists():
+        if self._path is not None and self._path.exists():
             self._load()
 
     # ------------------------------------------------------------------
@@ -219,7 +220,18 @@ class EloRegistry:
     # ------------------------------------------------------------------
 
     def save(self) -> None:
-        """Persist current ratings and game counts to the JSON file."""
+        """Persist current ratings and game counts to the JSON file.
+
+        Raises
+        ------
+        ValueError
+            If the registry was created without a file path (``path=None``).
+        """
+        if self._path is None:
+            raise ValueError(
+                "Cannot save: this EloRegistry was created without a file path. "
+                "Pass a path to the constructor to enable persistence."
+            )
         self._path.parent.mkdir(parents=True, exist_ok=True)
         data: dict = {
             "ratings": self._ratings,
@@ -230,12 +242,22 @@ class EloRegistry:
 
     def _load(self) -> None:
         """Load ratings from the existing JSON file."""
-        with open(self._path, encoding="utf-8") as fh:
-            data = json.load(fh)
-        self._ratings = {str(k): float(v) for k, v in data.get("ratings", {}).items()}
-        self._game_counts = {
-            str(k): int(v) for k, v in data.get("game_counts", {}).items()
-        }
+        with open(self._path, encoding="utf-8") as fh:  # type: ignore[arg-type]
+            try:
+                data = json.load(fh)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"EloRegistry: failed to parse JSON from '{self._path}': {exc}"
+                ) from exc
+        try:
+            self._ratings = {str(k): float(v) for k, v in data.get("ratings", {}).items()}
+            self._game_counts = {
+                str(k): int(v) for k, v in data.get("game_counts", {}).items()
+            }
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"EloRegistry: invalid data types in '{self._path}': {exc}"
+            ) from exc
 
     def __repr__(self) -> str:  # pragma: no cover
         return (

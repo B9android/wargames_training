@@ -440,7 +440,14 @@ def main(argv: Optional[list[str]] = None) -> None:
         opponent=args.opponent,
     )
 
-    opp_elo = BASELINE_RATINGS.get(args.opponent, 1000.0)
+    # Instantiate a registry for Elo computation.  When --elo-registry is
+    # given we load from (and later persist to) that file; otherwise we use an
+    # in-memory registry (path=None) so no file is created without explicit
+    # opt-in.
+    agent_name = args.agent_name or args.checkpoint
+    registry = EloRegistry(args.elo_registry)  # None → in-memory
+
+    opp_elo = registry.get_rating(args.opponent)
     print(f"Opponent:  {args.opponent} (Elo: {opp_elo:.0f})")
     print(
         f"Win rate:  {result.win_rate:.2%} "
@@ -448,10 +455,6 @@ def main(argv: Optional[list[str]] = None) -> None:
         f"in {result.n_episodes} episodes)"
     )
 
-    # Elo delta — always compute and print when opponent is given.
-    agent_name = args.agent_name or args.checkpoint
-    registry_path = args.elo_registry or "checkpoints/elo_registry.json"
-    registry = EloRegistry(registry_path)
     old_rating = registry.get_rating(agent_name)
     # outcome score: win=1, draw=0.5, loss=0
     outcome = (result.wins + 0.5 * result.draws) / result.n_episodes
@@ -469,7 +472,7 @@ def main(argv: Optional[list[str]] = None) -> None:
 
     if args.elo_registry is not None:
         registry.save()
-        print(f"Registry:  saved to {registry_path}")
+        print(f"Registry:  saved to {args.elo_registry}")
 
 
 if __name__ == "__main__":

@@ -237,6 +237,23 @@ class TestEloRegistry(unittest.TestCase):
             reg.save()
             self.assertTrue(nested_path.exists())
 
+    def test_in_memory_registry_path_none(self) -> None:
+        """EloRegistry(path=None) works as in-memory registry."""
+        reg = EloRegistry(path=None)
+        # Against scripted_l5 (1000 = DEFAULT_RATING), a full win (1.0)
+        # always increases the rating since outcome > expected (0.5).
+        delta = reg.update("agent_a", "scripted_l5", outcome=1.0, n_games=10)
+        self.assertIsInstance(delta, float)
+        self.assertGreater(delta, 0.0)
+        self.assertGreater(reg.get_rating("agent_a"), DEFAULT_RATING)
+
+    def test_in_memory_registry_save_raises(self) -> None:
+        """save() raises ValueError when path is None."""
+        reg = EloRegistry(path=None)
+        reg.update("agent_a", "scripted_l3", outcome=0.5, n_games=5)
+        with self.assertRaises(ValueError):
+            reg.save()
+
     def test_k_factor_decreases_over_games(self) -> None:
         """After many games the effective K-factor used by update() is small."""
         with tempfile.TemporaryDirectory() as tmp:
