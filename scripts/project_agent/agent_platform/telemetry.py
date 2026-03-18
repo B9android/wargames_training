@@ -34,13 +34,17 @@ def end_run(*, success: bool, summary: dict[str, Any] | str | None = None) -> No
     else:
         summary_payload = {}
 
+    # Strip any keys from summary_payload that log_event injects automatically
+    # (agent, run_id, dry_run, ts) to avoid "got multiple values for keyword
+    # argument" errors when callers embed those keys in their summary dicts.
+    _auto_keys = {"agent", "run_id", "dry_run", "ts", "event"}
+    safe_payload = {k: v for k, v in summary_payload.items() if k not in _auto_keys}
+
     log_event(
         "agent_run_complete",
-        agent=_agent_name,
-        run_id=_run_id,
         success=success,
         elapsed_seconds=round(elapsed, 2),
-        **summary_payload,
+        **safe_payload,
     )
 
 
