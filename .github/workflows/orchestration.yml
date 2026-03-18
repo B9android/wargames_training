@@ -26,6 +26,7 @@ on:
           - triage
           - experiment-approve
           - experiment-kickoff
+          - static-analyze
           - milestone-check
           - progress-report
           - release-sync
@@ -127,6 +128,47 @@ jobs:
 ####################################################################
 # REUSABLE SETUP COMPOSITE — every job uses the same steps        #
 ####################################################################
+
+  # ─────────────────────────────────────────────────────────────────
+  # STATIC ANALYSIS — deterministic integration checks on PRs + manual trigger
+  # ─────────────────────────────────────────────────────────────────
+  static_analysis:
+    needs: preflight
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'static-analyze')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: static-analysis-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run deterministic static analysis agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+          STATIC_ANALYZER_REPO_ROOT: ${{ github.workspace }}
+          STATIC_ANALYZER_ONLY_CHANGED: "true"
+          STATIC_ANALYZER_FAIL_ON_HIGH: "true"
+        run: python scripts/project_agent/static_analysis_agent.py
+      - name: Upload static analysis reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-report-${{ github.run_id }}
+          path: |
+            logs/static_analysis_report.json
+            logs/static_analysis_summary.txt
+            agent-artifacts/
+          if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────────
   # TRIAGE — new issues; cascades into epic_decompose / experiment
