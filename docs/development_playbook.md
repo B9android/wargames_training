@@ -223,7 +223,7 @@ Use these checklists when opening a PR.  Copy the relevant section into your PR 
 - [ ] New observations normalized (see playbook §6)
 - [ ] Angles as (cos θ, sin θ) — no raw radians
 - [ ] Positions normalized by map dimensions
-- [ ] `check_env` passes: `python -c "from envs.battalion_env import BattalionEnv; from gymnasium.utils.env_checker import check_env; check_env(BattalionEnv())"`
+- [ ] `check_env` passes: `python -c "from gymnasium.utils.env_checker import check_env; from YOUR_ENV_MODULE import YOUR_ENV_CLASS; check_env(YOUR_ENV_CLASS())"  # TODO: replace with actual env module/class`
 - [ ] Unit tests added in `tests/`
 - [ ] `pytest tests/ -q` green
 - [ ] W&B config key added if new hyperparameter introduced
