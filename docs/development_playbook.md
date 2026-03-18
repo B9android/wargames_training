@@ -41,13 +41,17 @@ envs/battalion_env.py   →   models/mlp_policy.py   →   training/train.py
                                                         W&B run logged
 ```
 
-The skeleton is complete when:
+**Target definition — when we say the walking skeleton is "complete", we mean:**
 
 ```bash
 python training/train.py          # runs without error
 pytest tests/ -q                  # green
 # → a W&B run appears with at least one logged metric
 ```
+
+> **Note:** As of v1, `training/train.py` is a minimal stub and does *not* yet
+> initialize W&B or log metrics. Treat the above as the target end-to-end
+> behavior for the walking skeleton, and evolve `train.py` toward it.
 
 ### Golden rule
 
