@@ -81,7 +81,8 @@ These conventions are enforced by code review and the PR checklist:
 
 ### Environments
 - Inherit from `gymnasium.Env` (single-agent) or `pettingzoo.ParallelEnv` (multi-agent).
-- Pass `check_env` from `gymnasium.utils.env_checker` before merging.
+- Once a concrete Gymnasium environment (not just a stub) is implemented, run and fix
+  `check_env` from `gymnasium.utils.env_checker` before merging.
 
 ### Experiment Tracking
 - Every training run **must** be logged to W&B with a config dict.
