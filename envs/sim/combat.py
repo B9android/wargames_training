@@ -21,7 +21,9 @@ BASE_FIRE_DAMAGE: float = 0.05
 BASE_DAMAGE_MULTIPLIER: float = BASE_FIRE_DAMAGE
 
 #: How much each point of strength loss translates to a morale hit.
-MORALE_CASUALTY_WEIGHT: float = 0.4
+#: Must exceed (1 − MORALE_ROUT_THRESHOLD) so that routing is reachable
+#: through cumulative fire damage (max possible morale drop = 1 × weight).
+MORALE_CASUALTY_WEIGHT: float = 1.5
 
 #: Morale below this value triggers a routing check.
 MORALE_ROUT_THRESHOLD: float = 0.25
