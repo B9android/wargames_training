@@ -115,6 +115,18 @@ The triage agent runs automatically when a new issue is opened (`.github/workflo
 
 To retriage an issue manually, dispatch **Actions → 🤖 Agent: Triage** with the issue number.
 
+## Development Workflow
+
+This project follows a **vertical-slice + iterative-deepening** approach:
+build the thinnest end-to-end pipeline first, then deepen layer-by-layer
+while keeping `main` always runnable.
+
+| Resource | Description |
+|---|---|
+| **[Development Playbook](docs/development_playbook.md)** | Walking skeleton, iteration cycle, spike rules, Definition of Done, and per-feature checklists |
+| **[Contributing Guide](CONTRIBUTING.md)** | Branch naming, commit style, conventions, and PR process |
+| **[Project Roadmap](docs/ROADMAP.md)** | Version overview (v1–v5) and sprint schedule |
+
 ## For Operators
 
 The project uses GitHub Actions for automated orchestration of experiments, milestones, and releases.
