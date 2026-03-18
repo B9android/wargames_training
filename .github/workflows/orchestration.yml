@@ -1,0 +1,575 @@
+name: "Orchestration — Agent Control Plane"
+# This is the single, permanent entry-point for ALL project agents.
+# Do NOT add per-agent workflow files. All agent logic goes through jobs here.
+# ADR: docs/ORCHESTRATION_RUNBOOK.md § Permanence Policy
+
+on:
+  issues:
+    types: [opened, labeled]
+  milestone:
+    types: [closed]
+  pull_request:
+    types: [opened, synchronize, closed]
+  schedule:
+    # Daily: milestone health + sprint auto-transition (08:00 UTC)
+    - cron: "0 8 * * *"
+    # Weekly Monday: progress report (09:00 UTC)
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Agent action to run"
+        required: true
+        default: triage
+        type: choice
+        options:
+          - triage
+          - experiment-approve
+          - experiment-kickoff
+          - milestone-check
+          - progress-report
+          - release-sync
+          - epic-decompose
+          - sprint-start
+          - sprint-close
+          - sprint-auto-transition
+          - sync-pr-status
+          - project-sync
+          - training-complete
+      issue_number:
+        description: "Issue number (triage, experiment-*, epic-decompose, project-sync, training-complete)"
+        required: false
+      pr_number:
+        description: "PR number (sync-pr-status)"
+        required: false
+      milestone_number:
+        description: "Milestone number (release-sync)"
+        required: false
+      sprint_name:
+        description: "Sprint name (sprint-start, sprint-close)"
+        required: false
+      wandb_run_id:
+        description: "W&B run ID (training-complete)"
+        required: false
+      dry_run:
+        description: "Dry-run mode — preview changes without mutating GitHub"
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: write
+
+####################################################################
+# PREFLIGHT — validate event contracts before any agent job runs  #
+####################################################################
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate dispatch inputs
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Not workflow_dispatch; preflight OK."
+            exit 0
+          fi
+          ACTION="${{ github.event.inputs.action }}"
+          ISSUE="${{ github.event.inputs.issue_number }}"
+          MILESTONE="${{ github.event.inputs.milestone_number }}"
+          PR="${{ github.event.inputs.pr_number }}"
+          SPRINT="${{ github.event.inputs.sprint_name }}"
+          WANDB="${{ github.event.inputs.wandb_run_id }}"
+
+          require_issue() {
+            [ -n "$ISSUE" ] || { echo "::error::issue_number required for action=$ACTION"; exit 1; }
+          }
+          require_milestone() {
+            [ -n "$MILESTONE" ] || { echo "::error::milestone_number required for action=$ACTION"; exit 1; }
+          }
+          require_pr() {
+            [ -n "$PR" ] || { echo "::error::pr_number required for action=$ACTION"; exit 1; }
+          }
+          require_sprint() {
+            [ -n "$SPRINT" ] || { echo "::error::sprint_name required for action=$ACTION"; exit 1; }
+          }
+
+          case "$ACTION" in
+            triage|experiment-approve|experiment-kickoff|epic-decompose|project-sync)
+              require_issue ;;
+            training-complete)
+              require_issue
+              [ -n "$WANDB" ] || { echo "::error::wandb_run_id required for training-complete"; exit 1; } ;;
+            release-sync)
+              require_milestone ;;
+            sync-pr-status)
+              require_pr ;;
+            sprint-start|sprint-close)
+              require_sprint ;;
+          esac
+          echo "Preflight OK: action=$ACTION"
+
+      - name: Validate event payload
+        run: |
+          ENAME="${{ github.event_name }}"
+          if [ "$ENAME" = "issues" ] && [ -z "${{ github.event.issue.number }}" ]; then
+            echo "::error::issues event missing issue.number"; exit 1
+          fi
+          if [ "$ENAME" = "milestone" ] && [ -z "${{ github.event.milestone.number }}" ]; then
+            echo "::error::milestone event missing milestone.number"; exit 1
+          fi
+          if [ "$ENAME" = "pull_request" ] && [ -z "${{ github.event.pull_request.number }}" ]; then
+            echo "::error::pull_request event missing pull_request.number"; exit 1
+          fi
+          echo "Event contract OK: $ENAME"
+
+####################################################################
+# REUSABLE SETUP COMPOSITE — every job uses the same steps        #
+####################################################################
+
+  # ─────────────────────────────────────────────────────────────────
+  # TRIAGE — new issues; cascades into epic_decompose / experiment
+  # ─────────────────────────────────────────────────────────────────
+  triage:
+    needs: preflight
+    if: |
+      (github.event_name == 'issues' && github.event.action == 'opened') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'triage')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: triage-${{ github.event.issue.number || github.event.inputs.issue_number }}
+      cancel-in-progress: false
+    outputs:
+      is_epic: ${{ steps.run.outputs.is_epic }}
+      is_experiment: ${{ steps.run.outputs.is_experiment }}
+      issue_number: ${{ steps.run.outputs.issue_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub openai pyyaml
+      - name: Run triage agent
+        id: run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/triage_agent.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: triage-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # EPIC DECOMPOSE — single job, multiple trigger paths with idempotency
+  # ─────────────────────────────────────────────────────────────────
+  epic_decompose:
+    needs: preflight
+    if: |
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'type: epic') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'epic-decompose')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: epic-decompose-${{ github.event.issue.number || github.event.inputs.issue_number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run epic decomposer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EPIC_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/epic_decomposer.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epic-decompose-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # EPIC DECOMPOSE (CASCADE) — triggered automatically after triage
+  # ─────────────────────────────────────────────────────────────────
+  epic_decompose_cascade:
+    needs: triage
+    if: |
+      needs.triage.result == 'success' &&
+      needs.triage.outputs.is_epic == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: epic-decompose-${{ needs.triage.outputs.issue_number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run epic decomposer (triage cascade)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EPIC_NUMBER: ${{ needs.triage.outputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/epic_decomposer.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epic-decompose-cascade-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # EXPERIMENT KICKOFF — validates [EXP] issues on open
+  # ─────────────────────────────────────────────────────────────────
+  experiment_kickoff:
+    needs: preflight
+    if: |
+      (github.event_name == 'issues' && github.event.action == 'opened' && startsWith(github.event.issue.title, '[EXP]')) ||
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'status: approved' && startsWith(github.event.issue.title, '[EXP]')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'experiment-kickoff')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: experiment-kickoff-${{ github.event.issue.number || github.event.inputs.issue_number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run experiment kickoff agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/experiment_kickoff.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-kickoff-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # EXPERIMENT APPROVE — human-triggered via workflow_dispatch
+  # ─────────────────────────────────────────────────────────────────
+  experiment_approve:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'experiment-approve'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: experiment-approve-${{ github.event.inputs.issue_number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run experiment approval agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/experiment_approval.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-approve-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # PR LINK — runs once per PR event (concurrency prevents duplicates)
+  # ─────────────────────────────────────────────────────────────────
+  pr_link:
+    needs: preflight
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'sync-pr-status')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-link-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run PR linker
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/pr_linker.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-link-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # MILESTONE CHECK — daily schedule or on-demand
+  # ─────────────────────────────────────────────────────────────────
+  milestone_check:
+    needs: preflight
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 8 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'milestone-check')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run milestone health check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/milestone_checker.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone-check-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # SPRINT AUTO-TRANSITION — daily; moves issues between sprint states
+  # ─────────────────────────────────────────────────────────────────
+  sprint_auto_transition:
+    needs: preflight
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 8 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'sprint-auto-transition')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run sprint auto-transition
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTION: auto-transition
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/sprint_manager.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprint-auto-transition-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # SPRINT START / CLOSE — manual workflow_dispatch operations
+  # ─────────────────────────────────────────────────────────────────
+  sprint_manage:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'sprint-start' || github.event.inputs.action == 'sprint-close')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: sprint-manage-${{ github.event.inputs.sprint_name }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run sprint manager
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTION: ${{ github.event.inputs.action == 'sprint-start' && 'start' || 'close' }}
+          SPRINT_NAME: ${{ github.event.inputs.sprint_name }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/sprint_manager.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprint-manage-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # PROGRESS REPORT — weekly Monday; posts summary to main issue
+  # ─────────────────────────────────────────────────────────────────
+  progress_report:
+    needs: preflight
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 9 * * 1') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'progress-report')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub openai pyyaml
+      - name: Run weekly progress report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/progress_reporter.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: progress-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # RELEASE SYNC — milestone closed events + manual trigger
+  # ─────────────────────────────────────────────────────────────────
+  release_sync:
+    needs: preflight
+    if: |
+      (github.event_name == 'milestone' && github.event.action == 'closed') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'release-sync')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-sync-${{ github.event.milestone.number || github.event.inputs.milestone_number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run release coordinator
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          MILESTONE_NUMBER: ${{ github.event.milestone.number || github.event.inputs.milestone_number }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/release_coordinator.py
+      - name: Commit release doc updates
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          if git diff --quiet -- docs/CHANGELOG.md docs/ROADMAP.md; then
+            echo "No release doc changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/CHANGELOG.md docs/ROADMAP.md
+          git commit -m "chore(agent): sync release docs for milestone #${{ github.event.milestone.number || github.event.inputs.milestone_number }}"
+          git push
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-sync-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # PROJECT SYNC — sync a single issue's metadata to project board
+  # ─────────────────────────────────────────────────────────────────
+  project_sync:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'project-sync'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: project-sync-${{ github.event.inputs.issue_number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub pyyaml
+      - name: Run project syncer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/project_syncer.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-sync-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # TRAINING COMPLETE — sync W&B run results to the experiment issue
+  # ─────────────────────────────────────────────────────────────────
+  training_complete:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'training-complete'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: training-complete-${{ github.event.inputs.issue_number }}-${{ github.event.inputs.wandb_run_id }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub wandb pyyaml
+      - name: Run training monitor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+          REPO_NAME: ${{ github.repository }}
+          WANDB_RUN_ID: ${{ github.event.inputs.wandb_run_id }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          PYTHONPATH: ${{ github.workspace }}/scripts/project_agent
+        run: python scripts/project_agent/training_monitor.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-complete-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore

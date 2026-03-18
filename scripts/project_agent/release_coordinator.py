@@ -2,36 +2,46 @@
 
 from __future__ import annotations
 
-import os
+import importlib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from github import Auth, Github
+from agent_platform.context import AgentContext
+from agent_platform.github_gateway import GitHubGateway
+from agent_platform.graphql_gateway import GraphQLGateway
+from agent_platform.result import ActionResult, ActionStatus, RunResult
+from agent_platform.runner import run_agent
+from agent_platform.summary import ExecutionSummary
+from agent_platform.telemetry import log_event
+from common import agent_signature, require_env
 
-from common import agent_signature, log_event, require_env, retry
+try:
+    github_module = importlib.import_module("github")
+    Auth = github_module.Auth
+    Github = github_module.Github
+except Exception:  # pragma: no cover - optional in local analysis envs
+    Auth = None  # type: ignore[assignment]
+    Github = None  # type: ignore[assignment]
 
 
-def issue_lines(issues: list[object], *, limit: int = 30) -> str:
-    """Render closed issue bullets for release notes."""
+def _issue_lines(issues: list[object], *, limit: int = 30) -> str:
     if not issues:
         return "- None"
     return "\n".join(f"- #{issue.number} {issue.title}" for issue in issues[:limit])
 
 
-def build_changelog_block(milestone, closed_issues: list[object], marker: str, run_date: str) -> str:
-    """Build a changelog block for a closed milestone."""
+def _build_changelog_block(milestone, closed_issues: list[object], marker: str, run_date: str) -> str:
     return (
         "\n---\n\n"
         f"## [{milestone.title}] - {run_date}\n\n"
         "### Completed\n"
-        f"{issue_lines(closed_issues)}\n\n"
+        f"{_issue_lines(closed_issues)}\n\n"
         f"{agent_signature('release_coordinator', context='milestone release sync')}\n"
         f"{marker}\n"
     )
 
 
-def build_roadmap_block(milestone, closed_count: int, marker: str, run_date: str) -> str:
-    """Build a roadmap automation update block for a closed milestone."""
+def _build_roadmap_block(milestone, closed_count: int, marker: str, run_date: str) -> str:
     return (
         "\n## Automation Updates\n\n"
         f"- {run_date}: Milestone `{milestone.title}` closed with {closed_count} completed issues.\n"
@@ -41,8 +51,7 @@ def build_roadmap_block(milestone, closed_count: int, marker: str, run_date: str
     )
 
 
-def insert_roadmap_update(roadmap_content: str, update_block: str) -> str:
-    """Insert roadmap update block after the document intro separator."""
+def _insert_roadmap_update(roadmap_content: str, update_block: str) -> str:
     separator = "\n---\n\n"
     split_idx = roadmap_content.find(separator)
     if split_idx == -1:
@@ -51,12 +60,7 @@ def insert_roadmap_update(roadmap_content: str, update_block: str) -> str:
     return roadmap_content[:insert_at] + update_block + roadmap_content[insert_at:]
 
 
-def already_synced(changelog_content: str, roadmap_content: str, marker: str) -> bool:
-    """Return True if both docs already contain the milestone sync marker."""
-    return marker in changelog_content and marker in roadmap_content
-
-
-def sync_release_docs_contents(
+def _sync_docs(
     changelog_content: str,
     roadmap_content: str,
     *,
@@ -65,31 +69,46 @@ def sync_release_docs_contents(
     marker: str,
     run_date: str,
 ) -> tuple[str, str, bool]:
-    """Return updated doc contents and whether a change is needed."""
-    if already_synced(changelog_content, roadmap_content, marker):
+    if marker in changelog_content and marker in roadmap_content:
         return changelog_content, roadmap_content, False
 
     updated_changelog = changelog_content
     updated_roadmap = roadmap_content
 
     if marker not in updated_changelog:
-        updated_changelog += build_changelog_block(milestone, closed_issues, marker, run_date)
+        updated_changelog += _build_changelog_block(milestone, closed_issues, marker, run_date)
     if marker not in updated_roadmap:
-        updated_roadmap = insert_roadmap_update(
+        updated_roadmap = _insert_roadmap_update(
             updated_roadmap,
-            build_roadmap_block(milestone, len(closed_issues), marker, run_date),
+            _build_roadmap_block(milestone, len(closed_issues), marker, run_date),
         )
 
-    has_changes = updated_changelog != changelog_content or updated_roadmap != roadmap_content
-    return updated_changelog, updated_roadmap, has_changes
+    changed = updated_changelog != changelog_content or updated_roadmap != roadmap_content
+    return updated_changelog, updated_roadmap, changed
+
+
+# Backward-compatible helper names used by existing unit tests.
+issue_lines = _issue_lines
+build_changelog_block = _build_changelog_block
+insert_roadmap_update = _insert_roadmap_update
+sync_release_docs_contents = _sync_docs
+
+
+def already_synced(changelog_content: str, roadmap_content: str, marker: str) -> bool:
+    return marker in changelog_content and marker in roadmap_content
 
 
 def main() -> None:
-    """Sync docs from a closed milestone."""
+    """Legacy test-friendly entrypoint preserved for compatibility."""
     env = require_env(["REPO_NAME", "GITHUB_TOKEN", "MILESTONE_NUMBER"])
     repo_name = env["REPO_NAME"]
     milestone_number = int(env["MILESTONE_NUMBER"])
-    dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+    dry_run = False
+
+    if Github is None or Auth is None:
+        raise RuntimeError("PyGithub is required for legacy main()")
+    gh = Github(auth=Auth.Token(env["GITHUB_TOKEN"]))
+    repo = gh.get_repo(repo_name)
 
     repo_root = Path(__file__).resolve().parents[2]
     changelog_path = repo_root / "docs" / "CHANGELOG.md"
@@ -97,31 +116,76 @@ def main() -> None:
     run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     marker = f"<!-- agent:release-sync:{milestone_number} -->"
 
-    auth = Auth.Token(env["GITHUB_TOKEN"])
-    gh = Github(auth=auth)
-    repo = gh.get_repo(repo_name)
-    milestone = retry(lambda: repo.get_milestone(milestone_number))
-
+    milestone = repo.get_milestone(milestone_number)
     if milestone.state != "closed":
-        log_event(
-            "release_sync_skipped",
-            milestone_number=milestone_number,
-            milestone_state=milestone.state,
-            reason="milestone_not_closed",
-        )
-        print(f"Skipped: milestone #{milestone_number} is not closed")
+        log_event("release_sync_skipped", reason="milestone_not_closed", milestone_number=milestone_number)
         return
 
     closed_issues = [
         issue
-        for issue in retry(lambda: list(repo.get_issues(state="closed", milestone=milestone)))
+        for issue in repo.get_issues(state="closed", milestone=milestone)
         if getattr(issue, "pull_request", None) is None
     ]
 
     changelog_content = changelog_path.read_text(encoding="utf-8")
     roadmap_content = roadmap_path.read_text(encoding="utf-8")
 
-    changelog_content, roadmap_content, has_changes = sync_release_docs_contents(
+    if already_synced(changelog_content, roadmap_content, marker):
+        log_event("release_sync_skipped", reason="already_synced", milestone_number=milestone_number)
+        return
+
+    new_changelog, new_roadmap, has_changes = _sync_docs(
+        changelog_content,
+        roadmap_content,
+        milestone=milestone,
+        closed_issues=closed_issues,
+        marker=marker,
+        run_date=run_date,
+    )
+
+    if has_changes and not dry_run:
+        changelog_path.write_text(new_changelog, encoding="utf-8")
+        roadmap_path.write_text(new_roadmap, encoding="utf-8")
+
+    log_event(
+        "release_sync_complete",
+        milestone_number=milestone_number,
+        milestone_title=milestone.title,
+        closed_issue_count=len(closed_issues),
+        dry_run=dry_run,
+    )
+
+
+def _run(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    rest: GitHubGateway,
+    summary: ExecutionSummary,
+) -> RunResult:
+    milestone_number = ctx.require_milestone()
+    results: list[ActionResult] = []
+
+    repo_root = Path(__file__).resolve().parents[2]
+    changelog_path = repo_root / "docs" / "CHANGELOG.md"
+    roadmap_path = repo_root / "docs" / "ROADMAP.md"
+    run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    marker = f"<!-- agent:release-sync:{milestone_number} -->"
+
+    milestone = rest._repo_obj.get_milestone(milestone_number)
+    if milestone.state != "closed":
+        results.append(ActionResult("validate_milestone_closed", f"milestone #{milestone_number}", ActionStatus.SKIPPED, "Milestone is not closed"))
+        return RunResult(agent="release_coordinator", dry_run=ctx.dry_run, actions=results)
+
+    closed_issues = [
+        issue
+        for issue in rest._repo_obj.get_issues(state="closed", milestone=milestone)
+        if getattr(issue, "pull_request", None) is None
+    ]
+
+    changelog_content = changelog_path.read_text(encoding="utf-8")
+    roadmap_content = roadmap_path.read_text(encoding="utf-8")
+
+    new_changelog, new_roadmap, has_changes = _sync_docs(
         changelog_content,
         roadmap_content,
         milestone=milestone,
@@ -131,30 +195,26 @@ def main() -> None:
     )
 
     if not has_changes:
-        log_event(
-            "release_sync_skipped",
-            milestone_number=milestone_number,
-            reason="already_synced",
-        )
-        print(f"Skipped: release sync marker already present for milestone #{milestone_number}")
-        return
+        results.append(ActionResult("sync_release_docs", f"milestone #{milestone_number}", ActionStatus.SKIPPED, "Already synced"))
+        return RunResult(agent="release_coordinator", dry_run=ctx.dry_run, actions=results)
 
-    if dry_run:
-        print(f"[dry-run] Would update {changelog_path}")
-        print(f"[dry-run] Would update {roadmap_path}")
+    if ctx.dry_run:
+        results.append(ActionResult("sync_release_docs", f"milestone #{milestone_number}", ActionStatus.DRY_RUN))
     else:
-        changelog_path.write_text(changelog_content, encoding="utf-8")
-        roadmap_path.write_text(roadmap_content, encoding="utf-8")
+        changelog_path.write_text(new_changelog, encoding="utf-8")
+        roadmap_path.write_text(new_roadmap, encoding="utf-8")
+        results.append(ActionResult("sync_release_docs", f"milestone #{milestone_number}", ActionStatus.SUCCESS, metadata={"closed_issue_count": len(closed_issues)}))
 
     log_event(
         "release_sync_complete",
         milestone_number=milestone_number,
         milestone_title=milestone.title,
         closed_issue_count=len(closed_issues),
-        dry_run=dry_run,
+        dry_run=ctx.dry_run,
     )
-    print(f"{'[dry-run] ' if dry_run else ''}Synced release docs for milestone #{milestone_number}")
+    summary.decision(f"Release docs synced for milestone #{milestone_number}")
+    return RunResult(agent="release_coordinator", dry_run=ctx.dry_run, actions=results)
 
 
 if __name__ == "__main__":
-    main()
+    run_agent("release_coordinator", _run)

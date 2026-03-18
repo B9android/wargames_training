@@ -1,237 +1,221 @@
-"""PR Linker: Auto-links PRs to issues, syncs status on merge."""
+﻿"""PR Linker â€” auto-links PRs to issues and syncs project board status.
 
+Entry point for orchestration.yml:pr_link job.
+All logic is platform-native: no global state, no broad exception catches.
+"""
 from __future__ import annotations
 
-import os
 import re
-from pathlib import Path
 
-import yaml
-from github import Auth, Github
-
-from common import add_marker, agent_signature, extract_marker, has_marker, log_event, require_env, retry
-from projects_v2 import ProjectsV2Client
-
-
-DRY_RUN = False
-REPO_NAME = ""
-PR_NUMBER = 0
+from common import add_marker, extract_marker, has_marker
+from agent_platform.context import AgentContext
+from agent_platform.errors import ResourceNotFound
+from agent_platform.github_gateway import GitHubGateway, PRData
+from agent_platform.graphql_gateway import GraphQLGateway
+from agent_platform.result import ActionResult, ActionStatus, RunResult
+from agent_platform.runner import run_agent
+from agent_platform.summary import ExecutionSummary
+from agent_platform.telemetry import log_event
 
 
-def load_orchestration_config() -> dict:
-    """Load orchestration.yaml for policies."""
-    config_path = Path(__file__).resolve().parents[2] / "configs" / "orchestration.yaml"
-    with config_path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+# ------------------------------------------------------------------
+# Issue discovery â€” GraphQL first, body-parse fallback
+# ------------------------------------------------------------------
 
-
-def find_linked_issue(pr, repo) -> int | None:
-    """Extract linked issue number from PR body or commits."""
-    # Check PR body for issue references (#123, closes #123, etc.)
-    body = pr.body or ""
-    
-    # Patterns: Closes #123, Fixes #123, Resolves #123, or just #123
-    patterns = [
-        r"(?:closes|fixes|resolves)\s+#(\d+)",
-        r"linked to\s+#(\d+)",
-        r"(?<!/)#(\d+)(?=/|\s|$)",  # Bare #123
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, body, re.IGNORECASE)
-        if match:
-            issue_num = int(match.group(1))
-            # Verify issue exists and is not the PR itself
-            try:
-                issue = repo.get_issue(issue_num)
-                if not issue.pull_request:  # Ensure it's an issue, not a PR
-                    return issue_num
-            except Exception:
-                pass
-    
-    # Check PR commit messages
-    try:
-        for commit in pr.get_commits():
-            msg = commit.commit.message
-            for pattern in patterns:
-                match = re.search(pattern, msg, re.IGNORECASE)
-                if match:
-                    issue_num = int(match.group(1))
-                    try:
-                        issue = repo.get_issue(issue_num)
-                        if not issue.pull_request:
-                            return issue_num
-                    except Exception:
-                        pass
-    except Exception as exc:
-        log_event("pr_commits_query_failed", pr=PR_NUMBER, error=str(exc))
-    
+def _find_linked_issue_graphql(gql: GraphQLGateway, pr_number: int) -> int | None:
+    """Use GitHub's closing-issues-references via GraphQL (most reliable)."""
+    linked = gql.get_pr_linked_issues(pr_number)
+    if linked:
+        log_event("pr_linked_issue_via_graphql", pr=pr_number, issues=linked)
+        return linked[0]
     return None
 
 
-def link_pr_to_issue(pr, repo, issue_num: int) -> bool:
-    """Create bidirectional link between PR and issue."""
-    try:
-        issue = repo.get_issue(issue_num)
-    except Exception as exc:
-        log_event("issue_lookup_failed", issue=issue_num, pr=PR_NUMBER, error=str(exc))
-        return False
-    
-    # Add link marker to PR body
-    if not has_marker(pr.body or "", "linked-issue"):
-        new_pr_body = add_marker(pr.body or "", "linked-issue", str(issue_num))
-        if not DRY_RUN:
-            try:
-                retry(lambda body=new_pr_body: pr.edit(body=body))
-                log_event("pr_body_updated", pr=PR_NUMBER, issue=issue_num)
-            except Exception as exc:
-                log_event("pr_body_update_failed", pr=PR_NUMBER, error=str(exc))
-    
-    # Add link marker to issue body
-    if not has_marker(issue.body or "", "linked-pr"):
-        new_issue_body = add_marker(issue.body or "", "linked-pr", str(PR_NUMBER))
-        if not DRY_RUN:
-            try:
-                retry(lambda body=new_issue_body: issue.edit(body=body))
-                log_event("issue_body_updated", issue=issue_num, pr=PR_NUMBER)
-            except Exception as exc:
-                log_event("issue_body_update_failed", issue=issue_num, error=str(exc))
-    
-    # Post cross-reference comment on issue
-    comment = f"""## Linked PR
+def _find_linked_issue_body(body: str, pr_number: int) -> int | None:
+    """Fallback: parse PR body for issue references."""
+    patterns = [
+        r"(?:closes|fixes|resolves)\s+#(\d+)",
+        r"linked\s+to\s+#(\d+)",
+        r"(?<![/\w])#(\d+)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, body or "", re.IGNORECASE)
+        if m:
+            candidate = int(m.group(1))
+            if candidate != pr_number:
+                log_event("pr_linked_issue_via_body", pr=pr_number, issue=candidate)
+                return candidate
+    return None
 
-PR #{PR_NUMBER} ([{pr.title}]({pr.html_url})) is linked to this issue.
 
-{agent_signature('pr_linker', context='PR linking')}
-"""
-    
-    if DRY_RUN:
-        print(f"[dry-run] Would post link comment to issue #{issue_num}")
-    else:
+def _find_linked_issue(
+    gql: GraphQLGateway, pr_number: int, pr_body: str
+) -> int | None:
+    issue_num = _find_linked_issue_graphql(gql, pr_number)
+    if issue_num:
+        return issue_num
+    return _find_linked_issue_body(pr_body, pr_number)
+
+
+# ------------------------------------------------------------------
+# Link operations
+# ------------------------------------------------------------------
+
+def _link_pr_to_issue(
+    rest: GitHubGateway,
+    pr: PRData,
+    issue_num: int,
+    summary: ExecutionSummary,
+) -> list[ActionResult]:
+    results: list[ActionResult] = []
+    summary.checkpoint("link", f"Linking PR #{pr.number} \u2192 issue #{issue_num}")
+
+    # 1. Annotate PR body (use PyGithub directly for PR edit)
+    if not has_marker(pr.body, "linked-issue"):
+        new_body = add_marker(pr.body, "linked-issue", str(issue_num))
         try:
-            retry(lambda body=comment: issue.create_comment(body))
+            rest.update_pr_body(pr.number, new_body)
+            results.append(ActionResult("annotate_pr_body", f"PR #{pr.number}", ActionStatus.SUCCESS))
+            log_event("pr_body_annotated", pr=pr.number, issue=issue_num)
         except Exception as exc:
-            log_event("pr_link_comment_failed", issue=issue_num, pr=PR_NUMBER, error=str(exc))
-    
-    return True
+            results.append(ActionResult("annotate_pr_body", f"PR #{pr.number}", ActionStatus.FAILED, str(exc)))
+            log_event("pr_body_annotate_failed", pr=pr.number, error=str(exc))
+
+    # 2. Annotate issue body
+    try:
+        issue = rest.get_issue(issue_num)
+    except ResourceNotFound as exc:
+        results.append(ActionResult("lookup_issue", f"issue #{issue_num}", ActionStatus.FAILED, str(exc)))
+        return results
+
+    if not has_marker(issue.body, "linked-pr"):
+        new_body = add_marker(issue.body, "linked-pr", str(pr.number))
+        try:
+            rest.update_issue_body(issue_num, new_body)
+            results.append(ActionResult("annotate_issue_body", f"issue #{issue_num}", ActionStatus.SUCCESS))
+        except Exception as exc:
+            results.append(ActionResult("annotate_issue_body", f"issue #{issue_num}", ActionStatus.FAILED, str(exc)))
+
+    # 3. Cross-reference comment on issue
+    comment = (
+        f"## \U0001f517 Linked PR\n\n"
+        f"PR #{pr.number} ([{pr.title}]({pr.html_url})) is linked to this issue.\n\n"
+        f"<!-- agent:pr_linker -->"
+    )
+    try:
+        rest.add_issue_comment(issue_num, comment)
+        results.append(ActionResult("post_link_comment", f"issue #{issue_num}", ActionStatus.SUCCESS))
+        summary.checkpoint("commented", f"Posted link comment on issue #{issue_num}")
+    except Exception as exc:
+        results.append(ActionResult("post_link_comment", f"issue #{issue_num}", ActionStatus.FAILED, str(exc)))
+
+    summary.decision(f"PR #{pr.number} linked to issue #{issue_num}")
+    return results
 
 
-def sync_pr_status_on_merge(pr, repo, projects_client: ProjectsV2Client | None = None) -> bool:
-    """Update linked issue status based on PR merge."""
-    if not pr.merged:
-        log_event("pr_not_merged", pr=PR_NUMBER)
-        return False
-    
-    # Find linked issue
-    issue_num = extract_marker(pr.body or "", "linked-issue")
+def _sync_merge_status(
+    rest: GitHubGateway,
+    gql: GraphQLGateway,
+    pr: PRData,
+    summary: ExecutionSummary,
+) -> list[ActionResult]:
+    results: list[ActionResult] = []
+    summary.checkpoint("merge_sync", f"PR #{pr.number} merged \u2014 syncing linked issue status")
+
+    # Discover linked issue
+    issue_num: int | None = None
+    raw_marker = extract_marker(pr.body, "linked-issue")
+    if raw_marker:
+        try:
+            issue_num = int(raw_marker)
+        except ValueError:
+            pass
     if not issue_num:
-        # Try to find issue from body
-        issue_num = find_linked_issue(pr, repo)
-    
+        issue_num = _find_linked_issue(gql, pr.number, pr.body)
+
     if not issue_num:
-        log_event("pr_merged_no_linked_issue", pr=PR_NUMBER)
-        return False
-    
+        log_event("pr_merged_no_linked_issue", pr=pr.number)
+        summary.decision("No linked issue found; skipping status sync")
+        results.append(ActionResult(
+            "find_linked_issue", f"PR #{pr.number}", ActionStatus.SKIPPED,
+            "No linked issue found"
+        ))
+        return results
+
+    # Update issue status marker
     try:
-        issue_num = int(issue_num)
-        issue = repo.get_issue(issue_num)
+        issue = rest.get_issue(issue_num)
+        current_status = extract_marker(issue.body, "status")
+        if current_status not in ("complete", "done"):
+            new_body = add_marker(issue.body, "status", "in-progress")
+            rest.update_issue_body(issue_num, new_body)
+            results.append(ActionResult("update_issue_status", f"issue #{issue_num}", ActionStatus.SUCCESS))
     except Exception as exc:
-        log_event("issue_lookup_on_merge_failed", pr=PR_NUMBER, error=str(exc))
-        return False
-    
-    # Update issue status if still in-progress
-    current_status = extract_marker(issue.body or "", "status")
-    if current_status in [None, "triaged", "in-progress"]:
-        new_status = "in-progress"  # PR merged, but issue may not be complete
-        new_body = add_marker(issue.body or "", "status", new_status)
-        
-        if not DRY_RUN:
-            try:
-                retry(lambda body=new_body: issue.edit(body=body))
-                log_event("issue_status_updated_on_pr_merge", issue=issue_num, pr=PR_NUMBER, status=new_status)
-            except Exception as exc:
-                log_event("issue_status_update_failed", issue=issue_num, error=str(exc))
-    
-    # Update project board Status field if projects_client available
-    if projects_client and not DRY_RUN:
-        try:
-            # Get PR metadata for project updates
-            git_commit = pr.merge_commit_sha or ""
-            
-            # Get issue node ID and project item ID
-            issue_node_id = projects_client.get_issue_node_id(REPO_NAME, issue_num)
-            if issue_node_id:
-                item_id = projects_client.get_project_item_id(issue_node_id)
-                if item_id:
-                    # Update Status field to "In Progress" (PR merged)
-                    # Note: This assumes "In Progress" is a valid Status option
-                    projects_client.update_field_value(item_id, "Status", "In Progress")
-                    
-                    # Update Git Commit field if available
-                    if git_commit:
-                        projects_client.update_field_value(item_id, "Git Commit", git_commit, "TEXT")
-                    
-                    log_event("pr_merge_project_status_updated", issue=issue_num, pr=PR_NUMBER)
-        except Exception as exc:
-            log_event("pr_merge_project_sync_failed", issue=issue_num, error=str(exc))
-    
-    # Post merge comment on issue
-    merge_comment = f"""## PR Merged
+        results.append(ActionResult("update_issue_status", f"issue #{issue_num}", ActionStatus.FAILED, str(exc)))
 
-PR #{PR_NUMBER} has been merged! 🎉
-
-{agent_signature('pr_linker', context='PR merge tracking')}
-"""
-    
-    if DRY_RUN:
-        print(f"[dry-run] Would post merge comment to issue #{issue_num}")
-    else:
-        try:
-            retry(lambda body=merge_comment: issue.create_comment(body))
-        except Exception as exc:
-            log_event("merge_comment_failed", issue=issue_num, pr=PR_NUMBER, error=str(exc))
-    
-    return True
-
-
-def main() -> None:
-    global DRY_RUN, REPO_NAME, PR_NUMBER
-    
-    env = require_env(["REPO_NAME", "PR_NUMBER", "GITHUB_TOKEN"])
-    REPO_NAME = env["REPO_NAME"]
-    PR_NUMBER = int(env["PR_NUMBER"])
-    DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
-    
-    auth = Auth.Token(env["GITHUB_TOKEN"])
-    gh = Github(auth=auth)
-    repo = gh.get_repo(REPO_NAME)
-    pr = repo.get_pull(PR_NUMBER)
-    
-    # Initialize projects v2 client for board management
-    projects_client = None
+    # Update project board Status field
     try:
-        projects_client = ProjectsV2Client(env["GITHUB_TOKEN"], REPO_NAME)
+        gql.ensure_issue_in_project_with_fields(
+            issue_num,
+            field_updates={"Status": ("In Progress", "SINGLE_SELECT")},
+        )
+        results.append(ActionResult("update_project_status", f"issue #{issue_num}", ActionStatus.SUCCESS))
+        summary.checkpoint("board_synced", f"Board Status \u2192 'In Progress' for issue #{issue_num}")
     except Exception as exc:
-        log_event("projects_client_init_failed", error=str(exc))
-    
-    log_event("pr_linker_start", pr=PR_NUMBER, merged=pr.merged)
-    
+        results.append(ActionResult(
+            "update_project_status", f"issue #{issue_num}", ActionStatus.FAILED, str(exc)
+        ))
+
+    # Merge comment on issue
+    merge_comment = (
+        f"## \U0001f389 PR Merged\n\n"
+        f"PR #{pr.number} has been merged!\n\n"
+        f"<!-- agent:pr_linker -->"
+    )
+    try:
+        rest.add_issue_comment(issue_num, merge_comment)
+        results.append(ActionResult("post_merge_comment", f"issue #{issue_num}", ActionStatus.SUCCESS))
+    except Exception as exc:
+        results.append(ActionResult("post_merge_comment", f"issue #{issue_num}", ActionStatus.FAILED, str(exc)))
+
+    summary.decision(f"Merge status synced for issue #{issue_num}")
+    return results
+
+
+# ------------------------------------------------------------------
+# Main agent function
+# ------------------------------------------------------------------
+
+def _run(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    rest: GitHubGateway,
+    summary: ExecutionSummary,
+) -> RunResult:
+    pr_number = ctx.require_pr()
+    results: list[ActionResult] = []
+
+    summary.checkpoint("fetch_pr", f"Fetching PR #{pr_number}")
+    pr = rest.get_pr(pr_number)
+
     if pr.merged:
-        # Sync status from merge
-        sync_pr_status_on_merge(pr, repo, projects_client)
-        print(f"{'[dry-run] ' if DRY_RUN else ''}✅ PR #{PR_NUMBER} status synced")
+        summary.decision("PR is merged \u2192 running merge-status sync")
+        results.extend(_sync_merge_status(rest, gql, pr, summary))
     else:
-        # Find and link issue
-        issue_num = find_linked_issue(pr, repo)
+        summary.checkpoint("find_issue", "Discovering linked issue")
+        issue_num = _find_linked_issue(gql, pr_number, pr.body)
         if issue_num:
-            link_pr_to_issue(pr, repo, issue_num)
-            print(f"{'[dry-run] ' if DRY_RUN else ''}✅ PR #{PR_NUMBER} linked to issue #{issue_num}")
+            results.extend(_link_pr_to_issue(rest, pr, issue_num, summary))
         else:
-            log_event("pr_no_issue_found", pr=PR_NUMBER)
-            print(f"{'[dry-run] ' if DRY_RUN else ''}⚠️ PR #{PR_NUMBER}: no linked issue found")
-    
-    log_event("pr_linker_complete", pr=PR_NUMBER, dry_run=DRY_RUN)
+            summary.decision("No linked issue found \u2014 PR body has no issue reference")
+            results.append(ActionResult(
+                "find_linked_issue", f"PR #{pr_number}", ActionStatus.SKIPPED,
+                "No issue reference in PR body or GraphQL closing references"
+            ))
+
+    return RunResult(agent="pr_linker", dry_run=ctx.dry_run, actions=results)
 
 
 if __name__ == "__main__":
-    main()
+    run_agent("pr_linker", _run)
+

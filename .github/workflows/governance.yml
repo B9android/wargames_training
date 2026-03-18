@@ -1,0 +1,89 @@
+name: "Governance — Agent Platform Integrity"
+# Fails PRs that violate the permanence policy:
+#   1. No new per-agent workflow files in .github/workflows/
+#   2. No agent call outside of scripts/project_agent/ or tests/
+#   3. No references to deleted legacy workflow files
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - "scripts/project_agent/**"
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # ─── Rule 1: no new per-agent workflow files ────────────────
+      - name: Check for forbidden per-agent workflow files
+        id: check_workflows
+        run: |
+          FORBIDDEN=$(git diff --name-only HEAD~1 HEAD -- '.github/workflows/*.yml' | \
+            grep -vE 'orchestration\.yml|governance\.yml|agent-project-board\.yml|agent-setup-labels-milestones\.yml|seed-v1-issues\.yml' || true)
+          if [ -n "$FORBIDDEN" ]; then
+            echo "::error::New per-agent workflow files found. All agents MUST go through orchestration.yml."
+            echo "Forbidden files:"
+            echo "$FORBIDDEN"
+            echo "See docs/ORCHESTRATION_RUNBOOK.md for the permanence policy."
+            exit 1
+          fi
+          echo "No forbidden workflow files."
+
+      # ─── Rule 2: no imports of legacy deleted agent modules ─────
+      - name: Check for references to deleted legacy workflows
+        run: |
+          DELETED_NAMES="agent-epic-decomposer agent-issue-writer agent-milestone-check agent-pr-linker agent-progress-report agent-project-syncer agent-sprint-manager agent-triage experiment-approval experiment-kickoff scheduled-automation training-monitor orchestration-v2"
+          FOUND=""
+          for name in $DELETED_NAMES; do
+            hits=$(git diff HEAD~1 HEAD -- '*.yml' '*.yaml' '*.py' '*.md' | \
+                   grep "^+" | grep -v "^+++" | grep "$name" || true)
+            if [ -n "$hits" ]; then
+              FOUND="$FOUND\n$name: $hits"
+            fi
+          done
+          if [ -n "$FOUND" ]; then
+            echo "::error::References to deleted legacy workflows found in diff:"
+            printf "$FOUND\n"
+            exit 1
+          fi
+          echo "No references to deleted legacy workflows."
+
+      # ─── Rule 3: platform package must stay importable ──────────
+      - name: Validate platform package structure
+        run: |
+          REQUIRED_MODULES="__init__ context errors github_gateway graphql_gateway result runner summary telemetry"
+          for mod in $REQUIRED_MODULES; do
+            if [ ! -f "scripts/project_agent/agent_platform/${mod}.py" ]; then
+              echo "::error::Platform module missing: scripts/project_agent/agent_platform/${mod}.py"
+              exit 1
+            fi
+          done
+          echo "Platform package structure OK."
+
+      - name: Post governance result to PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: [
+                '## ⚠️ Governance Check Failed',
+                '',
+                'This PR violates the agent platform permanence policy.',
+                'Review the job summary above for specific violations.',
+                '',
+                '**Policy:** All agents must go through `orchestration.yml`. No per-agent workflow files. See `docs/ORCHESTRATION_RUNBOOK.md`.'
+              ].join('\n')
+            });

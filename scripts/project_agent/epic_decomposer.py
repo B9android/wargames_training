@@ -1,273 +1,255 @@
-"""Epic Decomposer: Auto-creates child issues from epic decomposition templates."""
+﻿"""Epic Decomposer â€” creates child issues from an epic's Implementation Plan.
 
+Entry point for orchestration.yml:epic_decompose* jobs.
+Platform-native: per-child checkpoints in ExecutionSummary, GraphQL project sync,
+idempotency via has_marker("decomposition-complete").
+"""
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 
 import yaml
-from github import Auth, Github
 
-from common import add_marker, agent_signature, extract_marker, has_marker, log_event, require_env, retry
-from projects_v2 import ProjectsV2Client
+from common import add_marker, extract_marker, has_marker
+from agent_platform.context import AgentContext
+from agent_platform.errors import ResourceNotFound
+from agent_platform.github_gateway import GitHubGateway, IssueData
+from agent_platform.graphql_gateway import GraphQLGateway
+from agent_platform.result import ActionResult, ActionStatus, RunResult
+from agent_platform.runner import run_agent
+from agent_platform.summary import ExecutionSummary
+from agent_platform.telemetry import log_event
 
 
-DRY_RUN = False
-REPO_NAME = ""
-EPIC_NUMBER = 0
-
-
-def load_orchestration_config() -> dict:
-    """Load orchestration.yaml for policies."""
+def _load_config() -> dict:
     config_path = Path(__file__).resolve().parents[2] / "configs" / "orchestration.yaml"
-    with config_path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+    with config_path.open("r", encoding="utf-8") as fh:
+        return yaml.safe_load(fh) or {}
 
 
-def extract_epic_sections(body: str) -> dict[str, str]:
-    """Parse epic body for titled sections (e.g., ## Goal, ## Implementation Plan)."""
-    sections = {}
-    current_section = None
-    current_content = []
-    
+# ------------------------------------------------------------------
+# Body parsing
+# ------------------------------------------------------------------
+
+def _extract_sections(body: str) -> dict[str, str]:
+    """Parse ## Section headers from issue body."""
+    sections: dict[str, str] = {}
+    current: str | None = None
+    lines: list[str] = []
     for line in (body or "").split("\n"):
-        # Detect section headers (## Header format)
-        header_match = re.match(r"^##\s+(.+)$", line)
-        if header_match:
-            # Save previous section
-            if current_section:
-                sections[current_section] = "\n".join(current_content).strip()
-            current_section = header_match.group(1).strip()
-            current_content = []
-        elif current_section:
-            current_content.append(line)
-    
-    # Save last section
-    if current_section:
-        sections[current_section] = "\n".join(current_content).strip()
-    
+        m = re.match(r"^##\s+(.+)$", line)
+        if m:
+            if current is not None:
+                sections[current] = "\n".join(lines).strip()
+            current = m.group(1).strip()
+            lines = []
+        elif current is not None:
+            lines.append(line)
+    if current is not None:
+        sections[current] = "\n".join(lines).strip()
     return sections
 
 
-def parse_decomposition_items(implementation_plan: str) -> list[dict]:
-    """Parse Implementation Plan section into individual issues.
-    
-    Expected format:
-    - [ ] Task 1: Description
-    - [ ] Task 2: Description
-    or
-    - Task 1: Description
-    - Task 2: Description
-    """
-    items = []
-    for line in implementation_plan.split("\n"):
+def _parse_tasks(plan: str) -> list[dict[str, str]]:
+    """Parse bullet items from Implementation Plan section."""
+    items: list[dict[str, str]] = []
+    for line in plan.split("\n"):
         line = line.strip()
         if not line:
             continue
-        
-        # Remove checkbox markers if present
         line = re.sub(r"^-\s*\[\s*\]\s*", "", line)
         line = re.sub(r"^-\s*", "", line).strip()
-        
-        if line:
-            # Split title from optional description
-            if ":" in line:
-                title, description = line.split(":", 1)
-                items.append({
-                    "title": title.strip(),
-                    "description": description.strip()
-                })
-            else:
-                items.append({
-                    "title": line,
-                    "description": ""
-                })
-    
+        if not line:
+            continue
+        if ":" in line:
+            title, desc = line.split(":", 1)
+            items.append({"title": title.strip(), "description": desc.strip()})
+        else:
+            items.append({"title": line, "description": ""})
     return items
 
 
-def get_active_sprint(repo, config: dict) -> str | None:
-    """Find active (or upcoming) sprint to assign decomposed issues."""
-    # Try to find a sprint with "active" status via project iterations
-    # For now, return None and let it be manually assigned
-    # This would integrate with GitHub Projects API in a full implementation
-    return None
+# ------------------------------------------------------------------
+# Child issue creation
+# ------------------------------------------------------------------
 
+def _create_child(
+    rest: GitHubGateway,
+    gql: GraphQLGateway,
+    epic: IssueData,
+    item: dict[str, str],
+    epic_version: str | None,
+    summary: ExecutionSummary,
+) -> ActionResult:
+    title = item["title"]
+    body = (
+        f"{item.get('description', '')}\n\n"
+        f"**Parent Epic:** #{epic.number}\n\n"
+        f"<!-- parent-epic:epic-{epic.number} -->\n"
+        f"<!-- status:triaged -->"
+    )
 
-def create_child_issue(repo, epic_issue, item: dict, config: dict, projects_client: ProjectsV2Client | None = None) -> int | None:
-    """Create a child issue from decomposition item."""
-    config_epic = config.get("policies", {}).get("epic", {})
-    
-    # Build child issue body
-    child_body = f"""{item.get('description', '')}
+    summary.checkpoint("create_child", f"Creating child: '{title}'")
 
-**Parent Epic:** #{epic_issue.number}
-
-<!-- parent-epic:epic-{epic_issue.number} -->
-<!-- status:triaged -->
-"""
-    
-    # Create the issue
+    # Create issue
     try:
-        if DRY_RUN:
-            log_event(
-                "child_issue_create_dry_run",
-                epic=epic_issue.number,
-                title=item["title"],
-                description=item.get("description", "")
-            )
-            return None
-        
-        child_issue = repo.create_issue(
-            title=item["title"],
-            body=child_body,
-            labels=["type: feature", "status: triaged"]
-        )
-        
-        log_event(
-            "child_issue_created",
-            epic=epic_issue.number,
-            child_issue=child_issue.number,
-            title=item["title"]
-        )
-        
-        # Add child issue to project board with parent epic's version
-        if projects_client:
-            try:
-                # Extract version from parent epic if available
-                epic_version = extract_marker(epic_issue.body or "", "version")
-                field_updates = {}
-                if epic_version:
-                    field_updates["Version"] = (epic_version, "SINGLE_SELECT")
-                
-                # Also try to get active sprint for assignment
-                active_sprint_id = projects_client.get_active_sprint_id()
-                if active_sprint_id:
-                    field_updates["Sprint"] = (active_sprint_id, "ITERATION")
-                
-                if field_updates:
-                    projects_client.ensure_issue_in_project_with_fields(
-                        child_issue.number,
-                        field_updates=field_updates,
-                    )
-                    log_event("child_issue_added_to_project", child=child_issue.number)
-                else:
-                    # Add to project even without field updates
-                    projects_client.ensure_issue_in_project_with_fields(
-                        child_issue.number,
-                    )
-                    log_event("child_issue_added_to_project", child=child_issue.number)
-            except Exception as exc:
-                log_event("child_project_sync_failed", child=child_issue.number, error=str(exc))
-        
-        return child_issue.number
+        child = rest.create_issue(title=title, body=body, labels=["type: feature", "status: triaged"])
     except Exception as exc:
-        log_event(
-            "child_issue_creation_failed",
-            epic=epic_issue.number,
-            title=item["title"],
-            error=str(exc)
-        )
-        return None
+        log_event("child_issue_create_failed", epic=epic.number, title=title, error=str(exc))
+        return ActionResult("create_child_issue", title, ActionStatus.FAILED, str(exc))
+
+    log_event("child_issue_created", epic=epic.number, child=child.number, title=title)
+
+    # Sync to project board
+    field_updates: dict[str, tuple[str, str]] = {}
+    if epic_version:
+        field_updates["Version"] = (epic_version, "SINGLE_SELECT")
+    sprint_id = gql.get_active_sprint_id()
+    if sprint_id:
+        field_updates["Sprint"] = (sprint_id, "ITERATION")
+
+    try:
+        gql.ensure_issue_in_project_with_fields(child.number, field_updates=field_updates or None)
+        summary.checkpoint("board_sync", f"#{child.number} synced to project board")
+    except Exception as exc:
+        log_event("child_project_sync_failed", child=child.number, error=str(exc))
+        # Not fatal â€” child issue was created successfully
+
+    return ActionResult(
+        "create_child_issue",
+        f"issue #{child.number}",
+        ActionStatus.SUCCESS,
+        metadata={"title": title, "number": child.number},
+    )
 
 
-def decompose_epic(repo, epic_issue, projects_client: ProjectsV2Client | None = None) -> list[int]:
-    """Decompose epic into child issues."""
-    config = load_orchestration_config()
-    child_issue_numbers = []
-    
-    # Skip if already decomposed
-    if has_marker(epic_issue.body or "", "decomposition-complete"):
-        log_event("epic_already_decomposed", epic=epic_issue.number)
-        return []
-    
-    # Extract sections from epic body
-    sections = extract_epic_sections(epic_issue.body or "")
-    
-    # Look for Implementation Plan section (or similar)
-    implementation_plan = None
-    for key in ["Implementation Plan", "Implementation", "Tasks", "Breakdown"]:
+# ------------------------------------------------------------------
+# Decompose orchestration
+# ------------------------------------------------------------------
+
+def _decompose(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    rest: GitHubGateway,
+    epic_number: int,
+    summary: ExecutionSummary,
+) -> tuple[list[ActionResult], list[int]]:
+    results: list[ActionResult] = []
+    created_numbers: list[int] = []
+
+    summary.checkpoint("fetch_epic", f"Fetching epic #{epic_number}")
+    try:
+        epic = rest.get_issue(epic_number)
+    except ResourceNotFound as exc:
+        return [ActionResult("fetch_epic", f"issue #{epic_number}", ActionStatus.FAILED, str(exc))], []
+
+    # Idempotency guard
+    if has_marker(epic.body, "decomposition-complete"):
+        summary.decision(f"Epic #{epic_number} already decomposed â€” skipping")
+        log_event("epic_already_decomposed", epic=epic_number)
+        results.append(ActionResult("idempotency_check", f"issue #{epic_number}", ActionStatus.SKIPPED,
+                                    "Already decomposed"))
+        return results, []
+
+    # Verify it's an epic
+    if not any(lbl.lower().startswith("type: epic") for lbl in epic.labels):
+        summary.decision(f"Issue #{epic_number} is not labeled 'type: epic' â€” aborting")
+        results.append(ActionResult("verify_epic", f"issue #{epic_number}", ActionStatus.FAILED,
+                                    "Not labeled as an epic"))
+        return results, []
+
+    # Parse implementation plan
+    sections = _extract_sections(epic.body)
+    plan_text: str | None = None
+    for key in ("Implementation Plan", "Implementation", "Tasks", "Breakdown"):
         if key in sections:
-            implementation_plan = sections[key]
+            plan_text = sections[key]
             break
-    
-    if not implementation_plan:
-        log_event("epic_no_implementation_plan", epic=epic_issue.number)
-        return []
-    
-    # Parse items
-    items = parse_decomposition_items(implementation_plan)
-    log_event("epic_decomposition_items_parsed", epic=epic_issue.number, count=len(items))
-    
+
+    if not plan_text:
+        summary.decision("No Implementation Plan section found in epic body")
+        results.append(ActionResult("parse_plan", f"issue #{epic_number}", ActionStatus.SKIPPED,
+                                    "No Implementation Plan section"))
+        return results, []
+
+    tasks = _parse_tasks(plan_text)
+    if not tasks:
+        summary.decision("Implementation Plan has no parseable task items")
+        results.append(ActionResult("parse_plan", f"issue #{epic_number}", ActionStatus.SKIPPED,
+                                    "No task items found"))
+        return results, []
+
+    log_event("epic_tasks_parsed", epic=epic_number, count=len(tasks))
+    summary.checkpoint("tasks_parsed", f"Found {len(tasks)} tasks to decompose")
+
+    # Epic metadata for child issues
+    epic_version = extract_marker(epic.body, "version")
+
     # Create child issues
-    for item in items:
-        child_number = create_child_issue(repo, epic_issue, item, config, projects_client)
-        if child_number:
-            child_issue_numbers.append(child_number)
-    
+    for i, task in enumerate(tasks, 1):
+        summary.checkpoint("progress", f"Creating child {i}/{len(tasks)}: {task['title']}")
+        result = _create_child(rest, gql, epic, task, epic_version, summary)
+        results.append(result)
+        if result.status == ActionStatus.SUCCESS and result.metadata:
+            created_numbers.append(result.metadata["number"])
+
     # Mark epic as decomposed
-    if not DRY_RUN and child_issue_numbers:
-        new_body = add_marker(epic_issue.body or "", "decomposition-complete", str(len(child_issue_numbers)))
-        # Update epic body with marker (if we have access to edit)
+    if created_numbers and not ctx.dry_run:
+        new_body = add_marker(epic.body, "decomposition-complete", str(len(created_numbers)))
         try:
-            retry(lambda body=new_body, issue=epic_issue: issue.edit(body=body))
-            log_event("epic_marked_decomposed", epic=epic_issue.number, children=len(child_issue_numbers))
+            rest.update_issue_body(epic_number, new_body)
+            results.append(ActionResult("mark_decomposed", f"issue #{epic_number}", ActionStatus.SUCCESS))
+            log_event("epic_marked_decomposed", epic=epic_number, children=len(created_numbers))
         except Exception as exc:
-            log_event("epic_mark_decomposed_failed", epic=epic_issue.number, error=str(exc))
-    
-    return child_issue_numbers
+            results.append(ActionResult("mark_decomposed", f"issue #{epic_number}", ActionStatus.FAILED, str(exc)))
+
+    # Post decomposition comment
+    if created_numbers or ctx.dry_run:
+        refs = "\n".join(f"- #{n}" for n in created_numbers) if created_numbers else "*(dry-run â€” no issues created)*"
+        comment = (
+            f"## \U0001f9e9 Epic Decomposed\n\n"
+            f"Created **{len(created_numbers)}** child issue(s):\n\n"
+            f"{refs}\n\n"
+            f"<!-- agent:epic_decomposer -->"
+        )
+        if ctx.dry_run:
+            summary.checkpoint("comment", "[dry-run] Would post decomposition comment")
+        else:
+            try:
+                rest.add_issue_comment(epic_number, comment)
+                results.append(ActionResult("post_decomposition_comment", f"issue #{epic_number}", ActionStatus.SUCCESS))
+                summary.checkpoint("comment", f"Posted decomposition comment on epic #{epic_number}")
+            except Exception as exc:
+                results.append(ActionResult("post_decomposition_comment", f"issue #{epic_number}",
+                                            ActionStatus.FAILED, str(exc)))
+
+    return results, created_numbers
 
 
-def main() -> None:
-    global DRY_RUN, REPO_NAME, EPIC_NUMBER
-    
-    env = require_env(["REPO_NAME", "EPIC_NUMBER", "GITHUB_TOKEN"])
-    REPO_NAME = env["REPO_NAME"]
-    EPIC_NUMBER = int(env["EPIC_NUMBER"])
-    DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
-    
-    auth = Auth.Token(env["GITHUB_TOKEN"])
-    gh = Github(auth=auth)
-    repo = gh.get_repo(REPO_NAME)
-    epic_issue = repo.get_issue(EPIC_NUMBER)
-    
-    # Initialize projects v2 client for board management
-    projects_client = ProjectsV2Client(env["GITHUB_TOKEN"], REPO_NAME)
-    
-    # Verify this is actually an epic
-    if not any(label.name.startswith("type: epic") for label in epic_issue.labels):
-        log_event("not_an_epic", issue=EPIC_NUMBER)
-        raise ValueError(f"Issue #{EPIC_NUMBER} is not labeled as an epic")
-    
-    # Decompose the epic
-    child_issues = decompose_epic(repo, epic_issue, projects_client)
-    
-    # Post comment
-    comment_body = f"""## Epic Decomposition
+# ------------------------------------------------------------------
+# Main agent function
+# ------------------------------------------------------------------
 
-Decomposed into **{len(child_issues)}** child issue(s):
-"""
-    for child_num in child_issues:
-        comment_body += f"\n- #{child_num}"
-    
-    if len(child_issues) == 0:
-        comment_body += "\n*(No items to decompose; check Implementation Plan section)*"
-    
-    comment_body += f"\n\n{agent_signature('epic_decomposer', context='epic decomposition')}"
-    
-    if DRY_RUN:
-        print(f"[dry-run] Would post decomposition comment to epic #{EPIC_NUMBER}")
-        print(comment_body)
+def _run(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    rest: GitHubGateway,
+    summary: ExecutionSummary,
+) -> RunResult:
+    # EPIC_NUMBER env var used by this agent (not ISSUE_NUMBER)
+    import os
+    epic_env = os.environ.get("EPIC_NUMBER", "")
+    if not epic_env:
+        epic_number = ctx.require_issue()
     else:
-        try:
-            retry(lambda body=comment_body: epic_issue.create_comment(body))
-        except Exception as exc:
-            log_event("decomposition_comment_failed", epic=EPIC_NUMBER, error=str(exc))
-    
-    log_event("epic_decomposition_complete", epic=EPIC_NUMBER, children=len(child_issues), dry_run=DRY_RUN)
-    print(f"{'[dry-run] ' if DRY_RUN else ''}✅ Decomposed epic #{EPIC_NUMBER} into {len(child_issues)} issues")
+        epic_number = int(epic_env)
+
+    results, created = _decompose(ctx, gql, rest, epic_number, summary)
+    summary.decision(f"Decomposed epic #{epic_number} into {len(created)} child issues")
+    return RunResult(agent="epic_decomposer", dry_run=ctx.dry_run, actions=results)
 
 
 if __name__ == "__main__":
-    main()
+    run_agent("epic_decomposer", _run)
+

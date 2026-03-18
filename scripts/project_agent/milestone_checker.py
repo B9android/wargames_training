@@ -1,40 +1,50 @@
-"""
-Milestone Health Check Agent.
+"""Milestone Health Check Agent.
 Runs daily and detects at-risk milestones, stale issues, and unlabeled issues.
-Automatically applies rule-based labels to unlabeled issues before reporting.
 """
 
 from __future__ import annotations
 
-import os
+import importlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import yaml
-from github import Github
+yaml = importlib.import_module("yaml")
 
-from common import agent_signature, log_event, require_env, retry
+from agent_platform.context import AgentContext
+from agent_platform.github_gateway import GitHubGateway
+from agent_platform.graphql_gateway import GraphQLGateway
+from agent_platform.result import ActionResult, ActionStatus, RunResult
+from agent_platform.runner import run_agent
+from agent_platform.summary import ExecutionSummary
+from agent_platform.telemetry import log_event
+from common import agent_signature
 from dependency_resolver import blocked_parent_rollup
 
 AGENT_CREATED_LABEL = "status: agent-created"
+PRIORITY_MEDIUM = "priority: medium"
 
 _FALLBACK_RULE_MAP: dict[str, list[str]] = {
     "[BUG]": ["type: bug", "priority: high"],
-    "[EXP]": ["type: experiment", "priority: medium"],
+    "[EXP]": ["type: experiment", PRIORITY_MEDIUM],
     "[RESEARCH]": ["type: research", "priority: low"],
-    "[FEAT]": ["type: feature", "priority: medium"],
-    "[FEATURE]": ["type: feature", "priority: medium"],
+    "[FEAT]": ["type: feature", PRIORITY_MEDIUM],
+    "[FEATURE]": ["type: feature", PRIORITY_MEDIUM],
     "[EPIC]": ["type: epic", "priority: high"],
     "[WIP]": ["status: in-progress"],
 }
 
 
-def load_rule_map() -> dict[str, list[str]]:
-    """Load title-marker → label rules from orchestration.yaml, with a hardcoded fallback."""
+def marker_for_milestone(milestone_number: int, due_date: str) -> str:
+    return f"<!-- agent:milestone-risk:{milestone_number}:{due_date} -->"
+
+
+def _load_rule_map() -> dict[str, list[str]]:
     config_path = Path(__file__).resolve().parents[2] / "configs" / "orchestration.yaml"
     try:
         with config_path.open("r", encoding="utf-8") as handle:
             raw = yaml.safe_load(handle) or {}
+        if isinstance(raw, dict) and raw and all(isinstance(v, list) for v in raw.values()):
+            return {str(marker).upper(): [str(label) for label in labels] for marker, labels in raw.items()}
         markers = raw.get("markers", {})
         if isinstance(markers, dict):
             loaded = {
@@ -51,87 +61,29 @@ def load_rule_map() -> dict[str, list[str]]:
     return _FALLBACK_RULE_MAP
 
 
-def triage_unlabeled_issues(repo, unlabeled: list, *, dry_run: bool) -> list[int]:
-    """Apply rule-based labels to each unlabeled issue.
-
-    For issues whose title contains a known marker (e.g. ``[BUG]``, ``[WIP]``),
-    the corresponding labels are applied automatically.  Issues with no
-    recognizable marker receive ``status: needs-manual-triage`` and
-    ``priority: medium`` so they are still surfaced in project views.
-
-    Returns the list of issue numbers that were successfully labelled, or
-    would be labelled when ``dry_run`` is True.
-    """
-    if not unlabeled:
-        return []
-
-    rule_map = load_rule_map()
-    repo_label_names = {label.name for label in repo.get_labels()}
-    triaged: list[int] = []
-
-    for issue in unlabeled:
-        upper_title = issue.title.upper()
-        labels_to_apply: list[str] = []
-        for marker, mapped_labels in rule_map.items():
-            if marker in upper_title:
-                labels_to_apply.extend(mapped_labels)
-        labels_to_apply = sorted(set(labels_to_apply))
-
-        if not labels_to_apply:
-            labels_to_apply = ["status: needs-manual-triage", "priority: medium"]
-
-        valid_labels = [lbl for lbl in labels_to_apply if lbl in repo_label_names]
-        if not valid_labels:
-            log_event("label_hygiene_no_valid_labels", issue=issue.number)
-            continue
-
-        if dry_run:
-            print(f"[dry-run] Would label #{issue.number} '{issue.title}': {valid_labels}")
-        else:
-            retry(lambda issue=issue, labels=tuple(valid_labels): issue.add_to_labels(*labels))
-            retry(
-                lambda issue=issue, labels=valid_labels: issue.create_comment(
-                    f"Labels applied automatically: "
-                    f"{', '.join(f'`{lbl}`' for lbl in labels)}\n\n"
-                    + agent_signature("milestone_checker", context="label hygiene sweep")
-                )
-            )
-
-        triaged.append(issue.number)
-        log_event(
-            "label_hygiene_applied",
-            issue=issue.number,
-            labels=valid_labels,
-            dry_run=dry_run,
-        )
-
-    return triaged
+def load_rule_map() -> dict[str, list[str]]:
+    return _load_rule_map()
 
 
-def marker_for_milestone(milestone_number: int, due_date: str) -> str:
-    return f"<!-- agent:milestone-risk:{milestone_number}:{due_date} -->"
-
-
-def dependency_blocker_lines(open_issues: list[object]) -> str:
-    """Render parent issues blocked by blocked children within this milestone."""
+def _dependency_blocker_lines(open_issues: list[object]) -> str:
     rollup = blocked_parent_rollup(open_issues)
     if not rollup:
         return "- None"
-
     lines: list[str] = []
     for entry in rollup:
         parent = f"- #{entry['parent_number']} {entry['parent_title']}"
-        child_list = ", ".join(
-            f"#{child['number']} {child['title']}" for child in entry["blocked_children"]
-        )
+        child_list = ", ".join(f"#{c['number']} {c['title']}" for c in entry["blocked_children"])
         lines.append(f"{parent} blocked by: {child_list}")
     return "\n".join(lines)
 
 
-def maybe_create_at_risk_issue(repo, milestone, now: datetime, *, dry_run: bool) -> int | None:
+def dependency_blocker_lines(open_issues: list[object]) -> str:
+    return _dependency_blocker_lines(open_issues)
+
+
+def maybe_create_at_risk_issue(repo, milestone, now: datetime, dry_run: bool) -> int | None:
     if not milestone.due_on:
         return None
-
     due = milestone.due_on.replace(tzinfo=timezone.utc)
     days_left = (due - now).days
     total = milestone.open_issues + milestone.closed_issues
@@ -140,13 +92,13 @@ def maybe_create_at_risk_issue(repo, milestone, now: datetime, *, dry_run: bool)
     if not at_risk:
         return None
 
-    title = f"⚠️ MILESTONE AT RISK: {milestone.title} ({pct:.0f}% complete, {days_left}d left)"
     marker = marker_for_milestone(milestone.number, due.strftime("%Y-%m-%d"))
     existing = list(repo.get_issues(state="open", labels=[AGENT_CREATED_LABEL]))
-    if any(marker in (existing_issue.body or "") for existing_issue in existing):
+    if any(marker in (e.body or "") for e in existing):
         return None
 
-    open_issues = list(repo.get_issues(state="open", milestone=milestone))
+    title = f"⚠️ MILESTONE AT RISK: {milestone.title} ({pct:.0f}% complete, {days_left}d left)"
+    related_open = list(repo.get_issues(state="open", milestone=milestone))
     body = f"""## Milestone At Risk
 
 **Milestone:** [{milestone.title}]({milestone.url})
@@ -154,128 +106,127 @@ def maybe_create_at_risk_issue(repo, milestone, now: datetime, *, dry_run: bool)
 **Progress:** {milestone.closed_issues}/{total} issues closed ({pct:.0f}%)
 
 ### Open Issues Remaining
-{chr(10).join(f'- #{i.number} {i.title}' for i in open_issues) or '- None'}
+{chr(10).join(f'- #{i.number} {i.title}' for i in related_open) or '- None'}
 
 ### Dependency Blockers
-{dependency_blocker_lines(open_issues)}
-
-### Recommended Actions
-- Review and close or defer non-critical issues.
-- Ensure all active work is tracked with `status: in-progress`.
-- Adjust milestone due date if scope has changed.
+{_dependency_blocker_lines(related_open)}
 
 {agent_signature("milestone_checker", context="milestone health check")}
 
 {marker}
 """
-
     if dry_run:
-        print(f"[dry-run] Would create at-risk milestone issue: {title}")
         return None
-
-    created_issue = retry(
-        lambda title=title, body=body: repo.create_issue(
-            title=title,
-            body=body,
-            labels=["priority: critical", "type: chore", AGENT_CREATED_LABEL],
-        )
+    issue = repo.create_issue(
+        title=title,
+        body=body,
+        labels=["priority: critical", "type: chore", AGENT_CREATED_LABEL],
     )
-    return created_issue.number
+    return issue.number
 
 
-def process_at_risk_milestones(repo, now: datetime, *, dry_run: bool) -> list[int]:
-    created: list[int] = []
-    for milestone in repo.get_milestones(state="open"):
-        maybe_issue_number = maybe_create_at_risk_issue(repo, milestone, now, dry_run=dry_run)
-        if maybe_issue_number is not None:
-            created.append(maybe_issue_number)
-    return created
-
-
-def mark_stale_issues(repo, now: datetime, *, dry_run: bool) -> None:
+def mark_stale_issues(repo, now: datetime, dry_run: bool) -> int:
     stale_cutoff = now - timedelta(days=14)
+    stale_marked = 0
     for issue in repo.get_issues(state="open"):
         label_names = [label.name for label in issue.labels]
         if "status: stale" in label_names or "status: in-progress" in label_names:
             continue
         if issue.updated_at >= stale_cutoff:
             continue
-        if dry_run:
-            print(f"[dry-run] Would mark issue #{issue.number} as stale")
-            continue
-
-        retry(lambda issue=issue: issue.add_to_labels("status: stale"))
-        retry(
-            lambda issue=issue: issue.create_comment(
-                "This issue has had no activity in 14+ days and was marked "
-                "`status: stale`. Please update, close, or defer it.\n\n"
+        if not dry_run:
+            issue.add_to_labels("status: stale")
+            issue.create_comment(
+                "This issue has had no activity in 14+ days and was marked `status: stale`.\n\n"
                 + agent_signature("milestone_checker", context="stale issue sweep")
             )
-        )
+        stale_marked += 1
+    return stale_marked
 
 
-def report_unlabeled_issues(repo, now: datetime, *, dry_run: bool) -> list[int]:
-    created: list[int] = []
+def triage_unlabeled_issues(repo, unlabeled: list[object], dry_run: bool) -> list[int]:
+    rule_map = _load_rule_map()
+    repo_label_names = {label.name for label in repo.get_labels()}
+    triaged: list[int] = []
+    for issue in unlabeled:
+        labels_to_apply: list[str] = []
+        upper_title = issue.title.upper()
+        for marker, mapped in rule_map.items():
+            if marker in upper_title:
+                labels_to_apply.extend(mapped)
+        labels_to_apply = sorted(set(labels_to_apply)) or ["status: needs-manual-triage", PRIORITY_MEDIUM]
+        valid = [lbl for lbl in labels_to_apply if lbl in repo_label_names]
+        if not valid:
+            continue
+        if not dry_run:
+            issue.add_to_labels(*valid)
+            issue.create_comment(
+                "Labels applied automatically: "
+                + ", ".join(f"`{lbl}`" for lbl in valid)
+                + "\n\n"
+                + agent_signature("milestone_checker", context="label hygiene sweep")
+            )
+        triaged.append(issue.number)
+    return triaged
+
+
+def report_unlabeled_issues(repo, now: datetime, dry_run: bool) -> list[int]:
     unlabeled = [issue for issue in repo.get_issues(state="open") if not issue.labels]
-    if len(unlabeled) <= 3:
-        return created
-
-    marker = f"<!-- agent:unlabeled-count:{len(unlabeled)}:{now.strftime('%Y-%m-%d')} -->"
-    existing_agent = list(repo.get_issues(state="open", labels=[AGENT_CREATED_LABEL]))
-    if any(marker in (issue.body or "") for issue in existing_agent):
-        return created
-
-    body = f"""## Unlabeled Issues Detected
-
-The following {len(unlabeled)} issues have no labels and may not be properly triaged:
-
-{chr(10).join(f'- #{i.number} {i.title}' for i in unlabeled[:20])}
-
-Please label these issues so they appear in the correct project views.
-
-{agent_signature("milestone_checker", context="label hygiene sweep")}
-
-{marker}
-"""
-
+    if len(unlabeled) < 5:
+        return []
+    title = f"⚠️ Label Hygiene Alert: {len(unlabeled)} issues need labels"
+    body = (
+        "## Unlabeled Issues Detected\n\n"
+        f"Detected {len(unlabeled)} open issues without labels as of {now.strftime('%Y-%m-%d')}.\n\n"
+        "### Sample\n"
+        + "\n".join(f"- #{i.number} {i.title}" for i in unlabeled[:20])
+        + "\n\n"
+        + agent_signature("milestone_checker", context="label hygiene report")
+    )
     if dry_run:
-        print(f"[dry-run] Would create unlabeled-issues report: {len(unlabeled)} issues")
-        return created
-
-    new_issue = retry(
-        lambda body=body: repo.create_issue(
-            title=f"🏷️ {len(unlabeled)} issues need labels",
-            body=body,
-            labels=["type: chore", "priority: low", AGENT_CREATED_LABEL],
-        )
-    )
-    created.append(new_issue.number)
-    return created
+        return [0]
+    created = repo.create_issue(title=title, body=body, labels=["type: chore", AGENT_CREATED_LABEL])
+    return [created.number]
 
 
-def main() -> None:
-    env = require_env(["REPO_NAME", "GITHUB_TOKEN"])
-    repo_name = env["REPO_NAME"]
-    dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+def _run(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    rest: GitHubGateway,
+    summary: ExecutionSummary,
+) -> RunResult:
     now = datetime.now(timezone.utc)
+    results: list[ActionResult] = []
 
-    auth = Auth.Token(env["GITHUB_TOKEN"])
-    gh = Github(auth=auth)
-    repo = gh.get_repo(repo_name)
-    issues_created = process_at_risk_milestones(repo, now, dry_run=dry_run)
-    mark_stale_issues(repo, now, dry_run=dry_run)
+    summary.checkpoint("load_data", "Loading open milestones and issues")
+    repo = rest._repo_obj
+    open_milestones = list(repo.get_milestones(state="open"))
 
-    # Auto-label unlabeled issues, then report any that still have no labels.
+    # 1) At-risk milestone issue creation
+    created_count = 0
+    for milestone in open_milestones:
+        created_number = maybe_create_at_risk_issue(repo, milestone, now, ctx.dry_run)
+        if ctx.dry_run:
+            if created_number is None:
+                continue
+            results.append(ActionResult("create_at_risk_issue", milestone.title, ActionStatus.DRY_RUN))
+        elif created_number is not None:
+            created_count += 1
+            results.append(ActionResult("create_at_risk_issue", milestone.title, ActionStatus.SUCCESS, metadata={"number": created_number}))
+
+    # 2) Mark stale issues
+    stale_marked = mark_stale_issues(repo, now, ctx.dry_run)
+    results.append(ActionResult("mark_stale", "open issues", ActionStatus.DRY_RUN if ctx.dry_run else ActionStatus.SUCCESS, metadata={"count": stale_marked}))
+
+    # 3) Auto-label unlabeled issues
     unlabeled = [issue for issue in repo.get_issues(state="open") if not issue.labels]
-    triage_unlabeled_issues(repo, unlabeled, dry_run=dry_run)
+    auto_labeled = len(triage_unlabeled_issues(repo, unlabeled, ctx.dry_run))
+    results.append(ActionResult("auto_label_unlabeled", "open issues", ActionStatus.DRY_RUN if ctx.dry_run else ActionStatus.SUCCESS, metadata={"count": auto_labeled}))
 
-    issues_created.extend(report_unlabeled_issues(repo, now, dry_run=dry_run))
-
-    log_event("milestone_check_complete", created=issues_created, dry_run=dry_run)
-    print(
-        f"{'[dry-run] ' if dry_run else ''}✅ Milestone check complete. Created {len(issues_created)} issues: {issues_created}"
-    )
+    summary.decision(f"Milestone check complete: created={created_count}, stale_marked={stale_marked}, auto_labeled={auto_labeled}")
+    log_event("milestone_check_complete", created=created_count, stale_marked=stale_marked, auto_labeled=auto_labeled, dry_run=ctx.dry_run)
+    return RunResult(agent="milestone_checker", dry_run=ctx.dry_run, actions=results)
 
 
 if __name__ == "__main__":
-    main()
+    run_agent("milestone_checker", _run)

@@ -1,40 +1,40 @@
-"""Triage Agent: rule-first triage with AI fallback for ambiguous issues."""
-
+﻿"""Triage Agent â€” rule-first triage with optional AI fallback for ambiguous issues."""
 from __future__ import annotations
 
 import json
+import importlib
 import os
 from pathlib import Path
 
-import yaml
+yaml = importlib.import_module("yaml")
 
-from common import agent_signature, log_event, require_env, retry
-from projects_v2 import ProjectsV2Client
-
+from agent_platform.context import AgentContext
+from agent_platform.github_gateway import GitHubGateway
+from agent_platform.graphql_gateway import GraphQLGateway
+from agent_platform.result import ActionResult, ActionStatus, RunResult
+from agent_platform.runner import run_agent
+from agent_platform.summary import ExecutionSummary
+from agent_platform.telemetry import log_event
 
 PRIORITY_HIGH = "priority: high"
 PRIORITY_MEDIUM = "priority: medium"
+TYPE_EXPERIMENT = "type: experiment"
+TYPE_EPIC = "type: epic"
 
 RULE_MAP = {
     "[BUG]": ["type: bug", PRIORITY_HIGH],
-    "[EXP]": ["type: experiment", PRIORITY_MEDIUM],
+    "[EXP]": [TYPE_EXPERIMENT, PRIORITY_MEDIUM],
     "[RESEARCH]": ["type: research", "priority: low"],
     "[FEAT]": ["type: feature", PRIORITY_MEDIUM],
     "[FEATURE]": ["type: feature", PRIORITY_MEDIUM],
-    "[EPIC]": ["type: epic", PRIORITY_HIGH],
+    "[EPIC]": [TYPE_EPIC, PRIORITY_HIGH],
 }
 
 SYSTEM_PROMPT = """
 You are a project management agent for a reinforcement learning research project
-called wargames_training. The project trains AI agents to control Napoleonic-era
-military battalions in a continuous 2D simulation.
+called wargames_training.
 
-Your job is to triage new GitHub issues by:
-1. Suggesting the most appropriate labels from the available list
-2. Suggesting the most appropriate milestone
-3. Writing a brief, helpful triage comment
-
-Respond ONLY with valid JSON in this exact format:
+Respond ONLY with valid JSON in this format:
 {
   "labels": ["label1", "label2"],
   "milestone": "M1: 1v1 Competence",
@@ -44,18 +44,11 @@ Respond ONLY with valid JSON in this exact format:
 """
 
 
-REPO_NAME = ""
-ISSUE_NUMBER = 0
-DRY_RUN = False
-ai = None
-repo = None
-issue = None
-all_labels: list[str] = []
+# Legacy test compatibility: tests mutate this directly.
 all_milestones: dict[str, int] = {}
 
 
-def load_rule_map() -> dict[str, list[str]]:
-    """Load title marker rules from the canonical orchestration contract."""
+def _load_rule_map() -> dict[str, list[str]]:
     config_path = Path(__file__).resolve().parents[2] / "configs" / "orchestration.yaml"
     try:
         with config_path.open("r", encoding="utf-8") as handle:
@@ -63,39 +56,35 @@ def load_rule_map() -> dict[str, list[str]]:
         markers = raw.get("markers", {})
         if not isinstance(markers, dict):
             raise ValueError("markers section is not a mapping")
-
-        loaded_rule_map: dict[str, list[str]] = {}
-        for marker, marker_config in markers.items():
-            labels = marker_config.get("labels", []) if isinstance(marker_config, dict) else []
-            loaded_rule_map[str(marker).upper()] = [str(label) for label in labels]
-
-        if loaded_rule_map:
-            return loaded_rule_map
-    except Exception as exc:  # pragma: no cover - config fallback
+        loaded: dict[str, list[str]] = {}
+        for marker, cfg in markers.items():
+            labels = cfg.get("labels", []) if isinstance(cfg, dict) else []
+            loaded[str(marker).upper()] = [str(label) for label in labels]
+        if loaded:
+            return loaded
+    except Exception as exc:
         log_event("triage_rule_map_fallback", error=str(exc), config=str(config_path))
     return RULE_MAP
 
 
-def choose_milestone(title: str) -> str | None:
-    if "[EXP]" in title and "M1: 1v1 Competence" in all_milestones:
+def _choose_milestone(title: str, milestone_titles: list[str]) -> str | None:
+    if "[EXP]" in title and "M1: 1v1 Competence" in milestone_titles:
         return "M1: 1v1 Competence"
-    if all_milestones:
-        return next(iter(all_milestones.keys()))
-    return None
+    return milestone_titles[0] if milestone_titles else None
 
 
-def triage_by_rules() -> dict[str, object]:
-    upper_title = issue.title.upper()
+def _triage_by_rules(title: str, milestone_titles: list[str]) -> dict[str, object]:
+    upper = title.upper()
     labels: list[str] = []
-    for marker, mapped_labels in load_rule_map().items():
-        if marker in upper_title:
-            labels.extend(mapped_labels)
+    for marker, mapped in _load_rule_map().items():
+        if marker in upper:
+            labels.extend(mapped)
     labels = sorted(set(labels))
 
     if not labels:
         return {
             "labels": ["status: needs-manual-triage", PRIORITY_MEDIUM],
-            "milestone": choose_milestone(issue.title),
+            "milestone": _choose_milestone(title, milestone_titles),
             "comment": "Issue could not be confidently triaged by rules. Marked for manual review.",
             "priority": "medium",
             "rule_only": True,
@@ -103,189 +92,218 @@ def triage_by_rules() -> dict[str, object]:
 
     return {
         "labels": labels,
-        "milestone": choose_milestone(issue.title),
+        "milestone": _choose_milestone(title, milestone_titles),
         "comment": "Issue triaged using deterministic title markers.",
         "priority": "high" if PRIORITY_HIGH in labels else "medium",
         "rule_only": True,
     }
 
 
-def build_triage_prompt() -> str:
-    return f"""
-New issue opened:
-Title: {issue.title}
-Body: {issue.body or '(no body)'}
-
-Available labels: {json.dumps(all_labels)}
-Available milestones: {json.dumps(list(all_milestones.keys()))}
-
-Triage this issue.
-"""
-
-
-def maybe_ai_triage(result: dict[str, object], prompt: str) -> dict[str, object]:
-    if not (ai and "status: needs-manual-triage" in result.get("labels", [])):
+def _maybe_ai_triage(
+    result: dict[str, object],
+    *,
+    title: str,
+    body: str,
+    all_labels: list[str],
+    all_milestones: list[str],
+) -> dict[str, object]:
+    if "status: needs-manual-triage" not in result.get("labels", []):
         return result
+
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return result
+
     try:
-        response = retry(
-            lambda: ai.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-                timeout=30,
-            )
+        openai_cls = importlib.import_module("openai").OpenAI
+        ai = openai_cls(api_key=api_key)
+        prompt = (
+            f"Title: {title}\n"
+            f"Body: {body or '(no body)'}\n"
+            f"Available labels: {json.dumps(all_labels)}\n"
+            f"Available milestones: {json.dumps(all_milestones)}\n"
+            "Triage this issue."
+        )
+        response = ai.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            timeout=30,
         )
         parsed = json.loads(response.choices[0].message.content)
         parsed["rule_only"] = False
         return parsed
-    except Exception as exc:  # pragma: no cover
-        log_event("triage_ai_fallback", error=str(exc), issue=ISSUE_NUMBER)
+    except Exception as exc:
+        log_event("triage_ai_fallback", error=str(exc))
         return result
 
 
-def apply_labels(result: dict[str, object]) -> list[str]:
-    existing_label_names = [label.name for label in repo.get_labels()]
-    labels_to_apply = [label for label in result.get("labels", []) if label in existing_label_names]
-    if not labels_to_apply:
-        return []
-
-    if DRY_RUN:
-        print(f"[dry-run] Would apply labels: {labels_to_apply}")
-    else:
-        retry(lambda labels=tuple(labels_to_apply): issue.add_to_labels(*labels))
-    return labels_to_apply
-
-
-def apply_milestone(result: dict[str, object]) -> str | None:
-    milestone_title = result.get("milestone")
-    if not (milestone_title and milestone_title in all_milestones):
-        return milestone_title
-
-    milestone = repo.get_milestone(all_milestones[milestone_title])
-    if DRY_RUN:
-        print(f"[dry-run] Would set milestone: {milestone_title}")
-    else:
-        retry(lambda milestone=milestone: issue.edit(milestone=milestone))
-    return milestone_title
-
-
-def emit_step_outputs(
-    classified_labels: list[str],
-    issue_number: int,
-    *,
-    output_path: str | None = None,
-) -> None:
-    """Write GitHub Actions step outputs for downstream job chaining.
-
-    Uses the *classified* (pre-filter) label list so cascade jobs fire even when
-    the corresponding repo labels have not been created yet.
-
-    Args:
-        classified_labels: Label names as determined by triage (pre repo-filter).
-        issue_number: The GitHub issue number being triaged.
-        output_path: Path of the $GITHUB_OUTPUT file; defaults to the env var.
-    """
-    dest = output_path or os.environ.get("GITHUB_OUTPUT", "")
-    if not dest:
+def _emit_step_outputs(classified_labels: list[str], issue_number: int) -> None:
+    output_path = os.environ.get("GITHUB_OUTPUT", "")
+    if not output_path:
         return
+    labels = [str(lbl) for lbl in classified_labels] if isinstance(classified_labels, list) else []
+    is_epic = TYPE_EPIC in labels
+    is_experiment = TYPE_EXPERIMENT in labels
+    with open(output_path, "a", encoding="utf-8") as out:
+        out.write(f"is_epic={'true' if is_epic else 'false'}\n")
+        out.write(f"is_experiment={'true' if is_experiment else 'false'}\n")
+        out.write(f"issue_number={issue_number}\n")
 
-    # Normalize labels defensively in case upstream data is malformed.
-    if isinstance(classified_labels, list):
-        normalized_labels = [str(label) for label in classified_labels]
+
+# Backward-compatible helper names used by existing tests.
+def choose_milestone(title: str) -> str | None:
+    return _choose_milestone(title, list(all_milestones.keys()))
+
+
+def emit_step_outputs(classified_labels: list[str], issue_number: int, *, output_path: str | None = None) -> None:
+    if output_path:
+        labels = [str(lbl) for lbl in classified_labels] if isinstance(classified_labels, list) else []
+        is_epic = TYPE_EPIC in labels
+        is_experiment = TYPE_EXPERIMENT in labels
+        with open(output_path, "a", encoding="utf-8") as out:
+            out.write(f"is_epic={'true' if is_epic else 'false'}\n")
+            out.write(f"is_experiment={'true' if is_experiment else 'false'}\n")
+            out.write(f"issue_number={issue_number}\n")
+        return
+    _emit_step_outputs(classified_labels, issue_number)
+
+
+def _apply_labels(
+    ctx: AgentContext,
+    rest: GitHubGateway,
+    issue_number: int,
+    labels: list[str],
+    results: list[ActionResult],
+) -> None:
+    if not labels:
+        return
+    if ctx.dry_run:
+        results.append(
+            ActionResult("apply_labels", f"issue #{issue_number}", ActionStatus.DRY_RUN, metadata={"labels": labels})
+        )
+        return
+    rest.add_labels(issue_number, labels)
+    results.append(
+        ActionResult("apply_labels", f"issue #{issue_number}", ActionStatus.SUCCESS, metadata={"labels": labels})
+    )
+
+
+def _apply_milestone(
+    ctx: AgentContext,
+    rest: GitHubGateway,
+    issue_number: int,
+    milestone_title: str | None,
+    all_milestones: list[str],
+    results: list[ActionResult],
+) -> None:
+    if not (milestone_title and milestone_title in all_milestones):
+        return
+    if ctx.dry_run:
+        results.append(
+            ActionResult("set_milestone", f"issue #{issue_number}", ActionStatus.DRY_RUN, metadata={"milestone": milestone_title})
+        )
+        return
+    milestone_obj = next(m for m in rest._repo_obj.get_milestones(state="open") if m.title == milestone_title)
+    rest._repo_obj.get_issue(issue_number).edit(milestone=milestone_obj)
+    results.append(
+        ActionResult("set_milestone", f"issue #{issue_number}", ActionStatus.SUCCESS, metadata={"milestone": milestone_title})
+    )
+
+
+def _sync_version_field(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    issue_number: int,
+    labels: list[str],
+    results: list[ActionResult],
+) -> None:
+    version_label = next((l for l in labels if l.startswith("v")), None)
+    if not version_label:
+        return
+    if ctx.dry_run:
+        results.append(
+            ActionResult("sync_version_field", f"issue #{issue_number}", ActionStatus.DRY_RUN, metadata={"version": version_label})
+        )
+        return
+    gql.ensure_issue_in_project_with_fields(
+        issue_number,
+        field_updates={"Version": (version_label, "SINGLE_SELECT")},
+    )
+    results.append(
+        ActionResult("sync_version_field", f"issue #{issue_number}", ActionStatus.SUCCESS, metadata={"version": version_label})
+    )
+
+
+def _post_triage_comment(
+    ctx: AgentContext,
+    rest: GitHubGateway,
+    issue_number: int,
+    labels: list[str],
+    milestone_title: str | None,
+    triage_result: dict[str, object],
+    results: list[ActionResult],
+) -> str:
+    mode = "rules" if triage_result.get("rule_only", False) else "ai"
+    comment_body = (
+        "## Agent Triage\n\n"
+        f"{triage_result.get('comment', '')}\n\n"
+        "---\n"
+        f"**Labels applied:** {', '.join(f'`{l}`' for l in labels) or 'none'}\n"
+        f"**Milestone:** `{milestone_title or 'none'}`\n"
+        f"**Suggested priority:** `{triage_result.get('priority', 'medium')}`\n"
+        f"**Triage mode:** `{mode}`\n\n"
+        "<!-- agent:triage -->\n\n"
+        "Please review and adjust as needed."
+    )
+    if ctx.dry_run:
+        results.append(ActionResult("post_triage_comment", f"issue #{issue_number}", ActionStatus.DRY_RUN))
     else:
-        normalized_labels = []
-
-    is_epic = "type: epic" in normalized_labels
-    is_experiment = "type: experiment" in normalized_labels
-    with open(dest, "a", encoding="utf-8") as _out:
-        _out.write(f"is_epic={'true' if is_epic else 'false'}\n")
-        _out.write(f"is_experiment={'true' if is_experiment else 'false'}\n")
-        _out.write(f"issue_number={issue_number}\n")
+        rest.add_issue_comment(issue_number, comment_body)
+        results.append(ActionResult("post_triage_comment", f"issue #{issue_number}", ActionStatus.SUCCESS))
+    return mode
 
 
-def main() -> None:
-    global REPO_NAME, ISSUE_NUMBER, DRY_RUN, ai, repo, issue, all_labels, all_milestones
+def _run(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    rest: GitHubGateway,
+    summary: ExecutionSummary,
+) -> RunResult:
+    issue_number = ctx.require_issue()
+    results: list[ActionResult] = []
 
-    from github import Auth, Github
-    from openai import OpenAI
+    issue = rest.get_issue(issue_number)
+    all_labels = [lbl.name for lbl in rest._repo_obj.get_labels()]
+    all_milestones = [m.title for m in rest._repo_obj.get_milestones(state="open")]
 
-    env = require_env(["REPO_NAME", "ISSUE_NUMBER", "GITHUB_TOKEN"])
-    REPO_NAME = env["REPO_NAME"]
-    ISSUE_NUMBER = int(env["ISSUE_NUMBER"])
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
-    DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
+    summary.checkpoint("classify", f"Classifying issue #{issue_number}")
+    triage_result = _triage_by_rules(issue.title, all_milestones)
+    triage_result = _maybe_ai_triage(
+        triage_result,
+        title=issue.title,
+        body=issue.body,
+        all_labels=all_labels,
+        all_milestones=all_milestones,
+    )
 
-    auth = Auth.Token(env["GITHUB_TOKEN"])
-    gh = Github(auth=auth)
-    ai = OpenAI(api_key=openai_api_key) if openai_api_key else None
-    repo = gh.get_repo(REPO_NAME)
-    issue = repo.get_issue(ISSUE_NUMBER)
+    labels = [label for label in triage_result.get("labels", []) if label in all_labels]
+    milestone_title = triage_result.get("milestone")
 
-    all_labels = [label.name for label in repo.get_labels()]
-    all_milestones = {
-        milestone.title: milestone.number for milestone in repo.get_milestones(state="open")
-    }
+    _apply_labels(ctx, rest, issue_number, labels, results)
+    _apply_milestone(ctx, rest, issue_number, milestone_title, all_milestones, results)
+    _sync_version_field(ctx, gql, issue_number, labels, results)
+    mode = _post_triage_comment(ctx, rest, issue_number, labels, milestone_title, triage_result, results)
 
-    prompt = build_triage_prompt()
-    result = maybe_ai_triage(triage_by_rules(), prompt)
-    labels_to_apply = apply_labels(result)
-    milestone_title = apply_milestone(result)
-    
-    # Initialize projects v2 client for board management
-    projects_client = None
-    try:
-        projects_client = ProjectsV2Client(env["GITHUB_TOKEN"], REPO_NAME)
-        
-        # Extract version from labels or milestone
-        version_label = next((l for l in labels_to_apply if l.startswith("v")), None)
-        if not version_label and milestone_title:
-            # Try to extract version from milestone (e.g., "M1: 1v1 Competence" -> version extraction logic)
-            version_label = None
-        
-        if version_label:
-            # Add issue to project and set Version field
-            if not DRY_RUN:
-                projects_client.ensure_issue_in_project_with_fields(
-                    ISSUE_NUMBER,
-                    field_updates={"Version": (version_label, "SINGLE_SELECT")},
-                )
-                log_event("triaged_issue_version_set", issue=ISSUE_NUMBER, version=version_label)
-    except Exception as exc:
-        log_event("triage_projects_sync_failed", issue=ISSUE_NUMBER, error=str(exc))
+    _emit_step_outputs(triage_result.get("labels", []), issue_number)
+    summary.decision(f"Triage mode={mode}; labels={labels}; milestone={milestone_title}")
 
-    mode = "rules" if result.get("rule_only", False) else "ai"
-    comment_body = f"""## Agent Triage
-
-{result.get('comment', '')}
-
----
-**Labels applied:** {', '.join(f'`{label}`' for label in labels_to_apply) or 'none'}
-**Milestone:** `{milestone_title or 'none'}`
-**Suggested priority:** `{result.get('priority', 'medium')}`
-**Triage mode:** `{mode}`
-
-{agent_signature("triage", context="issue triage")}
-
-Please review and adjust as needed.
-"""
-    if DRY_RUN:
-        print(f"[dry-run] Would post triage comment to issue #{ISSUE_NUMBER}")
-    else:
-        retry(lambda body=comment_body: issue.create_comment(body))
-
-    log_event("triage_complete", issue=ISSUE_NUMBER, mode=mode, labels=labels_to_apply, dry_run=DRY_RUN)
-
-    # Emit GitHub Actions step outputs for downstream job chaining.
-    # Classification is based on the full label list from triage (pre-filter) so
-    # cascade jobs run even when repo labels haven't been created yet.
-    classified_labels = result.get("labels", [])
-    emit_step_outputs(classified_labels, ISSUE_NUMBER)
-
-    print(f"{'[dry-run] ' if DRY_RUN else ''}✅ Triaged issue #{ISSUE_NUMBER}")
+    return RunResult(agent="triage_agent", dry_run=ctx.dry_run, actions=results)
 
 
 if __name__ == "__main__":
-    main()
+    run_agent("triage_agent", _run)
+

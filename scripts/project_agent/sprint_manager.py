@@ -1,169 +1,94 @@
-"""Sprint Manager: Manages sprint lifecycle (planning, active, completed, archived)."""
-
+﻿"""Sprint Manager â€” start/close/auto-transition sprint assignments via project fields."""
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import yaml
-from github import Auth, Github
 
-from common import agent_signature, log_event, require_env, retry
-from projects_v2 import ProjectsV2Client
+from agent_platform.context import AgentContext
+from agent_platform.graphql_gateway import GraphQLGateway
+from agent_platform.github_gateway import GitHubGateway
+from agent_platform.result import ActionResult, ActionStatus, RunResult
+from agent_platform.runner import run_agent
+from agent_platform.summary import ExecutionSummary
+from agent_platform.telemetry import log_event
 from sprint_assigner import auto_assign_issues_to_sprint
 
 
-DRY_RUN = False
-REPO_NAME = ""
-ACTION = ""  # "start", "close", "auto-transition"
-
-
-def load_orchestration_config() -> dict:
-    """Load orchestration.yaml for policies."""
+def _load_config() -> dict:
     config_path = Path(__file__).resolve().parents[2] / "configs" / "orchestration.yaml"
-    with config_path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+    with config_path.open("r", encoding="utf-8") as fh:
+        return yaml.safe_load(fh) or {}
 
 
-def find_sprint_by_name(repo, sprint_name: str):
-    """Find a project field value (sprint) by name via GraphQL."""
-    # This would require GitHub GraphQL API integration
-    # For now, return None - full implementation would need custom queries
-    log_event("sprint_lookup_stub", sprint_name=sprint_name)
-    return None
+def _run(
+    ctx: AgentContext,
+    gql: GraphQLGateway,
+    rest: GitHubGateway,
+    summary: ExecutionSummary,
+) -> RunResult:
+    action = os.environ.get("ACTION", "auto-transition")
+    results: list[ActionResult] = []
 
+    if action == "start":
+        sprint_name = ctx.require_sprint()
+        summary.checkpoint("start", f"Starting sprint '{sprint_name}'")
+        sprint_id = gql.get_active_sprint_id()
+        if not sprint_id:
+            results.append(ActionResult("resolve_active_sprint", sprint_name, ActionStatus.FAILED,
+                                        "No active sprint/iteration found"))
+            return RunResult(agent="sprint_manager", dry_run=ctx.dry_run, actions=results)
+        if ctx.dry_run:
+            summary.checkpoint("dry_run", f"Would auto-assign issues to sprint '{sprint_name}'")
+            results.append(ActionResult("start_sprint", sprint_name, ActionStatus.DRY_RUN))
+        else:
+            # auto_assign expects a PyGithub repo object; use internal one from rest
+            assigned = auto_assign_issues_to_sprint(gql, rest._repo_obj, sprint_id, max_issues=30)
+            summary.checkpoint("assigned", f"Assigned {assigned} issues to sprint '{sprint_name}'")
+            results.append(ActionResult("start_sprint", sprint_name, ActionStatus.SUCCESS,
+                                        metadata={"assigned": assigned}))
 
-def get_active_sprint_issues(repo) -> list:
-    """Get all issues assigned to active sprint."""
-    # This is a stub - full implementation would use project iterations
-    # For now, query issues with sprint metadata in body
-    issues = []
-    try:
-        # Search for issues with active sprint marker
-        issues = repo.get_issues(state="open")
-    except Exception as exc:
-        log_event("sprint_issues_query_failed", error=str(exc))
-    
-    return issues
+    elif action == "close":
+        sprint_name = ctx.require_sprint()
+        summary.checkpoint("close", f"Closing sprint '{sprint_name}'")
+        if ctx.dry_run:
+            results.append(ActionResult("close_sprint", sprint_name, ActionStatus.DRY_RUN))
+        else:
+            # State transition logic remains policy-based/manual for now.
+            log_event("sprint_closed", sprint=sprint_name)
+            results.append(ActionResult("close_sprint", sprint_name, ActionStatus.SUCCESS))
 
+    elif action == "auto-transition":
+        summary.checkpoint("auto_transition", "Running sprint auto-transition")
+        cfg = _load_config()
+        enabled = cfg.get("policies", {}).get("sprint", {}).get("auto_transition", False)
+        if not enabled:
+            summary.decision("Sprint auto-transition disabled by policy")
+            results.append(ActionResult("auto_transition", ctx.repo_name, ActionStatus.SKIPPED,
+                                        "Disabled in orchestration config"))
+            return RunResult(agent="sprint_manager", dry_run=ctx.dry_run, actions=results)
 
-def start_sprint(repo, sprint_name: str, projects_client: ProjectsV2Client | None = None) -> bool:
-    """Activate a sprint and transition issues to it."""
-    log_event("sprint_start_requested", sprint=sprint_name)
-    
-    if DRY_RUN:
-        print(f"[dry-run] Would start sprint: {sprint_name}")
-        return True
-    
-    # If projects_client provided, auto-assign issues to sprint
-    if projects_client:
-        try:
-            sprint_id = projects_client.get_active_sprint_id()
-            if sprint_id:
-                assigned = auto_assign_issues_to_sprint(projects_client, repo, sprint_id, max_issues=30)
-                log_event("sprint_issues_auto_assigned", sprint=sprint_name, sprint_id=sprint_id, count=assigned)
-        except Exception as exc:
-            log_event("sprint_auto_assign_failed", sprint=sprint_name, error=str(exc))
-    
-    # GitHub API limitation: sprints via Projects v2 require GraphQL
-    # For now, log the intent
-    log_event("sprint_started", sprint=sprint_name)
-    return True
+        sprint_id = gql.get_active_sprint_id()
+        if not sprint_id:
+            results.append(ActionResult("resolve_active_sprint", ctx.repo_name, ActionStatus.SKIPPED,
+                                        "No active sprint/iteration found"))
+            return RunResult(agent="sprint_manager", dry_run=ctx.dry_run, actions=results)
 
-
-def close_sprint(repo, sprint_name: str) -> bool:
-    """Mark sprint as completed and archive old sprints."""
-    config = load_orchestration_config()
-    log_event("sprint_close_requested", sprint=sprint_name)
-    
-    if DRY_RUN:
-        print(f"[dry-run] Would close sprint: {sprint_name}")
-        return True
-    
-    log_event("sprint_closed", sprint=sprint_name)
-    return True
-
-
-def auto_transition_sprints(repo, projects_client: ProjectsV2Client | None = None) -> dict[str, int]:
-    """Auto-transition sprints and issues based on deadlines."""
-    config = load_orchestration_config()
-    sprint_policy = config.get("policies", {}).get("sprint", {})
-    
-    if not sprint_policy.get("auto_transition", False):
-        log_event("sprint_auto_transition_disabled")
-        return {}
-    
-    stats = {
-        "sprints_started": 0,
-        "sprints_closed": 0,
-        "sprints_archived": 0,
-    }
-    
-    if DRY_RUN:
-        print("[dry-run] Would auto-transition sprints")
-        return stats
-    
-    # If projects_client provided, try to auto-assign issues to current sprint
-    if projects_client:
-        try:
-            sprint_id = projects_client.get_active_sprint_id()
-            if sprint_id:
-                assigned = auto_assign_issues_to_sprint(projects_client, repo, sprint_id, max_issues=50)
-                stats["issues_auto_assigned"] = assigned
-                log_event("sprint_auto_transition_assigned_issues", count=assigned)
-        except Exception as exc:
-            log_event("sprint_projects_sync_failed", error=str(exc))
-    
-    # Full implementation would:
-    # 1. Query all projects for sprints with iteration fields
-    # 2. Check deadline vs current time
-    # 3. Transition based on state_machine rules
-    # 4. Update issue assignments
-    
-    return stats
-
-
-def main() -> None:
-    global DRY_RUN, REPO_NAME, ACTION
-    
-    env = require_env(["REPO_NAME", "GITHUB_TOKEN"])
-    REPO_NAME = env["REPO_NAME"]
-    ACTION = os.environ.get("ACTION", "auto-transition")
-    DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
-    
-    sprint_name = os.environ.get("SPRINT_NAME", "")
-    
-    auth = Auth.Token(env["GITHUB_TOKEN"])
-    gh = Github(auth=auth)
-    repo = gh.get_repo(REPO_NAME)
-    
-    # Initialize projects v2 client for board management
-    projects_client = None
-    try:
-        projects_client = ProjectsV2Client(env["GITHUB_TOKEN"], REPO_NAME)
-    except Exception as exc:
-        log_event("projects_client_init_failed", error=str(exc))
-    
-    if ACTION == "start":
-        if not sprint_name:
-            raise ValueError("SPRINT_NAME required for start action")
-        start_sprint(repo, sprint_name, projects_client)
-        print(f"{'[dry-run] ' if DRY_RUN else ''}✅ Sprint '{sprint_name}' started")
-        
-    elif ACTION == "close":
-        if not sprint_name:
-            raise ValueError("SPRINT_NAME required for close action")
-        close_sprint(repo, sprint_name)
-        print(f"{'[dry-run] ' if DRY_RUN else ''}✅ Sprint '{sprint_name}' closed")
-        
-    elif ACTION == "auto-transition":
-        stats = auto_transition_sprints(repo, projects_client)
-        log_event("sprint_auto_transition_complete", **stats, dry_run=DRY_RUN)
-        print(f"{'[dry-run] ' if DRY_RUN else ''}✅ Sprint auto-transition complete")
+        if ctx.dry_run:
+            results.append(ActionResult("auto_assign", sprint_id, ActionStatus.DRY_RUN))
+        else:
+            assigned = auto_assign_issues_to_sprint(gql, rest._repo_obj, sprint_id, max_issues=50)
+            summary.checkpoint("assigned", f"Auto-assigned {assigned} issues")
+            results.append(ActionResult("auto_assign", sprint_id, ActionStatus.SUCCESS,
+                                        metadata={"assigned": assigned}))
     else:
-        raise ValueError(f"Unknown action: {ACTION}")
+        results.append(ActionResult("validate_action", action, ActionStatus.FAILED,
+                                    f"Unknown action: {action}"))
+
+    return RunResult(agent="sprint_manager", dry_run=ctx.dry_run, actions=results)
 
 
 if __name__ == "__main__":
-    main()
+    run_agent("sprint_manager", _run)
+

@@ -6,22 +6,39 @@ Operational guide for the agent control-plane workflows.
 
 This runbook covers:
 
-- Workflow dispatch actions in .github/workflows/orchestration-v2.yml
+- Workflow dispatch actions in .github/workflows/orchestration.yml
 - Dry-run procedures before production writes
 - Release sync behavior for docs/CHANGELOG.md and docs/ROADMAP.md
+- Permanence policy: all agent runs must go through orchestration.yml
+- Platform runtime conventions under scripts/project_agent/agent_platform
 
 ## Control Plane Entry Point
 
 Primary workflow:
 
-- .github/workflows/orchestration-v2.yml
+- .github/workflows/orchestration.yml
 
 Dispatch input:
 
-- action: triage | experiment-approve | experiment-kickoff | milestone-check | progress-report | release-sync
+- action: triage | experiment-approve | experiment-kickoff | milestone-check | progress-report | release-sync | epic-decompose | sprint-start | sprint-close | sprint-auto-transition | sync-pr-status | project-sync | training-complete
 - issue_number: required for triage, experiment-approve, experiment-kickoff
+- pr_number: required for sync-pr-status
 - milestone_number: required for release-sync
+- sprint_name: required for sprint-start and sprint-close
+- wandb_run_id: required for training-complete
 - dry_run: true/false
+
+## Permanence Policy
+
+1. Do not create per-agent workflow files.
+2. Add new agent actions as jobs in orchestration.yml.
+3. Governance CI enforces this contract in .github/workflows/governance.yml.
+
+## Runtime Contract
+
+1. All orchestration-run agents use run_agent from scripts/project_agent/agent_platform/runner.py.
+2. Agents publish execution artifacts to agent-artifacts/ (run-report.json and run-report.md).
+3. GraphQL board operations are centralized in scripts/project_agent/agent_platform/graphql_gateway.py.
 
 ## Standard Operating Procedure
 

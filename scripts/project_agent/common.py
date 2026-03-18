@@ -23,11 +23,10 @@ AGENT_IDENTITIES = {
     "epic_decomposer": "Cartographer Epic",
     "sprint_manager": "Chronometer Sprint",
     "pr_linker": "Courier PR",
-    "event_router": "Relay Router",
 }
 
-# Projects v2 custom field names (for consistency across agents)
-PROJECTS_V2_FIELDS = {
+# Project board custom field names (for consistency across agents)
+PROJECT_FIELDS = {
     "version": "Version",
     "sprint": "Sprint",
     "status": "Status",
@@ -36,6 +35,9 @@ PROJECTS_V2_FIELDS = {
     "git_commit": "Git Commit",
     "wb_run": "W&B Run",
 }
+
+# Backward-compatible alias for older imports.
+PROJECTS_V2_FIELDS = PROJECT_FIELDS
 
 
 class AgentError(RuntimeError):
