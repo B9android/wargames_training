@@ -18,7 +18,7 @@ Closes #
 ## Testing
 <!-- How did you verify this works? -->
 - [ ] `pytest tests/ -q` passes (all existing tests green)
-- [ ] `check_env` passes (if env changes)
+- [ ] If Gymnasium envs are implemented/modified: `check_env` passes for the affected env(s)
 - [ ] Training run completed without errors
 - [ ] New tests added for new public functions / behaviours
 
