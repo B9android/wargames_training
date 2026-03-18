@@ -32,6 +32,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
+from envs.reward import RewardWeights, compute_reward
 from envs.sim.battalion import Battalion
 from envs.sim.combat import (
     CombatState,
@@ -53,11 +54,23 @@ MAP_HEIGHT: float = 1_000.0
 #: Hard episode-length cap (steps).
 MAX_STEPS: int = 500
 #: Re-exported for convenience; authoritative value lives in envs.sim.engine.
-__all__ = ["BattalionEnv", "DESTROYED_THRESHOLD", "MAP_WIDTH", "MAP_HEIGHT", "MAX_STEPS"]
+__all__ = [
+    "BattalionEnv",
+    "DESTROYED_THRESHOLD",
+    "MAP_WIDTH",
+    "MAP_HEIGHT",
+    "MAX_STEPS",
+    "RewardWeights",
+]
 #: Simulation time step used for movement (seconds).
 DT: float = 0.1
 
-# Reward shaping coefficients
+# Curriculum levels — control scripted Red opponent difficulty.
+#: Number of curriculum levels supported.
+NUM_CURRICULUM_LEVELS: int = 5
+
+# Legacy reward shaping coefficients (kept for backward compatibility).
+# When a RewardWeights instance is passed to BattalionEnv these are not used.
 REWARD_DAMAGE_SCALE: float = 5.0    #: Reward per unit of damage dealt to Red.
 REWARD_PENALTY_SCALE: float = 5.0   #: Penalty per unit of damage received by Blue.
 REWARD_WIN: float = 10.0            #: Terminal bonus for routing/destroying Red.
@@ -73,9 +86,21 @@ REWARD_STEP: float = -0.01          #: Per-step time penalty.
 class BattalionEnv(gym.Env):
     """1v1 battalion RL environment.
 
-    The agent controls the **Blue** battalion; **Red** is a scripted
-    opponent that always faces Blue, advances to within 80 % of its fire
-    range, and fires at full intensity every step.
+    The agent controls the **Blue** battalion; **Red** is driven by a built-in
+    scripted opponent whose behaviour is controlled by the *curriculum_level*
+    parameter.
+
+    Curriculum levels
+    ~~~~~~~~~~~~~~~~~
+    =====  =============================================
+    Level  Red opponent behaviour
+    =====  =============================================
+    1      Stationary — Red does not move or fire.
+    2      Turning only — Red faces Blue but stays put.
+    3      Advance only — Red turns and advances; no fire.
+    4      Soft fire — Red turns, advances, fires at 50 % intensity.
+    5      Full combat — Red turns, advances, fires at 100 % intensity (default).
+    =====  =============================================
 
     Observation space — ``Box(shape=(12,), dtype=float32)``
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -125,6 +150,13 @@ class BattalionEnv(gym.Env):
         terrain.  Must be in ``(0, 1]``.  A value of ``0.5`` means units
         on the highest hill travel at half their normal speed; ``1.0``
         disables the hill penalty entirely.
+    curriculum_level:
+        Scripted Red opponent difficulty (1–5).  Level 1 is the easiest
+        (stationary target); level 5 is full combat.  Defaults to ``5``.
+    reward_weights:
+        :class:`~envs.reward.RewardWeights` instance with per-component
+        multipliers.  Defaults to ``RewardWeights()`` (standard shaped
+        reward with the legacy coefficients).
     render_mode:
         Render mode.  Must be ``None`` (the only currently supported value).
         Passing any other string raises ``ValueError``.
@@ -140,6 +172,8 @@ class BattalionEnv(gym.Env):
         terrain: Optional[TerrainMap] = None,
         randomize_terrain: bool = True,
         hill_speed_factor: float = 0.5,
+        curriculum_level: int = 5,
+        reward_weights: Optional[RewardWeights] = None,
         render_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
@@ -157,6 +191,11 @@ class BattalionEnv(gym.Env):
             raise ValueError(
                 f"hill_speed_factor must be in (0, 1], got {hill_speed_factor}"
             )
+        if int(curriculum_level) not in range(1, NUM_CURRICULUM_LEVELS + 1):
+            raise ValueError(
+                f"curriculum_level must be in 1–{NUM_CURRICULUM_LEVELS}, "
+                f"got {curriculum_level}"
+            )
         if render_mode is not None and render_mode not in self.metadata["render_modes"]:
             raise ValueError(
                 f"Unsupported render_mode {render_mode!r}. "
@@ -168,6 +207,10 @@ class BattalionEnv(gym.Env):
         self.map_diagonal = math.sqrt(self.map_width ** 2 + self.map_height ** 2)
         self.max_steps = int(max_steps)
         self.hill_speed_factor = float(hill_speed_factor)
+        self.curriculum_level = int(curriculum_level)
+        self.reward_weights: RewardWeights = (
+            reward_weights if reward_weights is not None else RewardWeights()
+        )
         # When an explicit terrain is supplied, terrain randomisation is
         # disabled so the caller's fixed map is used every episode.
         self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
@@ -304,7 +347,7 @@ class BattalionEnv(gym.Env):
         self.red_state.reset_step_accumulators()
 
         raw_b2r = compute_fire_damage(self.blue, self.red, intensity=fire_cmd)
-        raw_r2b = compute_fire_damage(self.red, self.blue, intensity=1.0)
+        raw_r2b = compute_fire_damage(self.red, self.blue, intensity=self._red_fire_intensity())
 
         # Apply terrain cover at each target's position
         raw_b2r = self.terrain.apply_cover_modifier(self.red.x, self.red.y, raw_b2r)
@@ -337,15 +380,16 @@ class BattalionEnv(gym.Env):
         truncated  = (not terminated) and (self._step_count >= self.max_steps)
 
         # --- Reward ---
-        reward = float(REWARD_STEP)
-        reward += dmg_b2r * REWARD_DAMAGE_SCALE
-        reward -= dmg_r2b * REWARD_PENALTY_SCALE
-        if terminated:
-            if red_done and not blue_done:
-                reward += REWARD_WIN
-            elif blue_done and not red_done:
-                reward += REWARD_LOSS
-            # simultaneous rout/destruction → no extra bonus/penalty
+        blue_won = red_done and not blue_done
+        blue_lost = blue_done and not red_done
+        reward_comps = compute_reward(
+            dmg_b2r=dmg_b2r,
+            dmg_r2b=dmg_r2b,
+            blue_strength=float(self.blue.strength),
+            blue_won=blue_won,
+            blue_lost=blue_lost,
+            weights=self.reward_weights,
+        )
 
         info: dict = {
             "blue_damage_dealt": float(dmg_b2r),
@@ -353,9 +397,10 @@ class BattalionEnv(gym.Env):
             "blue_routed":       self.blue_state.is_routing,
             "red_routed":        self.red_state.is_routing,
             "step_count":        self._step_count,
+            **reward_comps.as_dict(),
         }
 
-        return self._get_obs(), reward, terminated, truncated, info
+        return self._get_obs(), reward_comps.total, terminated, truncated, info
 
     def render(self) -> None:
         """Render stub — no-op for ``render_mode=None``."""
@@ -398,7 +443,26 @@ class BattalionEnv(gym.Env):
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
     def _step_red(self) -> None:
-        """Scripted Red opponent: face Blue, advance to fire range, fire."""
+        """Scripted Red opponent: behaviour depends on *curriculum_level*.
+
+        This method handles Red's **movement only**.  Red's fire is resolved
+        in :meth:`step` using :meth:`_red_fire_intensity` so that damage
+        computation remains centralised (simultaneous with Blue's fire).
+
+        ========  ==========================================
+        Level     Movement behaviour
+        ========  ==========================================
+        1         Stationary — Red does not move.
+        2         Turning only — Red faces Blue; no advance.
+        3–5       Red turns and advances to within 80 % of fire range.
+        ========  ==========================================
+        """
+        level = self.curriculum_level
+
+        # Level 1: Red stands completely still.
+        if level == 1:
+            return
+
         r = self.red
         b = self.blue
 
@@ -406,12 +470,15 @@ class BattalionEnv(gym.Env):
         dy = b.y - r.y
         target_angle = math.atan2(dy, dx)
 
-        # Rotate toward Blue via the shortest arc
-        # (Battalion.rotate clamps the delta to max_turn_rate internally)
+        # Rotate toward Blue via the shortest arc (levels 2–5).
         delta = (target_angle - r.theta + math.pi) % (2 * math.pi) - math.pi
         r.rotate(delta)
 
-        # Advance if outside 80 % of fire range
+        # Level 2: turn only, no advance.
+        if level == 2:
+            return
+
+        # Advance if outside 80 % of fire range (levels 3–5).
         dist = math.sqrt(dx ** 2 + dy ** 2)
         if dist > r.fire_range * 0.8:
             speed_mod = self.terrain.get_speed_modifier(
@@ -422,3 +489,21 @@ class BattalionEnv(gym.Env):
             r.move(vx, vy, dt=DT)
             r.x = float(np.clip(r.x, 0.0, self.map_width))
             r.y = float(np.clip(r.y, 0.0, self.map_height))
+
+    def _red_fire_intensity(self) -> float:
+        """Return the fire intensity Red uses this step, based on curriculum level.
+
+        ========  ==========================
+        Level     Red fire intensity
+        ========  ==========================
+        1–3       0.0  (Red does not fire)
+        4         0.5  (50 % intensity)
+        5         1.0  (full intensity)
+        ========  ==========================
+        """
+        level = self.curriculum_level
+        if level <= 3:
+            return 0.0
+        if level == 4:
+            return 0.5
+        return 1.0

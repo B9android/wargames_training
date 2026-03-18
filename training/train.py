@@ -46,6 +46,7 @@ from stable_baselines3.common.env_util import make_vec_env
 
 import wandb
 from envs.battalion_env import BattalionEnv
+from envs.reward import RewardWeights
 from models.mlp_policy import BattalionMlpPolicy
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,66 @@ class WandbCallback(BaseCallback):
             )
 
 
+class RewardBreakdownCallback(BaseCallback):
+    """Logs per-component reward breakdown to W&B at episode boundaries.
+
+    Accumulates reward components from ``info`` dicts (populated by
+    :class:`~envs.battalion_env.BattalionEnv`) across all parallel
+    environments and logs their episode means every ``log_freq`` timesteps.
+
+    Parameters
+    ----------
+    log_freq:
+        How often (in environment steps) to flush accumulated episode
+        means to W&B.
+    verbose:
+        Verbosity level (0 = silent, 1 = info).
+    """
+
+    _COMPONENT_KEYS: tuple[str, ...] = (
+        "reward/delta_enemy_strength",
+        "reward/delta_own_strength",
+        "reward/survival_bonus",
+        "reward/win_bonus",
+        "reward/loss_penalty",
+        "reward/time_penalty",
+        "reward/total",
+    )
+
+    def __init__(self, log_freq: int = 1000, verbose: int = 0) -> None:
+        super().__init__(verbose)
+        self.log_freq = log_freq
+        # Accumulators: sum of per-episode component values and count of episodes.
+        self._ep_sums: dict[str, float] = {k: 0.0 for k in self._COMPONENT_KEYS}
+        self._ep_count: int = 0
+
+    def _on_step(self) -> bool:
+        infos = self.locals.get("infos", [])
+        dones = self.locals.get("dones", np.zeros(len(infos), dtype=bool))
+        for info, done in zip(infos, dones):
+            if not done:
+                continue
+            # Accumulate episode totals only at terminal steps.
+            for key in self._COMPONENT_KEYS:
+                self._ep_sums[key] += float(info.get(key, 0.0))
+            self._ep_count += 1
+
+        if (
+            self.num_timesteps % self.log_freq == 0
+            and self._ep_count > 0
+        ):
+            means = {
+                f"reward_breakdown/{k.split('/')[-1]}": v / self._ep_count
+                for k, v in self._ep_sums.items()
+            }
+            means["time/total_timesteps"] = self.num_timesteps
+            wandb.log(means, step=self.num_timesteps)
+            # Reset accumulators after logging.
+            self._ep_sums = {k: 0.0 for k in self._COMPONENT_KEYS}
+            self._ep_count = 0
+        return True
+
+
 # ---------------------------------------------------------------------------
 # Training entry point
 # ---------------------------------------------------------------------------
@@ -139,12 +200,28 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     # Environments
     # ------------------------------------------------------------------
+    reward_cfg = OmegaConf.select(cfg, "reward", default=None)
+    reward_weights = (
+        RewardWeights(
+            delta_enemy_strength=float(reward_cfg.delta_enemy_strength),
+            delta_own_strength=float(reward_cfg.delta_own_strength),
+            survival_bonus=float(reward_cfg.survival_bonus),
+            win_bonus=float(reward_cfg.win_bonus),
+            loss_penalty=float(reward_cfg.loss_penalty),
+            time_penalty=float(reward_cfg.time_penalty),
+        )
+        if reward_cfg is not None
+        else RewardWeights()
+    )
+
     env_kwargs = dict(
         map_width=cfg.env.map_width,
         map_height=cfg.env.map_height,
         max_steps=cfg.env.max_steps,
-        randomize_terrain=cfg.env.randomize_terrain,
-        hill_speed_factor=cfg.env.hill_speed_factor,
+        randomize_terrain=OmegaConf.select(cfg, "env.randomize_terrain", default=True),
+        hill_speed_factor=OmegaConf.select(cfg, "env.hill_speed_factor", default=0.5),
+        curriculum_level=int(OmegaConf.select(cfg, "env.curriculum_level", default=5)),
+        reward_weights=reward_weights,
     )
 
     # Basic config validation to avoid invalid vectorized envs or callback frequencies.
@@ -193,6 +270,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     wandb_cb = WandbCallback(log_freq=cfg.wandb.log_freq)
+    reward_breakdown_cb = RewardBreakdownCallback(log_freq=cfg.wandb.log_freq)
 
     # ------------------------------------------------------------------
     # PPO model
@@ -220,7 +298,7 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     model.learn(
         total_timesteps=cfg.training.total_timesteps,
-        callback=CallbackList([checkpoint_cb, eval_cb, wandb_cb]),
+        callback=CallbackList([checkpoint_cb, eval_cb, wandb_cb, reward_breakdown_cb]),
         progress_bar=False,
         reset_num_timesteps=True,
     )

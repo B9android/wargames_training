@@ -255,6 +255,17 @@ class TestTrainWandbInit(unittest.TestCase):
                     "map_height": 1000.0,
                     "max_steps": 50,
                     "num_envs": 1,
+                    "randomize_terrain": True,
+                    "hill_speed_factor": 0.5,
+                    "curriculum_level": 5,
+                },
+                "reward": {
+                    "delta_enemy_strength": 5.0,
+                    "delta_own_strength": 5.0,
+                    "survival_bonus": 0.0,
+                    "win_bonus": 10.0,
+                    "loss_penalty": -10.0,
+                    "time_penalty": -0.01,
                 },
                 "training": {
                     "total_timesteps": 64,
