@@ -26,7 +26,7 @@ Typical usage::
 from __future__ import annotations
 
 import math
-from typing import Optional
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 import gymnasium as gym
 import numpy as np
@@ -61,7 +61,26 @@ __all__ = [
     "MAP_HEIGHT",
     "MAX_STEPS",
     "RewardWeights",
+    "RedPolicy",
 ]
+
+
+@runtime_checkable
+class RedPolicy(Protocol):
+    """Minimal interface for a policy that drives the Red battalion.
+
+    Any object implementing ``predict(obs, deterministic)`` is accepted.
+    Stable-Baselines3 :class:`~stable_baselines3.common.policies.BasePolicy`
+    and :class:`~stable_baselines3.PPO` models satisfy this protocol.
+    """
+
+    def predict(
+        self,
+        observation: np.ndarray,
+        deterministic: bool = False,
+    ) -> tuple[np.ndarray, Any]:
+        """Return ``(action, state)`` for the given observation."""
+        ...
 #: Simulation time step used for movement (seconds).
 DT: float = 0.1
 
@@ -86,12 +105,15 @@ REWARD_STEP: float = -0.01          #: Per-step time penalty.
 class BattalionEnv(gym.Env):
     """1v1 battalion RL environment.
 
-    The agent controls the **Blue** battalion; **Red** is driven by a built-in
-    scripted opponent whose behaviour is controlled by the *curriculum_level*
-    parameter.
+    The agent controls the **Blue** battalion; **Red** is driven either by a
+    built-in scripted opponent (controlled by *curriculum_level*) or by an
+    optional *red_policy* (any object with a ``predict`` method, e.g. a
+    Stable-Baselines3 ``PPO`` model).  When *red_policy* is provided it takes
+    precedence over the scripted opponent and *curriculum_level* is ignored for
+    movement and fire decisions.
 
-    Curriculum levels
-    ~~~~~~~~~~~~~~~~~
+    Curriculum levels (scripted opponent only)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     =====  =============================================
     Level  Red opponent behaviour
     =====  =============================================
@@ -153,10 +175,17 @@ class BattalionEnv(gym.Env):
     curriculum_level:
         Scripted Red opponent difficulty (1–5).  Level 1 is the easiest
         (stationary target); level 5 is full combat.  Defaults to ``5``.
+        Ignored when *red_policy* is provided.
     reward_weights:
         :class:`~envs.reward.RewardWeights` instance with per-component
         multipliers.  Defaults to ``RewardWeights()`` (standard shaped
         reward with the legacy coefficients).
+    red_policy:
+        Optional policy object for driving the Red battalion.  Must expose
+        a ``predict(obs, deterministic=False) -> (action, state)`` method
+        (satisfied by any SB3 model or policy).  When supplied, the scripted
+        opponent is bypassed.  Use :meth:`set_red_policy` to swap the policy
+        at runtime (e.g. from a training callback).
     render_mode:
         Render mode.  Must be ``None`` (the only currently supported value).
         Passing any other string raises ``ValueError``.
@@ -174,6 +203,7 @@ class BattalionEnv(gym.Env):
         hill_speed_factor: float = 0.5,
         curriculum_level: int = 5,
         reward_weights: Optional[RewardWeights] = None,
+        red_policy: Optional[RedPolicy] = None,
         render_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
