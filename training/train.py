@@ -145,6 +145,18 @@ def main(cfg: DictConfig) -> None:
         max_steps=cfg.env.max_steps,
     )
 
+    # Basic config validation to avoid invalid vectorized envs or callback frequencies.
+    if cfg.env.num_envs < 1:
+        raise ValueError(f"cfg.env.num_envs must be >= 1, got {cfg.env.num_envs}.")
+    if cfg.eval.checkpoint_freq <= 0:
+        raise ValueError(
+            f"cfg.eval.checkpoint_freq must be a positive integer, got {cfg.eval.checkpoint_freq}."
+        )
+    if cfg.eval.eval_freq <= 0:
+        raise ValueError(
+            f"cfg.eval.eval_freq must be a positive integer, got {cfg.eval.eval_freq}."
+        )
+
     vec_env = make_vec_env(
         BattalionEnv,
         n_envs=cfg.env.num_envs,
