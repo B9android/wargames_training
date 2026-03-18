@@ -200,18 +200,26 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     # Environments
     # ------------------------------------------------------------------
-    reward_cfg = OmegaConf.select(cfg, "reward", default=None)
-    reward_weights = (
-        RewardWeights(
-            delta_enemy_strength=float(reward_cfg.delta_enemy_strength),
-            delta_own_strength=float(reward_cfg.delta_own_strength),
-            survival_bonus=float(reward_cfg.survival_bonus),
-            win_bonus=float(reward_cfg.win_bonus),
-            loss_penalty=float(reward_cfg.loss_penalty),
-            time_penalty=float(reward_cfg.time_penalty),
-        )
-        if reward_cfg is not None
-        else RewardWeights()
+    _default_w = RewardWeights()
+    reward_weights = RewardWeights(
+        delta_enemy_strength=float(
+            OmegaConf.select(cfg, "reward.delta_enemy_strength", default=_default_w.delta_enemy_strength)
+        ),
+        delta_own_strength=float(
+            OmegaConf.select(cfg, "reward.delta_own_strength", default=_default_w.delta_own_strength)
+        ),
+        survival_bonus=float(
+            OmegaConf.select(cfg, "reward.survival_bonus", default=_default_w.survival_bonus)
+        ),
+        win_bonus=float(
+            OmegaConf.select(cfg, "reward.win_bonus", default=_default_w.win_bonus)
+        ),
+        loss_penalty=float(
+            OmegaConf.select(cfg, "reward.loss_penalty", default=_default_w.loss_penalty)
+        ),
+        time_penalty=float(
+            OmegaConf.select(cfg, "reward.time_penalty", default=_default_w.time_penalty)
+        ),
     )
 
     env_kwargs = dict(

@@ -191,7 +191,8 @@ class BattalionEnv(gym.Env):
             raise ValueError(
                 f"hill_speed_factor must be in (0, 1], got {hill_speed_factor}"
             )
-        if int(curriculum_level) not in range(1, NUM_CURRICULUM_LEVELS + 1):
+        _curriculum_level = int(curriculum_level)
+        if _curriculum_level not in range(1, NUM_CURRICULUM_LEVELS + 1):
             raise ValueError(
                 f"curriculum_level must be in 1–{NUM_CURRICULUM_LEVELS}, "
                 f"got {curriculum_level}"
@@ -207,7 +208,7 @@ class BattalionEnv(gym.Env):
         self.map_diagonal = math.sqrt(self.map_width ** 2 + self.map_height ** 2)
         self.max_steps = int(max_steps)
         self.hill_speed_factor = float(hill_speed_factor)
-        self.curriculum_level = int(curriculum_level)
+        self.curriculum_level = _curriculum_level
         self.reward_weights: RewardWeights = (
             reward_weights if reward_weights is not None else RewardWeights()
         )
