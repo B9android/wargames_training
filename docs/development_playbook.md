@@ -183,7 +183,9 @@ A feature or experiment is **done** when all of the following are true:
 ### Code
 
 - [ ] `pytest tests/ -q` passes with no new failures.
-- [ ] `gymnasium.utils.env_checker.check_env` passes for any environment changes.
+- [ ] For any implemented Gymnasium env that you modify or add, run
+      `gymnasium.utils.env_checker.check_env(env_instance)` and ensure it
+      passes (this becomes required once the Env class is implemented).
 - [ ] No hardcoded paths, magic numbers, or secrets in committed code.
 
 ### Observations & conventions
