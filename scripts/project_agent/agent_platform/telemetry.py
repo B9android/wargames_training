@@ -34,13 +34,22 @@ def end_run(*, success: bool, summary: dict[str, Any] | str | None = None) -> No
     else:
         summary_payload = {}
 
+    # Avoid passing duplicate reserved keys into log_event (e.g. "agent").
+    reserved_keys = {"agent", "run_id", "event", "dry_run", "success", "elapsed_seconds"}
+    event_payload: dict[str, Any] = {}
+    for key, value in summary_payload.items():
+        if key in reserved_keys:
+            event_payload[f"summary_{key}"] = value
+        else:
+            event_payload[key] = value
+
     log_event(
         "agent_run_complete",
         agent=_agent_name,
         run_id=_run_id,
         success=success,
         elapsed_seconds=round(elapsed, 2),
-        **summary_payload,
+        **event_payload,
     )
 
 
