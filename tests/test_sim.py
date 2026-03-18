@@ -313,7 +313,7 @@ class TestMoraleUnderFire(unittest.TestCase):
 
 
 class TestTerrainIntegration(unittest.TestCase):
-    """Terrain cover reduces damage; LOS blockage prevents fire."""
+    """Terrain cover reduces incoming damage in the simulation engine."""
 
     def test_full_cover_prevents_all_damage(self) -> None:
         """A unit in full cover (c=1.0) should take no damage from any fire."""
