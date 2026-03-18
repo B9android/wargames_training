@@ -48,6 +48,8 @@ import wandb
 from envs.battalion_env import BattalionEnv
 from envs.reward import RewardWeights
 from models.mlp_policy import BattalionMlpPolicy
+from training.elo import EloRegistry
+from training.evaluate import run_episodes_with_model
 from training.self_play import OpponentPool, SelfPlayCallback, WinRateVsPoolCallback
 
 log = logging.getLogger(__name__)
@@ -182,6 +184,102 @@ class RewardBreakdownCallback(BaseCallback):
         wandb.log(means, step=self.num_timesteps)
         self._ep_sums = {k: 0.0 for k in self._COMPONENT_KEYS}
         self._ep_count = 0
+
+
+# ---------------------------------------------------------------------------
+# Elo evaluation callback
+# ---------------------------------------------------------------------------
+
+
+class EloEvalCallback(BaseCallback):
+    """Evaluate the current policy vs scripted opponents and log Elo to W&B.
+
+    Every ``eval_freq`` environment steps the callback runs *n_eval_episodes*
+    episodes against each opponent in *opponents* using the live model,
+    updates the :class:`~training.elo.EloRegistry`, persists it to disk, and
+    logs per-opponent Elo ratings and win rates to W&B.
+
+    Parameters
+    ----------
+    opponents:
+        List of opponent identifiers (e.g. ``["scripted_l1", "scripted_l3",
+        "scripted_l5"]``).  Each must be a valid argument to
+        :func:`~training.evaluate.run_episodes_with_model`.
+    n_eval_episodes:
+        Number of episodes to run per opponent per evaluation.
+    registry:
+        :class:`~training.elo.EloRegistry` instance used for ratings.
+    agent_name:
+        Key used to identify this training run in the registry.
+    eval_freq:
+        How often (in environment steps) to trigger evaluation.
+    seed:
+        Base random seed for evaluation episodes.
+    verbose:
+        Verbosity level (0 = silent, 1 = info).
+    """
+
+    def __init__(
+        self,
+        opponents: list[str],
+        n_eval_episodes: int,
+        registry: EloRegistry,
+        agent_name: str,
+        eval_freq: int,
+        seed: Optional[int] = None,
+        verbose: int = 0,
+    ) -> None:
+        super().__init__(verbose)
+        self.opponents = opponents
+        self.n_eval_episodes = n_eval_episodes
+        self.registry = registry
+        self.agent_name = agent_name
+        self.eval_freq = eval_freq
+        self.seed = seed
+        self._last_eval_step: int = 0
+
+    def _on_step(self) -> bool:
+        if (
+            self.num_timesteps - self._last_eval_step >= self.eval_freq
+            and self.num_timesteps > 0
+        ):
+            self._run_elo_eval()
+            self._last_eval_step = self.num_timesteps
+        return True
+
+    def _run_elo_eval(self) -> None:
+        """Evaluate vs all opponents and update the Elo registry."""
+        log_dict: dict = {"time/total_timesteps": self.num_timesteps}
+        for opponent in self.opponents:
+            result = run_episodes_with_model(
+                self.model,
+                opponent=opponent,
+                n_episodes=self.n_eval_episodes,
+                deterministic=True,
+                seed=self.seed,
+            )
+            outcome = (result.wins + 0.5 * result.draws) / result.n_episodes
+            delta = self.registry.update(
+                agent=self.agent_name,
+                opponent=opponent,
+                outcome=outcome,
+                n_games=result.n_episodes,
+            )
+            elo_rating = self.registry.get_rating(self.agent_name)
+            log_dict[f"elo/rating_vs_{opponent}"] = elo_rating
+            log_dict[f"elo/win_rate_vs_{opponent}"] = result.win_rate
+            log_dict[f"elo/delta_vs_{opponent}"] = delta
+            if self.verbose >= 1:
+                log.info(
+                    "EloEval [%d steps] vs %s — win %.1f%% Elo %.1f (Δ%+.1f)",
+                    self.num_timesteps,
+                    opponent,
+                    result.win_rate * 100,
+                    elo_rating,
+                    delta,
+                )
+        self.registry.save()
+        wandb.log(log_dict, step=self.num_timesteps)
 
 
 # ---------------------------------------------------------------------------
@@ -338,6 +436,43 @@ def main(cfg: DictConfig) -> None:
             pool.max_size,
             sp_snapshot_freq,
             sp_eval_freq,
+        )
+
+    # ------------------------------------------------------------------
+    # Elo evaluation callback (optional — enabled via cfg.eval.elo_opponents)
+    # ------------------------------------------------------------------
+    elo_opponents = list(OmegaConf.select(cfg, "eval.elo_opponents", default=[]))
+    if elo_opponents:
+        elo_registry_path = _PROJECT_ROOT / OmegaConf.select(
+            cfg, "eval.elo_registry", default="checkpoints/elo_registry.json"
+        )
+        elo_eval_freq = int(
+            OmegaConf.select(cfg, "eval.elo_eval_freq", default=cfg.eval.eval_freq)
+        )
+        elo_n_eval = int(
+            OmegaConf.select(cfg, "eval.elo_n_eval_episodes", default=cfg.eval.n_eval_episodes)
+        )
+        run_id = (
+            run.id
+            if run is not None and hasattr(run, "id") and run.id
+            else f"run_{cfg.training.seed}"
+        )
+        elo_registry = EloRegistry(path=elo_registry_path)
+        elo_cb = EloEvalCallback(
+            opponents=list(elo_opponents),
+            n_eval_episodes=elo_n_eval,
+            registry=elo_registry,
+            agent_name=run_id,
+            eval_freq=elo_eval_freq,
+            seed=cfg.training.seed,
+            verbose=1,
+        )
+        extra_callbacks.append(elo_cb)
+        log.info(
+            "Elo eval enabled: opponents=%s, eval_freq=%d, registry=%s",
+            elo_opponents,
+            elo_eval_freq,
+            elo_registry_path,
         )
 
     # ------------------------------------------------------------------

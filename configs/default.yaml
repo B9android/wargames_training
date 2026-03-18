@@ -51,6 +51,11 @@ eval:
   eval_freq: 50000                   # evaluate every N timesteps
   checkpoint_freq: 100000            # save checkpoint every N timesteps
   checkpoint_dir: "checkpoints/"
+  # Elo tracking — leave elo_opponents empty to disable
+  elo_registry: "checkpoints/elo_registry.json"
+  elo_opponents: []                  # e.g. ["scripted_l1", "scripted_l3", "scripted_l5"]
+  elo_eval_freq: 50000               # Elo evaluation interval (timesteps)
+  elo_n_eval_episodes: 20            # episodes per Elo evaluation
 
 # ── Self-play (disabled by default; override in configs/self_play.yaml) ───
 self_play:
