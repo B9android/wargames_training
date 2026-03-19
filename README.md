@@ -69,6 +69,21 @@ pytest tests/ -q
 python training/train.py
 ```
 
+> **No W&B account?**  Run offline with `WANDB_MODE=offline python training/train.py` —
+> logs are saved locally and can be synced later with `wandb sync`.
+
+### 7 — Evaluate a trained checkpoint
+
+```bash
+python training/evaluate.py \
+    --checkpoint checkpoints/best/best_model.zip \
+    --opponent scripted_l5 \
+    --n-episodes 100
+```
+
+Supported opponents: `scripted_l1` … `scripted_l5`, `random`, or a path to
+any `.zip` checkpoint.
+
 ## Project Structure
 
 ```
@@ -126,6 +141,8 @@ while keeping `main` always runnable.
 | **[Development Playbook](docs/development_playbook.md)** | Walking skeleton, iteration cycle, spike rules, Definition of Done, and per-feature checklists |
 | **[Contributing Guide](CONTRIBUTING.md)** | Branch naming, commit style, conventions, and PR process |
 | **[Project Roadmap](docs/ROADMAP.md)** | Version overview (v1–v5) and sprint schedule |
+| **[Training Guide](docs/TRAINING_GUIDE.md)** | Hyperparameters reference, curriculum, self-play, W&B tips |
+| **[Environment Spec](docs/ENVIRONMENT_SPEC.md)** | Observation/action space, reward function, scripted opponents |
 
 ## For Operators
 
