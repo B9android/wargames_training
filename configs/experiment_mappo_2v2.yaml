@@ -1,0 +1,52 @@
+# configs/experiment_mappo_2v2.yaml
+# MAPPO 2v2 experiment configuration
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/train_mappo.py training.total_timesteps=500000
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null                       # W&B team/org (null → personal account)
+  tags: ["v2", "mappo", "2v2", "cooperative"]
+  log_freq: 2000                     # log every N timesteps
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 2                          # Blue (MAPPO-controlled) agents
+  n_red: 2                           # Red (scripted/stationary) agents
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 600.0
+  red_random: false                  # false = stationary Red; true = random Red actions
+
+# ── MAPPO training ────────────────────────────────────────────────────────
+training:
+  total_timesteps: 200000
+  n_steps: 256                       # rollout steps per update
+  n_epochs: 10                       # PPO update epochs per rollout
+  batch_size: 64                     # minibatch size
+  lr: 3.0e-4                         # Adam learning rate
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2                    # PPO ε clipping
+  vf_coef: 0.5                       # value-function loss coefficient
+  ent_coef: 0.01                     # entropy bonus coefficient
+  max_grad_norm: 0.5
+  share_parameters: true             # true = all Blue agents share one actor
+  actor_hidden_sizes: [128, 64]      # actor MLP hidden layer sizes
+  critic_hidden_sizes: [128, 64]     # centralized critic MLP hidden layer sizes
+  device: "cpu"                      # "cpu" or "cuda"
+  seed: 42
+
+# ── Evaluation / checkpointing ────────────────────────────────────────────
+eval:
+  checkpoint_dir: "checkpoints/mappo_2v2/"
+  checkpoint_freq: 50000             # save every N timesteps
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
