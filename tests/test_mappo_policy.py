@@ -180,6 +180,13 @@ class TestMAPPOPolicyShared(unittest.TestCase):
         self.assertFalse(torch.isnan(actions).any().item())
         self.assertFalse(torch.isnan(log_probs).any().item())
 
+    def test_act_single_obs_batch_dim(self):
+        """Passing a 1-D observation should return batched shapes (1, action_dim) and (1,)."""
+        obs_1d = torch.zeros(OBS_DIM)
+        actions, log_probs = self.policy.act(obs_1d)
+        self.assertEqual(actions.shape, (1, ACTION_DIM))
+        self.assertEqual(log_probs.shape, (1,))
+
 
 # ---------------------------------------------------------------------------
 # MAPPOPolicy — separate parameters (ablation)
@@ -260,7 +267,7 @@ class TestMAPPORolloutBuffer(unittest.TestCase):
                 actions=rng.random((self.N_AGENTS, ACTION_DIM)).astype(np.float32),
                 log_probs=rng.random(self.N_AGENTS).astype(np.float32),
                 rewards=rng.random(self.N_AGENTS).astype(np.float32),
-                done=False,
+                dones=np.zeros(self.N_AGENTS, dtype=np.float32),
                 value=float(rng.random()),
                 global_state=rng.random(STATE_DIM).astype(np.float32),
             )
@@ -280,7 +287,7 @@ class TestMAPPORolloutBuffer(unittest.TestCase):
                 actions=np.zeros((self.N_AGENTS, ACTION_DIM), dtype=np.float32),
                 log_probs=np.zeros(self.N_AGENTS, dtype=np.float32),
                 rewards=np.zeros(self.N_AGENTS, dtype=np.float32),
-                done=False,
+                dones=np.zeros(self.N_AGENTS, dtype=np.float32),
                 value=0.0,
                 global_state=np.zeros(STATE_DIM, dtype=np.float32),
             )
@@ -316,7 +323,69 @@ class TestMAPPORolloutBuffer(unittest.TestCase):
         total = sum(b["obs"].shape[0] for b in batches)
         self.assertEqual(total, self.N_STEPS * self.N_AGENTS)
 
-    def test_get_batches_tensor_shapes(self):
+    def test_dones_shape(self):
+        """Buffer dones should be (n_steps, n_agents) — per-agent."""
+        buf = self._make_buffer()
+        self.assertEqual(buf.dones.shape, (self.N_STEPS, self.N_AGENTS))
+
+    def test_per_agent_done_stops_gae(self):
+        """A terminated agent's done flag should break the GAE chain for that agent only.
+
+        We verify this by comparing advantages computed with and without the
+        termination flag set for agent 0 at step 4.  After the termination
+        step the advantages should differ between the two buffers because the
+        done=1 flag zeros the bootstrap term for agent 0.
+        """
+        rng = np.random.default_rng(1)
+
+        # Build common data arrays for reproducibility
+        all_obs = [rng.random((self.N_AGENTS, OBS_DIM)).astype(np.float32)
+                   for _ in range(self.N_STEPS)]
+        all_actions = [rng.random((self.N_AGENTS, ACTION_DIM)).astype(np.float32)
+                       for _ in range(self.N_STEPS)]
+        all_lps = [rng.random(self.N_AGENTS).astype(np.float32)
+                   for _ in range(self.N_STEPS)]
+        all_rews = [np.ones(self.N_AGENTS, dtype=np.float32)
+                    for _ in range(self.N_STEPS)]
+        all_vals = [float(rng.random()) for _ in range(self.N_STEPS)]
+        all_states = [rng.random(STATE_DIM).astype(np.float32)
+                      for _ in range(self.N_STEPS)]
+
+        # Buffer A: agent 0 terminates at step 4
+        buf_term = self._make_buffer()
+        for t in range(self.N_STEPS):
+            dones = np.array([1.0 if t == 4 else 0.0, 0.0], dtype=np.float32)
+            buf_term.add(all_obs[t], all_actions[t], all_lps[t], all_rews[t],
+                         dones, all_vals[t], all_states[t])
+        buf_term.compute_returns_and_advantages(last_value=0.0)
+
+        # Buffer B: no terminations
+        buf_no_term = self._make_buffer()
+        for t in range(self.N_STEPS):
+            buf_no_term.add(all_obs[t], all_actions[t], all_lps[t], all_rews[t],
+                            np.zeros(self.N_AGENTS, dtype=np.float32),
+                            all_vals[t], all_states[t])
+        buf_no_term.compute_returns_and_advantages(last_value=0.0)
+
+        # Sanity: both buffers should produce finite advantages
+        self.assertFalse(np.isnan(buf_term.advantages).any())
+        self.assertFalse(np.isnan(buf_no_term.advantages).any())
+
+        # At step 4 (the termination step) agent 0's advantage should differ
+        # between the two buffers because the done flag zeros the bootstrap.
+        adv_term_a0 = buf_term.advantages[4, 0]
+        adv_no_term_a0 = buf_no_term.advantages[4, 0]
+        self.assertNotAlmostEqual(
+            float(adv_term_a0), float(adv_no_term_a0), places=4,
+            msg="Agent 0 advantage at termination step should differ when done=1",
+        )
+
+        # Agent 1 (never terminates) should have identical advantages in both buffers
+        np.testing.assert_array_almost_equal(
+            buf_term.advantages[:, 1], buf_no_term.advantages[:, 1],
+            decimal=5,
+            err_msg="Agent 1 advantages should be unaffected by agent 0 termination",
+        )
         buf = self._make_buffer()
         self._fill_buffer(buf)
         buf.compute_returns_and_advantages(last_value=0.0)

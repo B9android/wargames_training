@@ -24,17 +24,16 @@ Architecture
   drive the shared actor; the global state drives the centralized critic.
 - Red agents receive zero actions (stationary) by default, creating a
   cooperative training scenario where Blue must learn to win together.
-  Set ``env.red_scripted=true`` to use random Red actions instead.
+  Set ``env.red_random=true`` to use random Red actions instead.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch
@@ -100,7 +99,7 @@ class MAPPORolloutBuffer:
     actions: np.ndarray = field(init=False)
     log_probs: np.ndarray = field(init=False)
     rewards: np.ndarray = field(init=False)
-    dones: np.ndarray = field(init=False)
+    dones: np.ndarray = field(init=False)         # (n_steps, n_agents) — per-agent
     values: np.ndarray = field(init=False)
     global_states: np.ndarray = field(init=False)
     advantages: np.ndarray = field(init=False)
@@ -116,7 +115,7 @@ class MAPPORolloutBuffer:
         self.actions = np.zeros((self.n_steps, self.n_agents, self.action_dim), dtype=np.float32)
         self.log_probs = np.zeros((self.n_steps, self.n_agents), dtype=np.float32)
         self.rewards = np.zeros((self.n_steps, self.n_agents), dtype=np.float32)
-        self.dones = np.zeros((self.n_steps,), dtype=np.float32)
+        self.dones = np.zeros((self.n_steps, self.n_agents), dtype=np.float32)
         self.values = np.zeros((self.n_steps,), dtype=np.float32)
         self.global_states = np.zeros((self.n_steps, self.state_dim), dtype=np.float32)
         self.advantages = np.zeros((self.n_steps, self.n_agents), dtype=np.float32)
@@ -133,7 +132,7 @@ class MAPPORolloutBuffer:
         actions: np.ndarray,
         log_probs: np.ndarray,
         rewards: np.ndarray,
-        done: bool,
+        dones: np.ndarray,
         value: float,
         global_state: np.ndarray,
     ) -> None:
@@ -144,13 +143,16 @@ class MAPPORolloutBuffer:
         obs:
             Local observations of shape ``(n_agents, obs_dim)``.
         actions:
-            Actions of shape ``(n_agents, action_dim)``.
+            Actions of shape ``(n_agents, action_dim)`` — already clipped to
+            the environment's action-space bounds.
         log_probs:
-            Log-probabilities of shape ``(n_agents,)``.
+            Log-probabilities of shape ``(n_agents,)`` — evaluated on the
+            clipped actions.
         rewards:
             Per-agent rewards of shape ``(n_agents,)``.
-        done:
-            Episode-done flag for this timestep.
+        dones:
+            Per-agent done flags of shape ``(n_agents,)`` — ``1.0`` when an
+            agent's episode ended (terminated or truncated) this step.
         value:
             Centralized critic value estimate (scalar float).
         global_state:
@@ -163,7 +165,7 @@ class MAPPORolloutBuffer:
         self.actions[t] = actions
         self.log_probs[t] = log_probs
         self.rewards[t] = rewards
-        self.dones[t] = float(done)
+        self.dones[t] = dones
         self.values[t] = value
         self.global_states[t] = global_state
         self._ptr += 1
@@ -171,10 +173,11 @@ class MAPPORolloutBuffer:
     def compute_returns_and_advantages(self, last_value: float) -> None:
         """Compute per-agent GAE advantages and discounted returns in-place.
 
-        Each agent uses its own reward stream but the **shared centralized
-        critic value** V(s_t) for bootstrapping.  This follows the MAPPO
-        formulation where advantages are computed independently per agent
-        while the value function is centralized.
+        Each agent uses its own reward stream and its own termination mask,
+        while bootstrapping from the **shared centralized critic value**
+        V(s_t).  This follows the MAPPO formulation where advantages are
+        computed independently per agent while the value function is
+        centralized.
 
         Parameters
         ----------
@@ -186,12 +189,13 @@ class MAPPORolloutBuffer:
         for t in reversed(range(self.n_steps)):
             if t == self.n_steps - 1:
                 next_val = last_value
-                next_non_terminal = 1.0 - self.dones[t]
             else:
                 next_val = self.values[t + 1]
-                next_non_terminal = 1.0 - self.dones[t]
 
-            # δ_t^i = r_t^i + γ · V(s_{t+1}) · (1 − done) − V(s_t)
+            # Per-agent non-terminal mask: (n_agents,)
+            next_non_terminal = 1.0 - self.dones[t]  # (n_agents,)
+
+            # δ_t^i = r_t^i + γ · V(s_{t+1}) · (1 − done_t^i) − V(s_t)
             delta = (
                 self.rewards[t]
                 + self.gamma * next_val * next_non_terminal
@@ -339,6 +343,12 @@ class MAPPOTrainer:
         self.obs_dim = env._obs_dim
         self.action_dim = env._act_space.shape[0]
         self.state_dim = env._state_dim
+        # Action-space bounds used to clip sampled actions before env step.
+        # We use the public action_space() accessor so the bounds stay in sync
+        # with any future changes to the environment's action space definition.
+        _act_space = env.action_space(env.possible_agents[0])
+        self._act_low: np.ndarray = _act_space.low    # shape (action_dim,)
+        self._act_high: np.ndarray = _act_space.high  # shape (action_dim,)
 
         self.buffer = MAPPORolloutBuffer(
             n_steps=n_steps,
@@ -373,13 +383,24 @@ class MAPPOTrainer:
         self._ep_len = 0
 
     def _get_blue_obs_array(self) -> np.ndarray:
-        """Return Blue observations as a ``(n_blue, obs_dim)`` array."""
-        return np.stack(
-            [
-                self._obs_buf.get(f"blue_{i}", np.zeros(self.obs_dim, dtype=np.float32))
-                for i in range(self.n_blue)
-            ]
-        )
+        """Return Blue observations as a ``(n_blue, obs_dim)`` array.
+
+        Any Blue agent not present in ``env.agents`` (terminated or truncated
+        in a prior step) is assigned a zero observation, even if a stale entry
+        remains in ``_obs_buf`` from the step when it died.  Within a
+        PettingZoo episode, once an agent leaves ``env.agents`` it does not
+        return, so the zero observation persists for the remainder of the
+        rollout until the next ``_reset_env()`` call.
+        """
+        zero_obs = np.zeros(self.obs_dim, dtype=np.float32)
+        obs_list: list[np.ndarray] = []
+        for i in range(self.n_blue):
+            agent_id = f"blue_{i}"
+            if agent_id in self.env.agents:
+                obs_list.append(self._obs_buf.get(agent_id, zero_obs))
+            else:
+                obs_list.append(zero_obs)
+        return np.stack(obs_list)
 
     def _red_actions(self) -> dict[str, np.ndarray]:
         """Return action dict for Red agents (random or zero)."""
@@ -423,30 +444,48 @@ class MAPPOTrainer:
             # Centralized critic value
             value = float(self.policy.get_value(state_t.unsqueeze(0)).item())
 
-            # Actor: sample actions for each Blue agent
-            # When sharing parameters we call the shared actor once with all agents
+            # Actor: sample actions (unclipped) for each Blue agent.
+            # Log-probs are recomputed after clipping below.
             with torch.no_grad():
                 if self.policy.share_parameters:
                     dist = self.policy.get_actor().get_distribution(obs_t)
                     actions_t = dist.rsample()  # (n_blue, action_dim)
-                    log_probs_t = dist.log_prob(actions_t).sum(-1)  # (n_blue,)
                 else:
-                    actions_list, lp_list = [], []
+                    actions_list = []
                     for i in range(self.n_blue):
-                        a, lp = self.policy.act(obs_t[i : i + 1], agent_idx=i)
-                        actions_list.append(a)
-                        lp_list.append(lp)
+                        actor = self.policy.get_actor(i)
+                        d = actor.get_distribution(obs_t[i : i + 1])
+                        actions_list.append(d.rsample())
                     actions_t = torch.cat(actions_list, dim=0)
-                    log_probs_t = torch.cat(lp_list, dim=0)
 
-            actions_np = actions_t.cpu().numpy()   # (n_blue, action_dim)
-            log_probs_np = log_probs_t.cpu().numpy()  # (n_blue,)
+            actions_np = actions_t.cpu().numpy()   # (n_blue, action_dim) — unclipped
 
-            # Build full action dict for env
+            # Clip actions to the env's action-space bounds and recompute
+            # log-probs on the clipped actions so that the stored (action,
+            # log_prob) pair is consistent (avoids PPO ratio errors caused by
+            # the Normal distribution being unbounded while the env expects a
+            # bounded action, e.g. fire ∈ [0, 1]).
+            actions_clipped = np.clip(actions_np, self._act_low, self._act_high)
+            actions_clipped_t = torch.as_tensor(actions_clipped, device=self.device)
+            with torch.no_grad():
+                if self.policy.share_parameters:
+                    log_probs_np = (
+                        dist.log_prob(actions_clipped_t).sum(-1).cpu().numpy()
+                    )
+                else:
+                    lp_list = []
+                    for i in range(self.n_blue):
+                        actor = self.policy.get_actor(i)
+                        d = actor.get_distribution(obs_t[i : i + 1])
+                        lp = d.log_prob(actions_clipped_t[i : i + 1]).sum(-1)
+                        lp_list.append(lp)
+                    log_probs_np = torch.cat(lp_list, dim=0).cpu().numpy()
+
+            # Build full action dict for env (using the clipped actions)
             action_dict: dict[str, np.ndarray] = {}
             for i, agent_id in enumerate([f"blue_{j}" for j in range(self.n_blue)]):
                 if agent_id in self.env.agents:
-                    action_dict[agent_id] = np.clip(actions_np[i], -1.0, 1.0)
+                    action_dict[agent_id] = actions_clipped[i]
             action_dict.update(self._red_actions())
 
             obs_new, rewards, terminated, truncated, _ = self.env.step(action_dict)
@@ -460,18 +499,23 @@ class MAPPOTrainer:
                 self._ep_rewards[f"blue_{i}"] += rew_arr[i]
             self._ep_len += 1
 
-            done = not bool(self.env.agents) or all(
-                terminated.get(a, False) or truncated.get(a, False)
-                for a in [f"blue_{i}" for i in range(self.n_blue)]
-                if a in terminated or a in truncated
+            # Per-agent done flags: agent is done if terminated or truncated this step
+            dones_arr = np.array(
+                [
+                    float(terminated.get(f"blue_{i}", False) or truncated.get(f"blue_{i}", False))
+                    for i in range(self.n_blue)
+                ],
+                dtype=np.float32,
             )
+
+            all_blue_done = bool(dones_arr.all())
 
             self.buffer.add(
                 obs=obs_arr,
-                actions=actions_np,
+                actions=actions_clipped,
                 log_probs=log_probs_np,
                 rewards=rew_arr,
-                done=done,
+                dones=dones_arr,
                 value=value,
                 global_state=global_state,
             )
@@ -479,7 +523,7 @@ class MAPPOTrainer:
             self._obs_buf = obs_new
             self._total_steps += 1
 
-            if done or not self.env.agents:
+            if all_blue_done or not self.env.agents:
                 self._episode += 1
                 self._ep_reward_history.append(dict(self._ep_rewards))
                 self._reset_env()

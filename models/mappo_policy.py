@@ -260,6 +260,11 @@ class MAPPOPolicy(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Sample actions for a batch of observations.
 
+        A batch dimension is added internally when *obs* is 1-D so that
+        the return shapes are **always** ``(batch, action_dim)`` and
+        ``(batch,)`` regardless of whether the caller passes a single
+        observation or a batch.
+
         Parameters
         ----------
         obs:
@@ -277,6 +282,9 @@ class MAPPOPolicy(nn.Module):
         actions  : torch.Tensor — shape ``(batch, action_dim)``
         log_probs: torch.Tensor — shape ``(batch,)``
         """
+        squeezed = obs.dim() == 1
+        if squeezed:
+            obs = obs.unsqueeze(0)
         actor = self.get_actor(agent_idx)
         dist = actor.get_distribution(obs)
         actions = dist.mean if deterministic else dist.rsample()
