@@ -129,6 +129,11 @@ The per-component breakdown is available in the `info` dict under
 
 | Key | Type | Description |
 |---|---|---|
+| `blue_damage_dealt` | `float` | Strength fraction dealt to Red this step (`dmg_b2r`) |
+| `red_damage_dealt` | `float` | Strength fraction dealt to Blue this step (`dmg_r2b`) |
+| `blue_routed` | `bool` | `True` if Blue is currently routing |
+| `red_routed` | `bool` | `True` if Red is currently routing |
+| `step_count` | `int` | Current episode step number |
 | `reward/delta_enemy_strength` | `float` | Damage-dealt reward component |
 | `reward/delta_own_strength` | `float` | Damage-received penalty component |
 | `reward/survival_bonus` | `float` | Survival bonus component |
@@ -136,12 +141,6 @@ The per-component breakdown is available in the `info` dict under
 | `reward/loss_penalty` | `float` | Loss penalty component (non-zero only on terminal step) |
 | `reward/time_penalty` | `float` | Time penalty component |
 | `reward/total` | `float` | Sum of all components (equals the returned scalar reward) |
-| `blue_strength` | `float` | Blue's remaining strength `[0, 1]` |
-| `blue_morale` | `float` | Blue's remaining morale `[0, 1]` |
-| `red_strength` | `float` | Red's remaining strength `[0, 1]` |
-| `red_morale` | `float` | Red's remaining morale `[0, 1]` |
-| `blue_won` | `bool` | `True` if Blue won this episode (set on terminal step) |
-| `blue_lost` | `bool` | `True` if Blue lost this episode (set on terminal step) |
 
 ---
 

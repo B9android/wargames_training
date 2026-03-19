@@ -28,7 +28,8 @@ Run the default training configuration (1 M steps, 8 parallel envs, W&B logging)
 python training/train.py
 ```
 
-Run without W&B (offline mode — logs to `logs/` only):
+Run without W&B internet access (offline mode — W&B writes a local run directory
+under `./wandb/` and the eval logs go to `logs/`; sync to the cloud later):
 
 ```bash
 WANDB_MODE=offline python training/train.py
@@ -50,8 +51,8 @@ python training/train.py --config-name experiment_1
 
 ## Configuration
 
-All settings live in `configs/default.yaml`. The table below lists every key
-and its effect.
+All settings live in `configs/default.yaml`. The sections below cover every
+config key and its effect.
 
 ### W&B experiment tracking
 
@@ -89,6 +90,7 @@ and its effect.
 
 | Key | Default | Description |
 |---|---|---|
+| `training.algorithm` | `"PPO"` | RL algorithm (only PPO is currently supported) |
 | `training.total_timesteps` | `1000000` | Total environment steps to train for |
 | `training.learning_rate` | `3e-4` | Adam learning rate |
 | `training.n_steps` | `2048` | Rollout steps per environment before a PPO update |
@@ -126,6 +128,13 @@ and its effect.
 | `self_play.eval_freq` | `50000` | Evaluate win-rate vs pool every N environment steps |
 | `self_play.n_eval_episodes` | `20` | Episodes per win-rate evaluation |
 | `self_play.use_latest_for_eval` | `false` | `false` = sample uniformly; `true` = always use latest |
+
+### Logging
+
+| Key | Default | Description |
+|---|---|---|
+| `logging.level` | `"INFO"` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `logging.log_dir` | `"logs/"` | Directory for eval logs written by `EvalCallback` |
 
 ---
 
@@ -198,8 +207,10 @@ are logged:
 | `train/value_loss` | Value function loss |
 | `train/entropy_loss` | Entropy regularization loss |
 | `reward_breakdown/*` | Per-component mean reward (per episode) |
-| `elo/<opponent>` | Elo rating vs each scripted opponent |
-| `eval/win_rate_vs_pool` | Win rate vs self-play pool (when enabled) |
+| `elo/rating_vs_<opponent>` | Elo rating after evaluating vs the named opponent |
+| `elo/win_rate_vs_<opponent>` | Win rate vs the named opponent at each Elo checkpoint |
+| `elo/delta_vs_<opponent>` | Elo rating change from the last evaluation vs the named opponent |
+| `self_play/win_rate_vs_pool` | Win rate vs self-play pool (when self-play is enabled) |
 
 **Tips:**
 
@@ -220,7 +231,7 @@ Checkpoints are saved as Stable-Baselines3 `.zip` files:
 |---|---|
 | `checkpoints/ppo_battalion_<N>_steps.zip` | Periodic checkpoint every `checkpoint_freq` steps |
 | `checkpoints/best/best_model.zip` | Best model by mean eval reward |
-| `checkpoints/<run_id>/final.zip` | Final model at the end of training |
+| `checkpoints/ppo_battalion_final.zip` | Final model saved at the end of training |
 
 Load a checkpoint:
 

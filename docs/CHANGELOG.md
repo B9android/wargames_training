@@ -20,8 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`BattalionEnv`** — Gymnasium 1v1 environment with 12-dim observation space,
   3-dim continuous action space, scripted Red opponent (curriculum levels 1–5),
   randomized terrain, and configurable reward shaping.
-- **`BattalionMlpPolicy`** — Stable-Baselines3 `ActorCriticPolicy` with a
-  dedicated `BattalionFeaturesExtractor` (obs → 128 → 64, ReLU + LayerNorm).
+- **`BattalionMlpPolicy`** — Stable-Baselines3 `ActorCriticPolicy` subclass
+  with a two-hidden-layer MLP (obs(12) → 128 → Tanh → 128 → Tanh) shared
+  by the actor and critic heads; registered as `PPO.policy_aliases["BattalionMlpPolicy"]`.
 - **PPO training pipeline** (`training/train.py`) — Hydra config loading, W&B
   experiment tracking, `CheckpointCallback`, `EvalCallback`,
   `WandbCallback`, `RewardBreakdownCallback`.
