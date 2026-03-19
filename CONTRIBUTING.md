@@ -125,6 +125,19 @@ pytest tests/ -q          # full suite, must be green
 3. Link the tracking issue (`Closes #N`).
 4. Request a review — at least one approval is required before merge.
 
+### PR Checklist
+
+Before marking a PR as ready for review, confirm **all** of the following:
+
+- [ ] `pytest tests/ -q` passes locally
+- [ ] New public functions/classes have at least one test
+- [ ] Observations are normalised and angles use `(cos θ, sin θ)` — no raw radians
+- [ ] If a new Gymnasium environment: `check_env(MyEnv())` passes
+- [ ] W&B run URL posted in the PR or tracking issue (if a training change)
+- [ ] `docs/CHANGELOG.md` updated (if a public interface changed)
+- [ ] `[EXP]` issue opened and linked (if a training change)
+- [ ] No multi-agent complexity added (v1 scope boundary)
+
 ---
 
 ## Definition of Done
@@ -145,6 +158,8 @@ Short version:
 |---|---|
 | Development Playbook | [`docs/development_playbook.md`](docs/development_playbook.md) |
 | Project Roadmap | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
+| Training Guide | [`docs/TRAINING_GUIDE.md`](docs/TRAINING_GUIDE.md) |
+| Environment Spec | [`docs/ENVIRONMENT_SPEC.md`](docs/ENVIRONMENT_SPEC.md) |
 | Orchestration Runbook | [`docs/ORCHESTRATION_RUNBOOK.md`](docs/ORCHESTRATION_RUNBOOK.md) |
 | Default Config | [`configs/default.yaml`](configs/default.yaml) |
 | W&B Project | [wandb.ai — wargames_training](https://wandb.ai) |

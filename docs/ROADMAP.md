@@ -9,7 +9,7 @@
 
 | Version | Theme | Status | Target |
 |---|---|---|---|
-| **v1** | Foundation — 1v1 battalion | 🔨 Active | M4 |
+| **v1** | Foundation — 1v1 battalion | ✅ Complete | M4 |
 | **v2** | Multi-Agent — MARL 2v2+ | 📋 Planned | M6 |
 | **v3** | Hierarchy — Brigade/Division HRL | 📋 Planned | M8 |
 | **v4** | League — AlphaStar-style training | 📋 Planned | M10 |
@@ -17,34 +17,34 @@
 
 ---
 
-## v1: Foundation (Active)
+## v1: Foundation (Complete ✅)
 
 **Goal:** A single battalion agent that reliably defeats scripted opponents
 in 1v1 continuous 2D battles, generalizes across randomized parameters,
 and has a working self-play loop.
 
 ### Epics
-- [ ] **E1.1** — Project Bootstrap & Tooling
-- [ ] **E1.2** — Core Simulation Engine
-- [ ] **E1.3** — Gymnasium Environment (1v1)
-- [ ] **E1.4** — Baseline Training Loop (PPO + scripted opponent)
-- [ ] **E1.5** — Terrain & Environmental Randomization
-- [ ] **E1.6** — Reward Shaping & Curriculum Design
-- [ ] **E1.7** — Self-Play Implementation
-- [ ] **E1.8** — Evaluation Framework & Elo Tracking
-- [ ] **E1.9** — Visualization & Replay System
-- [ ] **E1.10** — v1 Documentation & Release
+- [x] **E1.1** — Project Bootstrap & Tooling
+- [x] **E1.2** — Core Simulation Engine
+- [x] **E1.3** — Gymnasium Environment (1v1)
+- [x] **E1.4** — Baseline Training Loop (PPO + scripted opponent)
+- [x] **E1.5** — Terrain & Environmental Randomization
+- [x] **E1.6** — Reward Shaping & Curriculum Design
+- [x] **E1.7** — Self-Play Implementation
+- [x] **E1.8** — Evaluation Framework & Elo Tracking
+- [x] **E1.9** — Visualization & Replay System
+- [x] **E1.10** — v1 Documentation & Release
 
 ### Milestones
-- M0: Project Bootstrap
-- M1: 1v1 Competence
-- M2: Terrain & Generalization
-- M3: Self-Play Baseline
-- M4: v1 Complete
+- M0: Project Bootstrap ✅
+- M1: 1v1 Competence ✅
+- M2: Terrain & Generalization ✅
+- M3: Self-Play Baseline ✅
+- M4: v1 Complete ✅
 
 ---
 
-## v2: Multi-Agent (Planned)
+## v2: Multi-Agent (Next — Planning)
 
 **Goal:** Multiple battalions per side coordinate using MAPPO.
 Emergent flanking, fire concentration, and mutual support.
