@@ -21,8 +21,11 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional
@@ -48,11 +51,101 @@ import wandb
 from envs.battalion_env import BattalionEnv
 from envs.reward import RewardWeights
 from models.mlp_policy import BattalionMlpPolicy
+from training.artifacts import (
+    CheckpointManifest,
+    checkpoint_best_filename,
+    checkpoint_final_stem,
+    checkpoint_name_prefix,
+    parse_step_from_checkpoint_name,
+)
 from training.elo import EloRegistry
 from training.evaluate import run_episodes_with_model
 from training.self_play import OpponentPool, SelfPlayCallback, WinRateVsPoolCallback
 
 log = logging.getLogger(__name__)
+
+
+def _stable_config_hash(cfg: DictConfig) -> str:
+    """Build a deterministic hash for the fully-resolved run config."""
+    payload = OmegaConf.to_container(cfg, resolve=True)
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _resolve_resume_checkpoint(
+    cfg: DictConfig,
+    checkpoint_dir: Path,
+    manifest: Optional["CheckpointManifest"],
+    periodic_prefix: str,
+    current_hash: str,
+) -> Optional[Path]:
+    """Return a checkpoint path to resume from, or None.
+
+    Resolution order:
+    1. Explicit ``resume.checkpoint`` path from config.
+    2. Manifest ``latest_periodic()`` (when manifest is present and populated).
+    3. Filesystem glob scan for ``{prefix}_*_steps.zip``.
+    """
+    # 1. Explicit override.
+    explicit = OmegaConf.select(cfg, "resume.checkpoint", default=None)
+    if explicit:
+        p = Path(explicit)
+        if not p.is_absolute():
+            p = _PROJECT_ROOT / p
+        if not p.exists():
+            raise FileNotFoundError(f"resume.checkpoint not found: {p}")
+        _warn_hash_mismatch(p, current_hash, manifest)
+        return p
+
+    auto = bool(OmegaConf.select(cfg, "resume.auto", default=False))
+    if not auto:
+        return None
+
+    # 2. Manifest lookup.
+    if manifest is not None:
+        candidate = manifest.latest_periodic(checkpoint_dir, periodic_prefix)
+        if candidate is not None:
+            _warn_hash_mismatch(candidate, current_hash, manifest)
+            return candidate
+
+    # 3. Filesystem fallback.
+    matches = sorted(
+        checkpoint_dir.glob(f"{periodic_prefix}_*_steps.zip"),
+        key=lambda p: parse_step_from_checkpoint_name(p) or -1,
+    )
+    if matches:
+        candidate = matches[-1]
+        log.warning(
+            "resume.auto: manifest unavailable — found checkpoint via filesystem scan: %s",
+            candidate,
+        )
+        return candidate
+
+    log.info("resume.auto set but no existing checkpoint found; starting fresh.")
+    return None
+
+
+def _warn_hash_mismatch(
+    checkpoint_path: Path,
+    current_hash: str,
+    manifest: Optional["CheckpointManifest"],
+) -> None:
+    """Emit a warning if the manifest records a different config hash for this checkpoint."""
+    if manifest is None:
+        return
+    path_str = str(checkpoint_path)
+    for row in manifest._read_rows():  # noqa: SLF001
+        if str(row.get("path", "")) == path_str:
+            recorded = row.get("config_hash", "")
+            if recorded and recorded != current_hash:
+                log.warning(
+                    "Config hash mismatch for checkpoint %s: recorded=%s current=%s. "
+                    "Hyperparameters may differ from original run.",
+                    checkpoint_path.name,
+                    recorded[:12],
+                    current_hash[:12],
+                )
+            break
 
 # ---------------------------------------------------------------------------
 # W&B callback
@@ -316,6 +409,25 @@ def main(cfg: DictConfig) -> None:
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    seed = int(cfg.training.seed)
+    curriculum_level = int(OmegaConf.select(cfg, "env.curriculum_level", default=5))
+    enable_naming_v2 = bool(OmegaConf.select(cfg, "artifacts.enable_naming_v2", default=False))
+    keep_legacy_aliases = bool(
+        OmegaConf.select(cfg, "artifacts.keep_legacy_aliases", default=True)
+    )
+    write_manifest = bool(OmegaConf.select(cfg, "artifacts.write_manifest", default=True))
+    manifest_rel = str(
+        OmegaConf.select(cfg, "artifacts.manifest_path", default="checkpoints/manifest.jsonl")
+    )
+    manifest_path = _PROJECT_ROOT / manifest_rel
+    manifest = CheckpointManifest(manifest_path) if write_manifest else None
+    config_hash = _stable_config_hash(cfg)
+    periodic_prefix = checkpoint_name_prefix(
+        seed=seed,
+        curriculum_level=curriculum_level,
+        enable_v2=enable_naming_v2,
+    )
+
     # ------------------------------------------------------------------
     # W&B initialisation
     # ------------------------------------------------------------------
@@ -360,7 +472,7 @@ def main(cfg: DictConfig) -> None:
         max_steps=cfg.env.max_steps,
         randomize_terrain=OmegaConf.select(cfg, "env.randomize_terrain", default=True),
         hill_speed_factor=OmegaConf.select(cfg, "env.hill_speed_factor", default=0.5),
-        curriculum_level=int(OmegaConf.select(cfg, "env.curriculum_level", default=5)),
+        curriculum_level=curriculum_level,
         reward_weights=reward_weights,
     )
 
@@ -379,13 +491,13 @@ def main(cfg: DictConfig) -> None:
     vec_env = make_vec_env(
         BattalionEnv,
         n_envs=cfg.env.num_envs,
-        seed=cfg.training.seed,
+        seed=seed,
         env_kwargs=env_kwargs,
     )
     eval_env = make_vec_env(
         BattalionEnv,
         n_envs=1,
-        seed=cfg.training.seed + 1000,
+        seed=seed + 1000,
         env_kwargs=env_kwargs,
     )
 
@@ -395,7 +507,7 @@ def main(cfg: DictConfig) -> None:
     checkpoint_cb = CheckpointCallback(
         save_freq=max(1, cfg.eval.checkpoint_freq // cfg.env.num_envs),
         save_path=str(checkpoint_dir),
-        name_prefix="ppo_battalion",
+        name_prefix=periodic_prefix,
         verbose=1,
     )
 
@@ -465,7 +577,7 @@ def main(cfg: DictConfig) -> None:
         run_id = (
             run.id
             if run is not None and hasattr(run, "id") and run.id
-            else f"run_seed{cfg.training.seed}_{os.getpid()}"
+            else f"run_seed{seed}_{os.getpid()}"
         )
         elo_registry = EloRegistry(path=elo_registry_path)
         elo_cb = EloEvalCallback(
@@ -475,7 +587,7 @@ def main(cfg: DictConfig) -> None:
             agent_name=run_id,
             eval_freq=elo_eval_freq,
             env_kwargs=dict(env_kwargs),
-            seed=cfg.training.seed,
+            seed=seed,
             verbose=1,
         )
         extra_callbacks.append(elo_cb)
@@ -487,25 +599,48 @@ def main(cfg: DictConfig) -> None:
         )
 
     # ------------------------------------------------------------------
+    # Resolve resume checkpoint
+    # ------------------------------------------------------------------
+    resume_path = _resolve_resume_checkpoint(
+        cfg=cfg,
+        checkpoint_dir=checkpoint_dir,
+        manifest=manifest,
+        periodic_prefix=periodic_prefix,
+        current_hash=config_hash,
+    )
+
+    # ------------------------------------------------------------------
     # PPO model
     # ------------------------------------------------------------------
-    model = PPO(
-        BattalionMlpPolicy,
-        vec_env,
-        learning_rate=cfg.training.learning_rate,
-        n_steps=cfg.training.n_steps,
-        batch_size=cfg.training.batch_size,
-        n_epochs=cfg.training.n_epochs,
-        gamma=cfg.training.gamma,
-        gae_lambda=cfg.training.gae_lambda,
-        clip_range=cfg.training.clip_range,
-        ent_coef=cfg.training.ent_coef,
-        vf_coef=cfg.training.vf_coef,
-        max_grad_norm=cfg.training.max_grad_norm,
-        seed=cfg.training.seed,
-        verbose=1,
-    )
-    log.info("PPO model created. Training for %d timesteps.", cfg.training.total_timesteps)
+    if resume_path is not None:
+        log.info("Resuming from checkpoint: %s", resume_path)
+        model = PPO.load(
+            str(resume_path),
+            env=vec_env,
+            device="auto",
+            custom_objects={
+                "learning_rate": cfg.training.learning_rate,
+                "clip_range": cfg.training.clip_range,
+            },
+        )
+    else:
+        model = PPO(
+            BattalionMlpPolicy,
+            vec_env,
+            learning_rate=cfg.training.learning_rate,
+            n_steps=cfg.training.n_steps,
+            batch_size=cfg.training.batch_size,
+            n_epochs=cfg.training.n_epochs,
+            gamma=cfg.training.gamma,
+            gae_lambda=cfg.training.gae_lambda,
+            clip_range=cfg.training.clip_range,
+            ent_coef=cfg.training.ent_coef,
+            vf_coef=cfg.training.vf_coef,
+            max_grad_norm=cfg.training.max_grad_norm,
+            seed=seed,
+            verbose=1,
+        )
+    log.info("PPO model ready. Training for %d timesteps.", cfg.training.total_timesteps)
 
     # ------------------------------------------------------------------
     # Training loop
@@ -520,9 +655,86 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     # Save final checkpoint
     # ------------------------------------------------------------------
-    final_path = checkpoint_dir / "ppo_battalion_final"
+    final_stem = checkpoint_final_stem(
+        seed=seed,
+        curriculum_level=curriculum_level,
+        enable_v2=enable_naming_v2,
+    )
+    final_path = checkpoint_dir / final_stem
     model.save(str(final_path))
     log.info("Saved final model to %s.zip", final_path)
+
+    legacy_final_alias_path = checkpoint_dir / "ppo_battalion_final"
+    if keep_legacy_aliases and final_path != legacy_final_alias_path:
+        model.save(str(legacy_final_alias_path))
+
+    best_alias_zip = checkpoint_dir / "best" / "best_model.zip"
+    best_canonical_zip = checkpoint_dir / "best" / checkpoint_best_filename(
+        seed=seed,
+        curriculum_level=curriculum_level,
+        enable_v2=enable_naming_v2,
+    )
+    if best_alias_zip.exists() and best_alias_zip != best_canonical_zip:
+        best_canonical_zip.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(best_alias_zip, best_canonical_zip)
+
+    run_id = run.id if run is not None and hasattr(run, "id") and run.id else None
+    if manifest is not None:
+        for periodic_zip in checkpoint_dir.glob(f"{periodic_prefix}_*_steps.zip"):
+            manifest.register(
+                periodic_zip,
+                artifact_type="periodic",
+                seed=seed,
+                curriculum_level=curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+                step=parse_step_from_checkpoint_name(periodic_zip),
+            )
+
+        final_zip = final_path.with_suffix(".zip")
+        if final_zip.exists():
+            manifest.register(
+                final_zip,
+                artifact_type="final",
+                seed=seed,
+                curriculum_level=curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+                step=int(getattr(model, "num_timesteps", 0) or 0),
+            )
+
+        legacy_final_zip = legacy_final_alias_path.with_suffix(".zip")
+        if keep_legacy_aliases and legacy_final_zip.exists():
+            manifest.register(
+                legacy_final_zip,
+                artifact_type="final_alias",
+                seed=seed,
+                curriculum_level=curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+                step=int(getattr(model, "num_timesteps", 0) or 0),
+            )
+
+        if best_alias_zip.exists():
+            manifest.register(
+                best_alias_zip,
+                artifact_type="best_alias",
+                seed=seed,
+                curriculum_level=curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+                step=None,
+            )
+        if best_canonical_zip.exists():
+            manifest.register(
+                best_canonical_zip,
+                artifact_type="best",
+                seed=seed,
+                curriculum_level=curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+                step=None,
+            )
 
     if run is not None:
         artifact = wandb.Artifact(name="ppo_battalion_final", type="model")

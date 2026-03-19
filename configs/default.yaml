@@ -10,6 +10,18 @@ wandb:
   tags: ["v1", "ppo"]
   log_freq: 1000                     # log every N timesteps
 
+# ── Artifact policy (checkpoint naming/index) ─────────────────────────────
+artifacts:
+  enable_naming_v2: true             # include seed/curriculum in periodic/final/best names
+  keep_legacy_aliases: true          # also write legacy aliases like ppo_battalion_final.zip
+  write_manifest: true               # append checkpoint events to local JSONL manifest
+  manifest_path: "checkpoints/manifest.jsonl"
+
+# ── Resume from checkpoint ────────────────────────────────────────────────
+resume:
+  auto: false                        # if true, automatically resume from latest checkpoint
+  checkpoint: null                   # explicit .zip path (overrides auto); null = disabled
+
 # ── Environment ───────────────────────────────────────────────────────────
 env:
   map_width: 1000.0                  # metres

@@ -117,6 +117,31 @@ config key and its effect.
 | `eval.elo_eval_freq` | `50000` | Elo evaluation interval (timesteps) |
 | `eval.elo_n_eval_episodes` | `20` | Episodes per Elo evaluation |
 
+### Artifact naming and manifest
+
+| Key | Default | Description |
+|---|---|---|
+| `artifacts.enable_naming_v2` | `true` | Include seed and curriculum level in checkpoint filenames |
+| `artifacts.keep_legacy_aliases` | `true` | Also write `ppo_battalion_final.zip` alongside the v2-named file |
+| `artifacts.write_manifest` | `true` | Append every checkpoint event to a local JSONL index |
+| `artifacts.manifest_path` | `"checkpoints/manifest.jsonl"` | Path to the checkpoint manifest |
+
+When `enable_naming_v2` is `true`, checkpoint filenames include the run seed and curriculum
+level, for example `ppo_battalion_s42_c5_200000_steps.zip`.  This eliminates cross-run
+overwrite collisions when multiple runs share the same `checkpoints/` directory.
+
+The manifest (`checkpoints/manifest.jsonl`) is an append-only JSONL file — one JSON object
+per line — that records every periodic, final, and best checkpoint with its step count, seed,
+curriculum level, W&B run ID, and a stable config hash.  It is used by the resume resolution
+logic (see [Resuming a Run](#resuming-a-run) below) and by the UI artifact browser.
+
+### Resume from checkpoint
+
+| Key | Default | Description |
+|---|---|---|
+| `resume.auto` | `false` | Automatically resume from the latest checkpoint in the manifest |
+| `resume.checkpoint` | `null` | Explicit `.zip` path to resume from (overrides `auto`) |
+
 ### Self-play (disabled by default)
 
 | Key | Default | Description |
@@ -225,20 +250,50 @@ are logged:
 
 ## Checkpoints
 
-Checkpoints are saved as Stable-Baselines3 `.zip` files:
+Checkpoints are saved as Stable-Baselines3 `.zip` files.  When `artifacts.enable_naming_v2`
+is `true` (the default), filenames embed the run seed and curriculum level:
 
 | Path | Contents |
 |---|---|
-| `checkpoints/ppo_battalion_<N>_steps.zip` | Periodic checkpoint every `checkpoint_freq` steps |
-| `checkpoints/best/best_model.zip` | Best model by mean eval reward |
-| `checkpoints/ppo_battalion_final.zip` | Final model saved at the end of training |
+| `checkpoints/ppo_battalion_s<seed>_c<level>_<N>_steps.zip` | Periodic checkpoint every `checkpoint_freq` steps |
+| `checkpoints/best/ppo_battalion_s<seed>_c<level>_best.zip` | Best model by mean eval reward |
+| `checkpoints/ppo_battalion_s<seed>_c<level>_final.zip` | Final model at end of training |
+| `checkpoints/ppo_battalion_final.zip` | Legacy alias (written when `keep_legacy_aliases: true`) |
+| `checkpoints/best/best_model.zip` | Legacy alias for best (written by SB3 `EvalCallback`) |
+| `checkpoints/manifest.jsonl` | Append-only JSONL index of all checkpoint events |
 
 Load a checkpoint:
 
 ```python
 from stable_baselines3 import PPO
+model = PPO.load("checkpoints/best/ppo_battalion_s42_c5_best.zip")
+# or using the legacy alias:
 model = PPO.load("checkpoints/best/best_model.zip")
 ```
+
+---
+
+## Resuming a Run
+
+To automatically resume from the latest checkpoint found in the manifest:
+
+```bash
+python training/train.py resume.auto=true
+```
+
+To resume from a specific checkpoint:
+
+```bash
+python training/train.py resume.checkpoint=checkpoints/ppo_battalion_s42_c5_200000_steps.zip
+```
+
+**Resume resolution order:**
+1. Explicit `resume.checkpoint` path (error if file not found).
+2. Manifest `latest_periodic()` scan (fastest, uses the JSONL index).
+3. Filesystem glob scan for `{prefix}_*_steps.zip` (fallback when no manifest).
+
+A warning is logged if the recorded config hash for the checkpoint differs from the current
+run's config hash — meaning hyperparameters may have changed since the checkpoint was saved.
 
 ---
 
