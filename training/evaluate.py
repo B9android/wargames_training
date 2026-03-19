@@ -406,7 +406,7 @@ def evaluate(
 def _run_rendered_episode(
     model: Any,
     env: BattalionEnv,
-    step: int = 0,
+    ep_seed: Optional[int] = None,
     deterministic: bool = True,
     recorder: Optional[Any] = None,
 ) -> int:
@@ -417,11 +417,11 @@ def _run_rendered_episode(
     model:
         Loaded SB3 model (or any object with ``predict``).
     env:
-        A :class:`BattalionEnv` instance — **must** have
-        ``render_mode="human"`` or will be rendered via the returned
+        A :class:`BattalionEnv` instance — rendered via the returned
         renderer directly.
-    step:
-        Starting step counter (usually 0).
+    ep_seed:
+        Random seed passed to ``env.reset()``.  ``None`` means
+        non-deterministic seeding.
     deterministic:
         Whether the model acts deterministically.
     recorder:
@@ -437,7 +437,7 @@ def _run_rendered_episode(
 
     renderer = BattalionRenderer(env.map_width, env.map_height)
     try:
-        obs, _ = env.reset(seed=step)
+        obs, _ = env.reset(seed=ep_seed)
         renderer.set_terrain(env.terrain)
         current_step = 0
         done = False
@@ -587,6 +587,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         record_dir = Path(args.record) if args.record else None
         try:
             for ep in range(args.n_episodes):
+                ep_seed = None if args.seed is None else args.seed + ep
                 recorder = None
                 if record_dir is not None:
                     from envs.rendering.recorder import EpisodeRecorder  # noqa: PLC0415
@@ -596,13 +597,13 @@ def main(argv: Optional[list[str]] = None) -> None:
                     outcome = _run_rendered_episode(
                         model,
                         env,
-                        step=ep,
+                        ep_seed=ep_seed,
                         deterministic=args.deterministic,
                         recorder=recorder,
                     )
                 else:
                     # Record-only (no window)
-                    obs, _ = env.reset(seed=ep)
+                    obs, _ = env.reset(seed=ep_seed)
                     done = False
                     step_info: dict = {}
                     current_step = 0

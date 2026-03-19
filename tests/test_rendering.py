@@ -74,16 +74,26 @@ class TestBattalionRenderer(unittest.TestCase):
         self.assertIsNotNone(self.renderer)
 
     def test_world_to_screen_origin(self) -> None:
-        """World (0, 0) maps to bottom-left of the screen."""
+        """World (0, 0) maps to the bottom-left of the screen (clamped)."""
         sx, sy = self.renderer._world_to_screen(0.0, 0.0)
         self.assertEqual(sx, 0)
-        self.assertEqual(sy, self.renderer._win_h)
+        # y=0 → sy = win_h, clamped to win_h - 1
+        self.assertEqual(sy, self.renderer._win_h - 1)
 
     def test_world_to_screen_top_right(self) -> None:
-        """World (width, height) maps to top-right of the screen."""
+        """World (width, height) maps to the top-right corner (clamped)."""
         sx, sy = self.renderer._world_to_screen(1000.0, 1000.0)
-        self.assertEqual(sx, self.renderer._win_w)
+        self.assertEqual(sx, self.renderer._win_w - 1)
         self.assertEqual(sy, 0)
+
+    def test_world_to_screen_clamped(self) -> None:
+        """Out-of-bounds world coordinates are clamped to screen boundaries."""
+        sx, sy = self.renderer._world_to_screen(-100.0, -100.0)
+        self.assertEqual(sx, 0)
+        self.assertEqual(sy, self.renderer._win_h - 1)
+        sx2, sy2 = self.renderer._world_to_screen(9999.0, 9999.0)
+        self.assertEqual(sx2, self.renderer._win_w - 1)
+        self.assertEqual(sy2, 0)
 
     def test_world_to_screen_centre(self) -> None:
         """World centre maps to screen centre."""
@@ -107,11 +117,36 @@ class TestBattalionRenderer(unittest.TestCase):
         self.assertIsInstance(result, bool)
 
     def test_set_terrain_caches_surface(self) -> None:
-        """set_terrain() caches a surface for subsequent renders."""
+        """set_terrain() caches a surface and records the terrain id."""
         terrain = _make_flat_terrain()
         self.assertIsNone(self.renderer._terrain_surface)
         self.renderer.set_terrain(terrain)
         self.assertIsNotNone(self.renderer._terrain_surface)
+        self.assertEqual(self.renderer._cached_terrain_id, id(terrain))
+
+    def test_terrain_cache_refreshed_on_new_terrain(self) -> None:
+        """render_frame() rebuilds the terrain surface when terrain changes."""
+        terrain_a = _make_flat_terrain()
+        terrain_b = _make_flat_terrain()
+        self.assertIsNot(terrain_a, terrain_b)  # confirm distinct objects
+        blue = _make_blue()
+        red = _make_red()
+        self.renderer.render_frame(blue, red, terrain=terrain_a, step=0)
+        surface_a = self.renderer._terrain_surface
+        self.renderer.render_frame(blue, red, terrain=terrain_b, step=1)
+        surface_b = self.renderer._terrain_surface
+        # Different terrain objects → cache must have been rebuilt
+        self.assertIsNot(surface_a, surface_b)
+
+    def test_terrain_cache_not_rebuilt_for_same_object(self) -> None:
+        """render_frame() reuses the cached surface when terrain is unchanged."""
+        terrain = _make_flat_terrain()
+        blue = _make_blue()
+        red = _make_red()
+        self.renderer.render_frame(blue, red, terrain=terrain, step=0)
+        surface_first = self.renderer._terrain_surface
+        self.renderer.render_frame(blue, red, terrain=terrain, step=1)
+        self.assertIs(self.renderer._terrain_surface, surface_first)
 
     def test_render_routed_battalion(self) -> None:
         """render_frame() handles a routed battalion without crashing."""

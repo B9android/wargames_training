@@ -464,7 +464,6 @@ class BattalionEnv(gym.Env):
         if self._renderer is None:
             from envs.rendering.renderer import BattalionRenderer  # noqa: PLC0415
             self._renderer = BattalionRenderer(self.map_width, self.map_height)
-            self._renderer.set_terrain(self.terrain)
 
         self._renderer.render_frame(
             self.blue,

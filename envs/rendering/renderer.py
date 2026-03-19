@@ -86,6 +86,9 @@ class BattalionRenderer:
         self._win_h = window_h
         self._fps = fps
         self._terrain_surface: Optional[pygame.Surface] = None
+        # Track the identity of the cached terrain so we can detect changes
+        # (e.g. when BattalionEnv generates a new TerrainMap on each reset).
+        self._cached_terrain_id: Optional[int] = None
 
         pygame.init()
         self._screen: pygame.Surface = pygame.display.set_mode(
@@ -104,9 +107,13 @@ class BattalionRenderer:
 
         The world y-axis points *up* (y=0 at the bottom of the map), while
         the screen y-axis points *down* (y=0 at the top of the window).
+        Coordinates are clamped to ``[0, win_w-1]`` × ``[0, win_h-1]`` so
+        that units exactly on the map boundary remain within the surface.
         """
         sx = int(x / self._map_w * self._win_w)
         sy = int((1.0 - y / self._map_h) * self._win_h)
+        sx = max(0, min(self._win_w - 1, sx))
+        sy = max(0, min(self._win_h - 1, sy))
         return sx, sy
 
     # ------------------------------------------------------------------
@@ -134,9 +141,13 @@ class BattalionRenderer:
                     shade = int(base - elev_norm * 70)
                     shade = max(80, min(255, shade))
                     color = (shade, int(shade * 0.95), int(shade * 0.75))
+                    # Flip row index so that terrain row 0 (y≈0, world bottom)
+                    # appears at the bottom of the screen, matching the y-axis
+                    # convention used by _world_to_screen().
+                    screen_row = rows - 1 - r
                     rect = (
                         int(c * cell_w),
-                        int(r * cell_h),
+                        int(screen_row * cell_h),
                         max(1, int(cell_w) + 1),
                         max(1, int(cell_h) + 1),
                     )
@@ -156,13 +167,20 @@ class BattalionRenderer:
                             pygame.SRCALPHA,
                         )
                         cover_cell.fill((30, 140, 30, alpha))
-                        surf.blit(cover_cell, (int(c * cell_w), int(r * cell_h)))
+                        # Same y-flip as elevation
+                        screen_row = rows - 1 - r
+                        surf.blit(cover_cell, (int(c * cell_w), int(screen_row * cell_h)))
 
         return surf
 
     def set_terrain(self, terrain: "TerrainMap") -> None:
-        """Pre-render *terrain* into a cached surface for fast blitting."""
+        """Pre-render *terrain* into a cached surface for fast blitting.
+
+        Calling this again with a different terrain object clears the old
+        cache and builds a new surface.
+        """
         self._terrain_surface = self._build_terrain_surface(terrain)
+        self._cached_terrain_id = id(terrain)
 
     # ------------------------------------------------------------------
     # Battalion drawing
@@ -255,7 +273,7 @@ class BattalionRenderer:
                 return False
 
         # Background / terrain
-        if terrain is not None and self._terrain_surface is None:
+        if terrain is not None and id(terrain) != self._cached_terrain_id:
             self.set_terrain(terrain)
         if self._terrain_surface is not None:
             self._screen.blit(self._terrain_surface, (0, 0))
