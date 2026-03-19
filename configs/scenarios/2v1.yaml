@@ -1,0 +1,18 @@
+# configs/scenarios/2v1.yaml
+# 2v1 asymmetric scenario: 2 Blue agents vs 1 Red agent.
+#
+# Used in the E2.3 curriculum as the intermediate stage between 1v1 and 2v2.
+# Blue has a numerical advantage, which makes it easier to learn cooperative
+# behaviors before facing a full 2v2 challenge.
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 2                          # Blue (MAPPO-controlled) agents
+  n_red: 1                           # Red (scripted/stationary) agent — asymmetric advantage
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 600.0
+  red_random: false                  # false = stationary Red; true = random Red actions

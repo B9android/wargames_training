@@ -1,0 +1,17 @@
+# configs/scenarios/2v2.yaml
+# 2v2 symmetric scenario: 2 Blue agents vs 2 Red agents.
+#
+# Final stage of the E2.3 curriculum. Both sides have equal numbers,
+# requiring full cooperative behavior to win consistently.
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 2                          # Blue (MAPPO-controlled) agents
+  n_red: 2                           # Red (scripted/stationary) agents — symmetric
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 600.0
+  red_random: false                  # false = stationary Red; true = random Red actions
