@@ -13,13 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from pettingzoo.test import parallel_api_test
 
-from envs.multi_battalion_env import (
-    MAP_HEIGHT,
-    MAP_WIDTH,
-    MAX_STEPS,
-    VISIBILITY_RADIUS,
-    MultiBattalionEnv,
-)
+from envs.multi_battalion_env import MultiBattalionEnv
 
 
 # ---------------------------------------------------------------------------
@@ -517,15 +511,24 @@ class TestPettingZooAPICompliance(unittest.TestCase):
 
     def test_api_test_2v2(self) -> None:
         env = make_env(n_blue=2, n_red=2, max_steps=200)
-        parallel_api_test(env, num_cycles=200)
+        try:
+            parallel_api_test(env, num_cycles=200)
+        finally:
+            env.close()
 
     def test_api_test_1v1(self) -> None:
         env = make_env(n_blue=1, n_red=1, max_steps=200)
-        parallel_api_test(env, num_cycles=200)
+        try:
+            parallel_api_test(env, num_cycles=200)
+        finally:
+            env.close()
 
     def test_api_test_3v2(self) -> None:
         env = make_env(n_blue=3, n_red=2, max_steps=200)
-        parallel_api_test(env, num_cycles=200)
+        try:
+            parallel_api_test(env, num_cycles=200)
+        finally:
+            env.close()
 
 
 # ---------------------------------------------------------------------------

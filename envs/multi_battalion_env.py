@@ -96,7 +96,6 @@ Dead agents appear as an all-zero 6-float block.
 
 from __future__ import annotations
 
-import functools
 import math
 from typing import Optional
 
@@ -286,12 +285,10 @@ class MultiBattalionEnv(ParallelEnv):
     # PettingZoo API: spaces (must return the same object each call)
     # ------------------------------------------------------------------
 
-    @functools.lru_cache(maxsize=None)
     def observation_space(self, agent: str) -> spaces.Box:
         """Return observation space for *agent* (same object every call)."""
         return self._obs_space
 
-    @functools.lru_cache(maxsize=None)
     def action_space(self, agent: str) -> spaces.Box:
         """Return action space for *agent* (same object every call)."""
         return self._act_space
@@ -559,7 +556,13 @@ class MultiBattalionEnv(ParallelEnv):
                         r -= 10.0   # red loses
             rewards[agent_id] = float(r)
 
-        # --- 6. Build observations (before removing dead agents) ---
+        # --- 6. Update _alive so _get_obs sees newly-dead agents as zero blocks ---
+        self._alive -= {
+            a for a in current_agents if terminated[a] or truncated[a]
+        }
+
+        # --- 7. Build observations (after updating _alive so dead-agent blocks
+        #         are correctly zeroed in the observations of surviving agents) ---
         observations = {agent: self._get_obs(agent) for agent in current_agents}
         infos: dict[str, dict] = {
             agent: {
@@ -570,10 +573,7 @@ class MultiBattalionEnv(ParallelEnv):
             for agent in current_agents
         }
 
-        # --- 7. Update live-agents list ---
-        self._alive -= {
-            a for a in current_agents if terminated[a] or truncated[a]
-        }
+        # --- 8. Update live-agents list ---
         self.agents = [
             a for a in self.agents
             if not terminated.get(a, False) and not truncated.get(a, False)
