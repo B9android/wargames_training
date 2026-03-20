@@ -498,12 +498,8 @@ def main(argv: Optional[list[str]] = None) -> None:
     )
     parser.add_argument(
         "--checkpoint",
-        default=None,
-        help=(
-            "Path to the SB3 .zip checkpoint (extension optional).  "
-            "Required unless --battalion-policy is provided together with "
-            "--policy-registry."
-        ),
+        required=True,
+        help="Path to the SB3 .zip checkpoint (extension optional).",
     )
     # ── Multi-echelon policy selection (E3.6) ────────────────────────────
     policy_group = parser.add_argument_group(
@@ -530,8 +526,8 @@ def main(argv: Optional[list[str]] = None) -> None:
         default=None,
         help=(
             "Version of the battalion policy to load from --policy-registry.  "
-            "When supplied (with --policy-registry), the resolved checkpoint "
-            "path overrides --checkpoint."
+            "Resolves and prints the registry entry for logging/tracking; "
+            "use --checkpoint to specify the SB3 .zip checkpoint to evaluate."
         ),
     )
     policy_group.add_argument(
@@ -629,10 +625,9 @@ def main(argv: Optional[list[str]] = None) -> None:
         parser.error(f"--n-episodes must be >= 1, got {args.n_episodes}.")
 
     # ------------------------------------------------------------------
-    # Resolve checkpoint via PolicyRegistry when --*-policy flags given
     # ------------------------------------------------------------------
-    checkpoint = args.checkpoint
-
+    # Resolve policy versions from PolicyRegistry when --*-policy flags given
+    # ------------------------------------------------------------------
     has_policy_flag = (
         args.battalion_policy is not None
         or args.brigade_policy is not None
@@ -651,13 +646,12 @@ def main(argv: Optional[list[str]] = None) -> None:
         if args.battalion_policy is not None:
             try:
                 _entry = _pol_reg.get("battalion", args.battalion_policy)
+                print(
+                    f"Battalion policy: {args.battalion_policy} \u2192 {_entry.path}"
+                    + (f" (run_id={_entry.run_id})" if _entry.run_id else "")
+                )
             except KeyError as exc:
                 parser.error(str(exc))
-            checkpoint = _entry.path
-            print(
-                f"Battalion policy: {args.battalion_policy} \u2192 {_entry.path}"
-                + (f" (run_id={_entry.run_id})" if _entry.run_id else "")
-            )
 
         if args.brigade_policy is not None:
             try:
@@ -679,18 +673,12 @@ def main(argv: Optional[list[str]] = None) -> None:
             except KeyError as exc:
                 parser.error(str(exc))
 
-    if checkpoint is None:
-        parser.error(
-            "--checkpoint is required unless --battalion-policy is provided "
-            "together with --policy-registry."
-        )
-
     # ------------------------------------------------------------------
     # Rendered / recorded path
     # ------------------------------------------------------------------
     if args.render or args.record:
         env = _make_env(args.opponent, seed=args.seed)
-        model = PPO.load(checkpoint, env=env)
+        model = PPO.load(args.checkpoint, env=env)
         wins = draws = losses = 0
         record_dir = Path(args.record) if args.record else None
         try:
@@ -734,7 +722,7 @@ def main(argv: Optional[list[str]] = None) -> None:
                     draws += 1
 
                 if recorder is not None and record_dir is not None:
-                    ckpt_stem = Path(checkpoint).stem
+                    ckpt_stem = Path(args.checkpoint).stem
                     save_path = record_dir / f"{ckpt_stem}_ep{ep:04d}.json"
                     recorder.save(save_path)
                     print(f"Recorded:  {save_path}")
@@ -752,7 +740,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         )
     else:
         result = evaluate_detailed(
-            checkpoint_path=checkpoint,
+            checkpoint_path=args.checkpoint,
             n_episodes=args.n_episodes,
             deterministic=args.deterministic,
             seed=args.seed,
@@ -763,7 +751,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     # given we load from (and later persist to) that file; otherwise we use an
     # in-memory registry (path=None) so no file is created without explicit
     # opt-in.
-    agent_name = args.agent_name or checkpoint
+    agent_name = args.agent_name or args.checkpoint
     registry = EloRegistry(args.elo_registry)  # None → in-memory
 
     opp_elo = registry.get_rating(args.opponent)

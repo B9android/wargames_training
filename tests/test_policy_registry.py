@@ -267,6 +267,20 @@ class TestPolicyRegistryLoad(unittest.TestCase):
 
     def setUp(self) -> None:
         self.reg = PolicyRegistry(path=None)
+        # Inject a mock for training.utils.freeze_policy to avoid torch dependency.
+        self._mock_freeze_module = MagicMock()
+        self._mock_freeze_mappo = MagicMock(return_value="mappo_policy")
+        self._mock_freeze_sb3 = MagicMock(return_value="sb3_model")
+        self._mock_freeze_module.load_and_freeze_mappo = self._mock_freeze_mappo
+        self._mock_freeze_module.load_and_freeze_sb3 = self._mock_freeze_sb3
+        self._sys_modules_patcher = patch.dict(
+            sys.modules,
+            {"training.utils.freeze_policy": self._mock_freeze_module},
+        )
+        self._sys_modules_patcher.start()
+
+    def tearDown(self) -> None:
+        self._sys_modules_patcher.stop()
 
     def test_load_missing_entry_raises_key_error(self) -> None:
         with self.assertRaises(KeyError):
@@ -278,33 +292,56 @@ class TestPolicyRegistryLoad(unittest.TestCase):
             self.reg.load("battalion", "v1")
         self.assertIn("obs_dim", str(ctx.exception))
 
-    @patch("training.policy_registry.PolicyRegistry.load")
-    def test_load_brigade_dispatches_sb3(self, mock_load: MagicMock) -> None:
-        """load() for brigade/division should delegate to load_and_freeze_sb3."""
-        mock_load.return_value = MagicMock()
-        reg = PolicyRegistry(path=None)
-        reg.register("brigade", "v1", "/tmp/ppo.zip")
-        # Just verify that calling load doesn't blow up with a TypeError
-        reg.load("brigade", "v1")
-        mock_load.assert_called_once()
+    def test_load_brigade_dispatches_sb3(self) -> None:
+        """load() for brigade dispatches to load_and_freeze_sb3, not load_and_freeze_mappo."""
+        self.reg.register("brigade", "v1", "/tmp/ppo.zip")
+        result = self.reg.load("brigade", "v1")
+
+        self._mock_freeze_sb3.assert_called_once_with(
+            checkpoint_path=Path("/tmp/ppo.zip"), device="cpu"
+        )
+        self._mock_freeze_mappo.assert_not_called()
+        self.assertEqual(result, "sb3_model")
+
+    def test_load_division_dispatches_sb3(self) -> None:
+        """load() for division dispatches to load_and_freeze_sb3, not load_and_freeze_mappo."""
+        self.reg.register("division", "v1", "/tmp/div.zip")
+        result = self.reg.load("division", "v1")
+
+        self._mock_freeze_sb3.assert_called_once_with(
+            checkpoint_path=Path("/tmp/div.zip"), device="cpu"
+        )
+        self._mock_freeze_mappo.assert_not_called()
+        self.assertEqual(result, "sb3_model")
 
     def test_load_battalion_calls_load_and_freeze_mappo(self) -> None:
-        """load() for battalion should call load_and_freeze_mappo."""
+        """load() for battalion dispatches to load_and_freeze_mappo with correct kwargs."""
         self.reg.register("battalion", "v1", "/tmp/fake.pt")
-        fake_policy = MagicMock()
+        result = self.reg.load(
+            "battalion",
+            "v1",
+            obs_dim=10,
+            action_dim=3,
+            state_dim=15,
+        )
 
-        with patch(
-            "training.policy_registry.PolicyRegistry.load",
-            return_value=fake_policy,
-        ) as mock_load:
-            result = self.reg.load(
-                "battalion",
-                "v1",
-                obs_dim=10,
-                action_dim=3,
-                state_dim=15,
-            )
-        mock_load.assert_called_once()
+        self._mock_freeze_mappo.assert_called_once_with(
+            checkpoint_path=Path("/tmp/fake.pt"),
+            device="cpu",
+            obs_dim=10,
+            action_dim=3,
+            state_dim=15,
+        )
+        self._mock_freeze_sb3.assert_not_called()
+        self.assertEqual(result, "mappo_policy")
+
+    def test_load_custom_device(self) -> None:
+        """device kwarg is forwarded to the underlying loader."""
+        self.reg.register("brigade", "v1", "/tmp/b.zip")
+        self.reg.load("brigade", "v1", device="cuda")
+        self._mock_freeze_sb3.assert_called_once_with(
+            checkpoint_path=Path("/tmp/b.zip"), device="cuda"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -463,21 +500,33 @@ class TestEvaluateCLIIntegration(unittest.TestCase):
         from training.evaluate import main as eval_main
 
         with self.assertRaises(SystemExit):
-            eval_main(["--battalion-policy", "v1", "--n-episodes", "1"])
+            eval_main([
+                "--battalion-policy", "v1",
+                "--n-episodes", "1",
+                "--checkpoint", "/tmp/dummy.zip",
+            ])
 
     def test_brigade_policy_without_registry_exits(self) -> None:
         from training.evaluate import main as eval_main
 
         with self.assertRaises(SystemExit):
-            eval_main(["--brigade-policy", "v1", "--n-episodes", "1"])
+            eval_main([
+                "--brigade-policy", "v1",
+                "--n-episodes", "1",
+                "--checkpoint", "/tmp/dummy.zip",
+            ])
 
     def test_division_policy_without_registry_exits(self) -> None:
         from training.evaluate import main as eval_main
 
         with self.assertRaises(SystemExit):
-            eval_main(["--division-policy", "v1", "--n-episodes", "1"])
+            eval_main([
+                "--division-policy", "v1",
+                "--n-episodes", "1",
+                "--checkpoint", "/tmp/dummy.zip",
+            ])
 
-    def test_missing_checkpoint_and_no_policy_flag_exits(self) -> None:
+    def test_missing_checkpoint_exits(self) -> None:
         from training.evaluate import main as eval_main
 
         with self.assertRaises(SystemExit):
@@ -491,6 +540,7 @@ class TestEvaluateCLIIntegration(unittest.TestCase):
                 "--policy-registry", self._reg_path,
                 "--battalion-policy", "nonexistent_version",
                 "--n-episodes", "1",
+                "--checkpoint", "/tmp/dummy.zip",
             ])
 
     def test_brigade_policy_unknown_version_exits(self) -> None:

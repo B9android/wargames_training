@@ -54,7 +54,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 from enum import Enum
 from pathlib import Path
 from typing import Any, List, NamedTuple, Optional, Union
@@ -394,10 +393,6 @@ class PolicyRegistry:
                     f"{', '.join(missing)}. "
                     "Pass them as keyword arguments to load()."
                 )
-
-        _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-        if str(_PROJECT_ROOT) not in sys.path:  # pragma: no cover
-            sys.path.insert(0, str(_PROJECT_ROOT))
 
         from training.utils.freeze_policy import (
             load_and_freeze_mappo,
