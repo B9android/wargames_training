@@ -1,0 +1,77 @@
+# configs/hrl/phase3_division.yaml
+# E3.4 — Hierarchical Curriculum: Phase 3 (Division Training)
+#
+# Train division-level PPO agent with frozen brigade policies from Phase 2.
+# Promotion criterion: rolling win-rate >= 0.60 over 20 episodes
+# AND Elo rating >= 800 (scripted_l3 level).
+#
+# Pre-requisite: Phase 2 must be complete and a brigade checkpoint available
+# at the path specified by env.brigade_checkpoint.
+#
+# On promotion: the full three-echelon hierarchy is complete.
+# Final checkpoint saved to checkpoints/hrl/phase3_division/ppo_division_final.zip.
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/train_division.py --config-name=hrl/phase3_division \
+#       env.brigade_checkpoint=checkpoints/hrl/phase2_brigade/ppo_brigade_final.zip
+
+phase: 3
+phase_name: "division"
+description: "Phase 3 — Train division PPO with frozen brigade policies from Phase 2. Final stage of the HRL curriculum."
+
+# ── Promotion criteria ────────────────────────────────────────────────────
+promotion:
+  win_rate_threshold: 0.60          # rolling win rate for curriculum completion
+  win_rate_window: 20               # episodes in the rolling window
+  elo_threshold: 800.0              # minimum Elo rating
+  elo_opponent: "scripted_l3"       # baseline opponent for Elo evaluation
+  min_episodes: 20                  # minimum episodes before completion check
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null
+  tags: ["v3", "hrl", "curriculum", "phase3", "division"]
+  log_freq: 4
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_brigades: 2
+  n_blue_per_brigade: 2
+  n_red_brigades: 2
+  n_red_per_brigade: 2
+  map_width: 500.0
+  map_height: 500.0
+  max_steps: 200
+  randomize_terrain: true
+  visibility_radius: 400.0
+  red_random: false
+  # Path to the frozen Phase 2 brigade checkpoint (set after Phase 2 completes)
+  brigade_checkpoint: null          # e.g. checkpoints/hrl/phase2_brigade/ppo_brigade_final.zip
+
+# ── Division PPO training ─────────────────────────────────────────────────
+training:
+  total_timesteps: 200000           # full training budget; override for CI (e.g. 10000)
+  n_steps: 256
+  n_epochs: 6
+  batch_size: 32
+  lr: 3.0e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  device: "cpu"
+  seed: 42
+
+# ── Evaluation / checkpointing ────────────────────────────────────────────
+eval:
+  checkpoint_dir: "checkpoints/hrl/phase3_division/"
+  checkpoint_freq: 20000
+  eval_freq: 5000
+  n_eval_episodes: 20
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
