@@ -16,14 +16,15 @@
 #   wandb agent <sweep_id>
 #
 # Each agent run invokes train_brigade.py with a Hydra CLI override that
-# sets env.temporal_ratio to one of the four values.  Hydra is launched
-# in --multirun mode so the sweep agent can inject parameters directly.
+# sets env.temporal_ratio to one of the four values. The W&B sweep agent
+# injects these parameter overrides directly; no explicit Hydra --multirun
+# flag is required in this sweep config.
 #
 # See also:
 #   training/adaptive_temporal.py — AdaptiveTemporalScheduler
 #   configs/hrl/phase2_brigade.yaml — default temporal_ratio after sweep
 
-program: python training/train_brigade.py
+program: training/train_brigade.py
 method: grid
 
 project: wargames_training

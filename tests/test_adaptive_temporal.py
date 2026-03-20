@@ -238,21 +238,44 @@ class TestMakeOptions(unittest.TestCase):
 class TestWandbConfig(unittest.TestCase):
     """wandb_config returns the expected keys."""
 
+    def test_fixed_adaptation_config(self) -> None:
+        sched = AdaptiveTemporalScheduler(base_ratio=20, adaptation="fixed")
+        cfg = sched.wandb_config()
+        # For fixed, current_ratio = base_ratio
+        self.assertEqual(cfg["temporal_ratio"], 20)
+        self.assertEqual(cfg["temporal_adaptation"], "fixed")
+
+    def test_linear_decrease_reports_initial_ratio(self) -> None:
+        """For linear_decrease, temporal_ratio in config is the start ratio (max_ratio)."""
+        sched = AdaptiveTemporalScheduler(
+            min_ratio=5, max_ratio=20, adaptation="linear_decrease"
+        )
+        cfg = sched.wandb_config()
+        # current_ratio before any call = max_ratio (episode start value)
+        self.assertEqual(cfg["temporal_ratio"], 20)
+        self.assertEqual(cfg["temporal_ratio_min"], 5)
+        self.assertEqual(cfg["temporal_ratio_max"], 20)
+        self.assertEqual(cfg["temporal_adaptation"], "linear_decrease")
+
+    def test_linear_increase_reports_initial_ratio(self) -> None:
+        """For linear_increase, temporal_ratio in config is the start ratio (min_ratio)."""
+        sched = AdaptiveTemporalScheduler(
+            min_ratio=5, max_ratio=20, adaptation="linear_increase"
+        )
+        cfg = sched.wandb_config()
+        # current_ratio before any call = min_ratio (episode start value)
+        self.assertEqual(cfg["temporal_ratio"], 5)
+        self.assertEqual(cfg["temporal_adaptation"], "linear_increase")
+
     def test_keys_present(self) -> None:
         sched = AdaptiveTemporalScheduler(
             base_ratio=10, min_ratio=5, max_ratio=20, adaptation="linear_decrease"
         )
         cfg = sched.wandb_config()
-        self.assertEqual(cfg["temporal_ratio"], 10)
-        self.assertEqual(cfg["temporal_ratio_min"], 5)
-        self.assertEqual(cfg["temporal_ratio_max"], 20)
-        self.assertEqual(cfg["temporal_adaptation"], "linear_decrease")
-
-    def test_fixed_adaptation_config(self) -> None:
-        sched = AdaptiveTemporalScheduler(base_ratio=20, adaptation="fixed")
-        cfg = sched.wandb_config()
-        self.assertEqual(cfg["temporal_ratio"], 20)
-        self.assertEqual(cfg["temporal_adaptation"], "fixed")
+        self.assertIn("temporal_ratio", cfg)
+        self.assertIn("temporal_ratio_min", cfg)
+        self.assertIn("temporal_ratio_max", cfg)
+        self.assertIn("temporal_adaptation", cfg)
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +313,15 @@ class TestBrigadeEnvTemporalRatio(unittest.TestCase):
         from envs.brigade_env import BrigadeEnv
         with self.assertRaises(ValueError):
             BrigadeEnv(n_blue=2, n_red=2, temporal_ratio=0)
+
+    def test_temporal_ratio_zero_with_explicit_options_does_not_raise(self) -> None:
+        """temporal_ratio is not validated when explicit options override it."""
+        from envs.brigade_env import BrigadeEnv
+        from envs.options import make_default_options
+        custom_opts = make_default_options(max_steps=5)
+        # temporal_ratio=0 is meaningless but harmless when options are explicit
+        env = BrigadeEnv(n_blue=2, n_red=2, temporal_ratio=0, options=custom_opts)
+        env.close()
 
     def test_explicit_options_override_temporal_ratio(self) -> None:
         """Explicitly provided options take precedence over temporal_ratio."""

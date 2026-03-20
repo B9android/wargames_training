@@ -86,13 +86,17 @@ class AdaptiveTemporalScheduler:
     Parameters
     ----------
     base_ratio:
-        The fixed ratio used when ``adaptation="fixed"``.  Also the
-        starting ratio for ``"linear_increase"`` and the ending ratio for
-        ``"linear_decrease"``.
+        The fixed ratio used when ``adaptation="fixed"``.  Not used by the
+        linear strategies, which interpolate between ``min_ratio`` and
+        ``max_ratio`` regardless of this value.
     min_ratio:
         Lower bound on the ratio (inclusive).  Must be ``>= 1``.
+        For ``"linear_decrease"``: ratio at episode end (progress = 1).
+        For ``"linear_increase"``: ratio at episode start (progress = 0).
     max_ratio:
         Upper bound on the ratio (inclusive).  Must be ``>= min_ratio``.
+        For ``"linear_decrease"``: ratio at episode start (progress = 0).
+        For ``"linear_increase"``: ratio at episode end (progress = 1).
     adaptation:
         One of:
 
@@ -225,8 +229,11 @@ class AdaptiveTemporalScheduler:
         Returns
         -------
         list[Option]
-            Six :class:`~envs.options.Option` objects with ``max_steps`` equal
-            to the current temporal ratio.
+            Six :class:`~envs.options.Option` objects whose ``max_steps`` are
+            derived from the current temporal ratio.  Most options use this
+            ratio as their cap directly; flanking options (``flank_left``,
+            ``flank_right``) use a shorter cap (``ratio // 2``) as defined
+            by :func:`~envs.options.make_default_options`.
         """
         ratio = self.get_ratio(episode_progress)
         log.debug(
@@ -249,11 +256,12 @@ class AdaptiveTemporalScheduler:
         Returns
         -------
         dict
-            Keys: ``temporal_ratio``, ``temporal_ratio_min``,
-            ``temporal_ratio_max``, ``temporal_adaptation``.
+            Keys: ``temporal_ratio`` (initial ratio for the chosen strategy),
+            ``temporal_ratio_min``, ``temporal_ratio_max``,
+            ``temporal_adaptation``.
         """
         return {
-            "temporal_ratio": self.base_ratio,
+            "temporal_ratio": self.current_ratio,
             "temporal_ratio_min": self.min_ratio,
             "temporal_ratio_max": self.max_ratio,
             "temporal_adaptation": self.adaptation,

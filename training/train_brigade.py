@@ -286,10 +286,11 @@ def train_brigade(
         SB3 logging interval (rollouts).
     temporal_ratio:
         Number of primitive battalion steps per brigade macro-step (option
-        duration cap).  Passed to :class:`~envs.brigade_env.BrigadeEnv` and
-        logged to W&B run config.  Use the sweep config
-        ``configs/sweeps/temporal_ratio_sweep.yaml`` to search over values
-        ``[5, 10, 20, 50]``.
+        duration cap).  Passed to :class:`~envs.brigade_env.BrigadeEnv`.
+        When training is launched via the Hydra entry point that initializes
+        W&B with the full config, this value is included in the W&B run config.
+        Use the sweep config ``configs/sweeps/temporal_ratio_sweep.yaml`` to
+        search over values ``[5, 10, 20, 50]``.
 
     Returns
     -------

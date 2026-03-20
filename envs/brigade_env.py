@@ -161,7 +161,7 @@ class BrigadeEnv(gym.Env):
             raise ValueError(f"n_blue must be >= 1, got {n_blue}")
         if int(n_red) < 1:
             raise ValueError(f"n_red must be >= 1, got {n_red}")
-        if int(temporal_ratio) < 1:
+        if options is None and int(temporal_ratio) < 1:
             raise ValueError(f"temporal_ratio must be >= 1, got {temporal_ratio}")
 
         self.n_blue = int(n_blue)
