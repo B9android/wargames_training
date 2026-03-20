@@ -126,7 +126,47 @@ class TestOptionDataclass(unittest.TestCase):
         obs[OBS_MORALE] = morale
         return obs
 
-    def test_can_initiate_returns_bool(self) -> None:
+    def test_get_action_wrong_shape_raises(self) -> None:
+        """Policy returning wrong shape should raise ValueError."""
+        bad_policy = Option(
+            name="bad_shape",
+            initiation_set=lambda obs: True,
+            policy=lambda obs: np.array([0.5, 0.5]),  # shape (2,) — wrong
+            termination=lambda obs, s: False,
+        )
+        with self.assertRaises(ValueError):
+            bad_policy.get_action(self._make_obs())
+
+    def test_get_action_non_finite_raises(self) -> None:
+        """Policy returning NaN or Inf should raise ValueError."""
+        nan_policy = Option(
+            name="nan_action",
+            initiation_set=lambda obs: True,
+            policy=lambda obs: np.array([float("nan"), 0.0, 0.5], dtype=np.float32),
+            termination=lambda obs, s: False,
+        )
+        with self.assertRaises(ValueError):
+            nan_policy.get_action(self._make_obs())
+
+        inf_policy = Option(
+            name="inf_action",
+            initiation_set=lambda obs: True,
+            policy=lambda obs: np.array([float("inf"), 0.0, 0.5], dtype=np.float32),
+            termination=lambda obs, s: False,
+        )
+        with self.assertRaises(ValueError):
+            inf_policy.get_action(self._make_obs())
+
+    def test_get_action_valid_shape_and_finite(self) -> None:
+        """Valid policy should not raise."""
+        opt = Option(
+            name="valid",
+            initiation_set=lambda obs: True,
+            policy=lambda obs: np.array([0.0, 0.0, 1.0], dtype=np.float32),
+            termination=lambda obs, s: False,
+        )
+        action = opt.get_action(self._make_obs())
+        self.assertEqual(action.shape, (3,))
         opt = Option(
             name="test",
             initiation_set=lambda obs: True,
@@ -307,6 +347,14 @@ class TestMakeDefaultOptions(unittest.TestCase):
         self.assertLessEqual(opts[MacroAction.FLANK_LEFT].max_steps, 30)
         self.assertLessEqual(opts[MacroAction.FLANK_RIGHT].max_steps, 30)
 
+    def test_zero_max_steps_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            make_default_options(max_steps=0)
+
+    def test_negative_max_steps_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            make_default_options(max_steps=-5)
+
 
 # ---------------------------------------------------------------------------
 # 4. SMDPWrapper construction
@@ -358,6 +406,10 @@ class TestSMDPWrapperInit(unittest.TestCase):
         env = make_env()
         self.assertIn("name", env.metadata)
         env.close()
+
+    def test_empty_options_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            SMDPWrapper(MultiBattalionEnv(n_blue=1, n_red=1), options=[])
 
 
 # ---------------------------------------------------------------------------
@@ -522,6 +574,20 @@ class TestSMDPWrapperStep(unittest.TestCase):
         partial_actions = {agents[0]: 1}
         # Should not raise
         self.env.step(partial_actions)
+
+    def test_out_of_range_action_raises(self) -> None:
+        """Providing an index outside [0, n_options-1] should raise ValueError."""
+        agents = list(self.env.agents)
+        actions = {agents[0]: 999}  # way out of range
+        with self.assertRaises(ValueError):
+            self.env.step(actions)
+
+    def test_negative_action_raises(self) -> None:
+        """A negative macro-action index should raise ValueError."""
+        agents = list(self.env.agents)
+        actions = {agents[0]: -1}
+        with self.assertRaises(ValueError):
+            self.env.step(actions)
 
     def test_aggregate_rewards_are_finite(self) -> None:
         for _ in range(3):

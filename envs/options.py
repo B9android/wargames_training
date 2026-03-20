@@ -148,8 +148,34 @@ class Option:
         return bool(self.initiation_set(obs))
 
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        """Return a primitive action from this option's policy for *obs*."""
-        return np.asarray(self.policy(obs), dtype=np.float32)
+        """Return a primitive action from this option's policy for *obs*.
+
+        The returned action is validated to ensure it matches the expected
+        shape ``(3,)`` and contains only finite values.  This provides
+        earlier and more informative errors than downstream index failures
+        in the environment step logic.
+
+        Raises
+        ------
+        ValueError
+            If the policy returns an action with shape other than ``(3,)``
+            or containing non-finite values (NaN or Inf).
+        """
+        action = np.asarray(self.policy(obs), dtype=np.float32)
+
+        if action.shape != (3,):
+            raise ValueError(
+                f"Option '{self.name}' policy returned action with shape "
+                f"{action.shape!r}, but expected shape (3,)."
+            )
+
+        if not np.all(np.isfinite(action)):
+            raise ValueError(
+                f"Option '{self.name}' policy returned non-finite action "
+                f"values: {action!r}"
+            )
+
+        return action
 
     def should_terminate(self, obs: np.ndarray, steps_active: int) -> bool:
         """Return ``True`` if this option should terminate.
@@ -188,6 +214,13 @@ def make_default_options(max_steps: int = 30) -> list[Option]:
         ``[advance_sector, defend_position, flank_left, flank_right,
         withdraw, concentrate_fire]``.
     """
+    if max_steps < 1:
+        raise ValueError(
+            f"max_steps must be >= 1, got {max_steps}. "
+            "Non-positive values would create options that terminate immediately "
+            "and make flanking durations inconsistent with the documented behaviour."
+        )
+
     # ------------------------------------------------------------------
     # Shared termination predicates
     # ------------------------------------------------------------------

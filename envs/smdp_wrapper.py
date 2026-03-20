@@ -89,6 +89,11 @@ class SMDPWrapper(ParallelEnv):
         if options is None:
             options = make_default_options()
 
+        if len(options) == 0:
+            raise ValueError(
+                "options must contain at least one Option; received an empty list."
+            )
+
         self._env = env
         self._options: list[Option] = list(options)
         self.n_options: int = len(self._options)
@@ -223,8 +228,18 @@ class SMDPWrapper(ParallelEnv):
         option_done: dict[str, bool] = {a: False for a in current_agents}
 
         for agent in current_agents:
-            idx = int(macro_actions.get(agent, 0))
-            idx = max(0, min(idx, self.n_options - 1))
+            # Missing agents default to option index 0 (e.g., "advance_sector").
+            if agent not in macro_actions:
+                idx = 0
+            else:
+                raw_idx = macro_actions[agent]
+                idx = int(raw_idx)
+                if idx < 0 or idx >= self.n_options:
+                    raise ValueError(
+                        f"Invalid macro-action index {idx!r} for agent {agent!r}; "
+                        f"expected integer in [0, {self.n_options - 1}] or omit "
+                        f"the agent key to use the default option 0."
+                    )
             selected_options[agent] = self._options[idx]
             option_steps[agent] = 0
 
