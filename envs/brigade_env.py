@@ -206,6 +206,12 @@ class BrigadeEnv(gym.Env):
         self._prim_steps: int = 0
         self._macro_steps: int = 0
 
+        # ── Red option overrides (set externally by DivisionEnv) ──────────
+        # Maps red agent_id → option index.  When non-empty, _get_red_action
+        # executes the corresponding Option primitive policy instead of the
+        # default battalion-policy / random / zero behaviour.
+        self._forced_red_options: dict[str, int] = {}
+
     # ------------------------------------------------------------------
     # Observation bounds
     # ------------------------------------------------------------------
@@ -312,6 +318,9 @@ class BrigadeEnv(gym.Env):
         self._last_obs = dict(inner_obs)
         self._prim_steps = 0
         self._macro_steps = 0
+        # Cleared here (between episodes) and also after each step by DivisionEnv
+        # to prevent stale commands leaking into subsequent macro-steps.
+        self._forced_red_options = {}
         return self._get_brigade_obs(), {}
 
     # ------------------------------------------------------------------
@@ -591,10 +600,24 @@ class BrigadeEnv(gym.Env):
         """Return a primitive action for a Red agent.
 
         Priority:
-        1. :attr:`_battalion_policy` (frozen MAPPOPolicy) — if set.
-        2. Random primitive action — when ``red_random=True``.
-        3. Zero (stationary) action — default.
+        1. :attr:`_forced_red_options` (set by DivisionEnv) — execute the option's
+           primitive policy directly.
+        2. :attr:`_battalion_policy` (frozen MAPPOPolicy) — if set.
+        3. Random primitive action — when ``red_random=True``.
+        4. Zero (stationary) action — default.
         """
+        if self._forced_red_options and agent_id in self._forced_red_options:
+            opt_idx = int(self._forced_red_options[agent_id])
+            if opt_idx < 0 or opt_idx >= self.n_options:
+                raise ValueError(
+                    f"Invalid forced option index {opt_idx!r} for Red agent {agent_id!r}; "
+                    f"expected integer in [0, {self.n_options - 1}]."
+                )
+            obs = self._last_obs.get(
+                agent_id, np.zeros(self._inner._obs_dim, dtype=np.float32)
+            )
+            return self._options[opt_idx].get_action(obs)
+
         if self._battalion_policy is not None:
             obs = self._last_obs.get(
                 agent_id, np.zeros(self._inner._obs_dim, dtype=np.float32)
