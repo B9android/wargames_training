@@ -501,7 +501,8 @@ class TestMAPPOTrainerSetRedPolicy(unittest.TestCase):
         trainer = self._make_trainer()
         frozen = _make_policy()
         trainer.set_red_policy(frozen)
-        self.assertIs(trainer._red_policy, frozen)
+        self.assertIsNotNone(trainer._red_policy)
+        self.assertIsInstance(trainer._red_policy, MAPPOPolicy)
         trainer.env.close()
 
     def test_set_red_policy_to_none_clears(self) -> None:
@@ -542,6 +543,54 @@ class TestMAPPOTrainerSetRedPolicy(unittest.TestCase):
         for act in acts.values():
             np.testing.assert_array_equal(act, np.zeros_like(act))
         trainer.env.close()
+
+    def test_set_red_policy_moves_to_trainer_device(self) -> None:
+        """set_red_policy() moves the snapshot to the trainer's device."""
+        trainer = self._make_trainer()
+        frozen = _make_policy()
+        # Build a CPU policy and pass it; even if trainer is on CPU the
+        # policy should end up on the same device as the trainer.
+        trainer.set_red_policy(frozen)
+        self.assertIsNotNone(trainer._red_policy)
+        policy_device = next(trainer._red_policy.parameters()).device
+        self.assertEqual(policy_device, trainer.device)
+        trainer.env.close()
+
+    def test_set_red_policy_sets_eval_mode(self) -> None:
+        """set_red_policy() puts the snapshot in eval mode."""
+        trainer = self._make_trainer()
+        frozen = _make_policy()
+        frozen.train()  # force training mode first
+        trainer.set_red_policy(frozen)
+        self.assertIsNotNone(trainer._red_policy)
+        self.assertFalse(trainer._red_policy.training)
+        trainer.env.close()
+
+
+class TestTeamOpponentPoolDeviceArg(unittest.TestCase):
+    """Tests for the optional device argument on TeamOpponentPool.sample/sample_latest."""
+
+    def test_sample_with_device_cpu_returns_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            policy = _make_policy()
+            pool = TeamOpponentPool(tmp, max_size=5)
+            pool.add(policy, version=1)
+            loaded = pool.sample(device="cpu")
+            self.assertIsNotNone(loaded)
+            self.assertIsInstance(loaded, MAPPOPolicy)
+            device = next(loaded.parameters()).device
+            self.assertEqual(device.type, "cpu")
+
+    def test_sample_latest_with_device_cpu_returns_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            policy = _make_policy()
+            pool = TeamOpponentPool(tmp, max_size=5)
+            pool.add(policy, version=1)
+            loaded = pool.sample_latest(device="cpu")
+            self.assertIsNotNone(loaded)
+            self.assertIsInstance(loaded, MAPPOPolicy)
+            device = next(loaded.parameters()).device
+            self.assertEqual(device.type, "cpu")
 
 
 if __name__ == "__main__":

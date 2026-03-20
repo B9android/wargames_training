@@ -622,7 +622,7 @@ class TeamOpponentPool:
         )
         return snapshot_path
 
-    def sample(self, rng: Optional[np.random.Generator] = None) -> Optional["MAPPOPolicy"]:
+    def sample(self, rng: Optional[np.random.Generator] = None, device: Optional[str] = None) -> Optional["MAPPOPolicy"]:
         """Load and return a uniformly sampled snapshot.
 
         Parameters
@@ -630,6 +630,10 @@ class TeamOpponentPool:
         rng:
             Optional NumPy random generator for reproducible sampling.
             When ``None``, the pool's internal RNG is used.
+        device:
+            Optional PyTorch device string (e.g. ``"cuda:0"``).  When
+            provided the loaded policy is moved to *device* before being
+            returned.  When ``None`` the policy stays on CPU.
 
         Returns
         -------
@@ -641,10 +645,16 @@ class TeamOpponentPool:
             return None
         _rng = rng if rng is not None else self._rng
         idx = int(_rng.integers(0, len(self._snapshots)))
-        return self._load_snapshot(self._snapshots[idx])
+        return self._load_snapshot(self._snapshots[idx], device=device)
 
-    def sample_latest(self) -> Optional["MAPPOPolicy"]:
+    def sample_latest(self, device: Optional[str] = None) -> Optional["MAPPOPolicy"]:
         """Load and return the most recently added snapshot.
+
+        Parameters
+        ----------
+        device:
+            Optional PyTorch device string.  When provided the loaded
+            policy is moved to *device* before being returned.
 
         Returns
         -------
@@ -653,7 +663,7 @@ class TeamOpponentPool:
         """
         if not self._snapshots:
             return None
-        return self._load_snapshot(self._snapshots[-1])
+        return self._load_snapshot(self._snapshots[-1], device=device)
 
     @property
     def size(self) -> int:
@@ -669,8 +679,18 @@ class TeamOpponentPool:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _load_snapshot(self, path: Path) -> Optional["MAPPOPolicy"]:
-        """Load a :class:`~models.mappo_policy.MAPPOPolicy` from *path*."""
+    def _load_snapshot(self, path: Path, device: Optional[str] = None) -> Optional["MAPPOPolicy"]:
+        """Load a :class:`~models.mappo_policy.MAPPOPolicy` from *path*.
+
+        Parameters
+        ----------
+        path:
+            Path to the ``.pt`` snapshot file.
+        device:
+            Optional PyTorch device string.  When provided the loaded
+            policy is moved to *device* after loading (which always uses
+            CPU as the intermediate map_location for safety).
+        """
         import torch  # local import
         from models.mappo_policy import MAPPOPolicy
 
@@ -680,8 +700,11 @@ class TeamOpponentPool:
             data = torch.load(str(path), map_location="cpu", weights_only=True)
             policy = MAPPOPolicy(**data["kwargs"])
             policy.load_state_dict(data["state_dict"])
+            if device is not None:
+                policy = policy.to(device)
             policy.eval()
-            log.debug("TeamOpponentPool: loaded snapshot %s", path)
+            actual_device = next(policy.parameters()).device
+            log.debug("TeamOpponentPool: loaded snapshot %s (device=%s)", path, actual_device)
             return policy
         except Exception as exc:
             log.warning("TeamOpponentPool: failed to load %s: %s", path, exc)
@@ -770,6 +793,17 @@ def evaluate_team_vs_pool(
     if n_episodes < 1:
         raise ValueError(f"n_episodes must be >= 1, got {n_episodes}")
 
+    # Derive evaluation device from policy parameters; fall back to CPU if the
+    # policy has no parameters (edge case / mocked policies in tests).
+    try:
+        eval_device = next(policy.parameters()).device
+    except StopIteration:
+        eval_device = torch.device("cpu")
+
+    # Move opponent to the same device so all tensor operations are consistent.
+    opponent = opponent.to(eval_device)
+    opponent.eval()
+
     _env_kwargs: dict = env_kwargs or {}
     env = MultiBattalionEnv(n_blue=n_blue, n_red=n_red, **_env_kwargs)
     act_low = env._act_space.low
@@ -791,11 +825,11 @@ def evaluate_team_vs_pool(
                 agent_id = f"blue_{i}"
                 if agent_id in env.agents:
                     agent_obs = obs.get(agent_id, np.zeros(obs_dim, dtype=np.float32))
-                    obs_t = torch.as_tensor(agent_obs).unsqueeze(0)
+                    obs_t = torch.as_tensor(agent_obs, device=eval_device).unsqueeze(0)
                     with torch.no_grad():
                         acts_t, _ = policy.act(obs_t, agent_idx=i, deterministic=deterministic)
                     action_dict[agent_id] = np.clip(
-                        acts_t[0].numpy(), act_low, act_high
+                        acts_t[0].cpu().numpy(), act_low, act_high
                     )
 
             # Red actions (controlled by *opponent*)
@@ -803,7 +837,7 @@ def evaluate_team_vs_pool(
                 agent_id = f"red_{i}"
                 if agent_id in env.agents:
                     agent_obs = obs.get(agent_id, np.zeros(obs_dim, dtype=np.float32))
-                    obs_t = torch.as_tensor(agent_obs).unsqueeze(0)
+                    obs_t = torch.as_tensor(agent_obs, device=eval_device).unsqueeze(0)
                     with torch.no_grad():
                         acts_t, _ = opponent.act(
                             obs_t,
@@ -811,7 +845,7 @@ def evaluate_team_vs_pool(
                             deterministic=False,
                         )
                     action_dict[agent_id] = np.clip(
-                        acts_t[0].numpy(), act_low, act_high
+                        acts_t[0].cpu().numpy(), act_low, act_high
                     )
 
             obs, _, _, _, _ = env.step(action_dict)

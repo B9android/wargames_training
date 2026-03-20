@@ -421,6 +421,11 @@ class MAPPOTrainer:
             (typically loaded from a :class:`~training.self_play.TeamOpponentPool`),
             or ``None`` to clear the current Red policy.
         """
+        if policy is not None:
+            # Move to the trainer's device and ensure the snapshot is in
+            # evaluation mode so batch-norm / dropout layers behave correctly.
+            policy = policy.to(self.device)
+            policy.eval()
         self._red_policy = policy
 
     # ------------------------------------------------------------------
