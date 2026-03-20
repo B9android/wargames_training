@@ -381,6 +381,11 @@ class MAPPOTrainer:
         # at least one blue agent is still alive.  Checked at episode end.
         self._blue_won_flag: bool = False
 
+        # Per-episode coordination metric accumulators (step-averaged per episode)
+        self._ep_coord_acc: dict[str, float] = {}
+        self._ep_coord_steps: int = 0
+        self._ep_coord_history: list[dict[str, float]] = []
+
     # ------------------------------------------------------------------
     # Environment helpers
     # ------------------------------------------------------------------
@@ -393,6 +398,8 @@ class MAPPOTrainer:
         self._ep_rewards = {f"blue_{i}": 0.0 for i in range(self.n_blue)}
         self._ep_len = 0
         self._blue_won_flag = False
+        self._ep_coord_acc = {}
+        self._ep_coord_steps = 0
 
     def _get_blue_obs_array(self) -> np.ndarray:
         """Return Blue observations as a ``(n_blue, obs_dim)`` array.
@@ -521,6 +528,12 @@ class MAPPOTrainer:
                 self._ep_rewards[f"blue_{i}"] += rew_arr[i]
             self._ep_len += 1
 
+            # Accumulate coordination metrics for this step
+            coord = self.env.get_coordination_metrics()
+            for k, v in coord.items():
+                self._ep_coord_acc[k] = self._ep_coord_acc.get(k, 0.0) + v
+            self._ep_coord_steps += 1
+
             # Per-agent done flags: agent is done if terminated or truncated this step
             dones_arr = np.array(
                 [
@@ -552,6 +565,22 @@ class MAPPOTrainer:
                 # accurate than per-step terminated/truncated dicts, which only
                 # include agents alive at the START of each step).
                 self._ep_win_history.append(self._blue_won_flag)
+                # Store step-averaged coordination metrics for this episode.
+                # Always emit the full fixed set of keys so that every episode
+                # record has the same shape (avoids sparse dicts in _log_wandb).
+                _COORD_KEYS = (
+                    "coordination/flanking_ratio",
+                    "coordination/fire_concentration",
+                    "coordination/mutual_support_score",
+                )
+                if self._ep_coord_steps > 0:
+                    avg_coord: dict[str, float] = {
+                        k: self._ep_coord_acc.get(k, 0.0) / self._ep_coord_steps
+                        for k in _COORD_KEYS
+                    }
+                else:
+                    avg_coord = {k: 0.0 for k in _COORD_KEYS}
+                self._ep_coord_history.append(avg_coord)
                 self._reset_env()
 
         # Bootstrap value for GAE
@@ -679,6 +708,21 @@ class MAPPOTrainer:
             self._ep_win_history = []
             log_dict["rollout/win_rate"] = float(np.mean(recent_wins))
             log_dict["rollout/n_wins"] = int(sum(recent_wins))
+
+        # Coordination metrics from recent episodes (step-averaged per episode,
+        # then mean across episodes in the logging window).  Every episode dict
+        # contains the same fixed set of three keys so we can safely average.
+        if self._ep_coord_history:
+            recent_coord = self._ep_coord_history
+            self._ep_coord_history = []
+            _COORD_KEYS = (
+                "coordination/flanking_ratio",
+                "coordination/fire_concentration",
+                "coordination/mutual_support_score",
+            )
+            for k in _COORD_KEYS:
+                values = [ep[k] for ep in recent_coord]
+                log_dict[k] = float(np.mean(values))
 
         # Curriculum metrics
         if curriculum_scheduler is not None:
