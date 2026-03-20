@@ -1,0 +1,52 @@
+# configs/experiment_brigade.yaml
+# Brigade Commander PPO experiment configuration (E3.2)
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/train_brigade.py training.total_timesteps=1000000
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null                       # W&B team/org (null → personal account)
+  tags: ["v3", "brigade", "hrl", "2v2"]
+  log_freq: 4                        # SB3 log_interval (rollouts)
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 2                          # Blue battalions controlled by brigade
+  n_red: 2                           # Red opponent battalions
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500                     # max primitive steps per episode
+  randomize_terrain: true
+  visibility_radius: 600.0
+  red_random: false                  # false = stationary Red; true = random
+  battalion_checkpoint: null         # path to frozen v2 MAPPO checkpoint for Red
+                                     # e.g. checkpoints/mappo_2v2/mappo_policy_final.pt
+
+# ── Brigade PPO training ──────────────────────────────────────────────────
+training:
+  total_timesteps: 500000            # macro-steps (acceptance: >0 = converges)
+  n_steps: 512                       # rollout buffer size
+  n_epochs: 10                       # PPO update epochs per rollout
+  batch_size: 64                     # minibatch size
+  lr: 3.0e-4                         # Adam learning rate
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  device: "cpu"
+  seed: 42
+
+# ── Evaluation / checkpointing ────────────────────────────────────────────
+eval:
+  checkpoint_dir: "checkpoints/brigade/"
+  checkpoint_freq: 50000             # save every N macro-steps
+  eval_freq: 10000                   # win-rate evaluation every N macro-steps
+  n_eval_episodes: 20
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
