@@ -69,10 +69,15 @@ Frozen brigade policy
 ---------------------
 Pass a loaded **SB3 PPO** brigade checkpoint (or any callable with a
 ``predict(obs, deterministic)`` method) to the constructor as
-``brigade_policy`` to drive Red brigades with a frozen policy.  The
-policy observes an :class:`~envs.brigade_env.BrigadeEnv`-compatible
-observation for the Red side and its output option indices are injected
-into the inner :class:`~envs.brigade_env.BrigadeEnv` via
+``brigade_policy`` to drive Red brigades with a frozen policy.
+
+The frozen policy must have been trained on a :class:`~envs.brigade_env.BrigadeEnv`
+of the same Red-side size (``n_red`` total battalions).  It receives a
+:class:`~envs.brigade_env.BrigadeEnv`-compatible observation for the Red side
+(shape ``3 + 7 * n_red + 1``, treating Red battalions as the "blue" side) and
+returns a per-battalion action of shape ``(n_red,)`` with option indices in
+``[0, n_options)``.  These are injected into the inner
+:class:`~envs.brigade_env.BrigadeEnv` via
 :attr:`~envs.brigade_env.BrigadeEnv._forced_red_options`.
 
 All parameters on the policy should be kept with ``requires_grad=False``
@@ -101,7 +106,7 @@ import numpy as np
 from gymnasium import spaces
 import gymnasium as gym
 
-from envs.brigade_env import BrigadeEnv
+from envs.brigade_env import BrigadeEnv, N_SECTORS as _BRIGADE_N_SECTORS
 from envs.multi_battalion_env import MAP_WIDTH, MAP_HEIGHT, MAX_STEPS
 
 __all__ = ["DivisionEnv", "DIVISION_OBS_DIM", "N_THEATRE_SECTORS"]
@@ -445,24 +450,30 @@ class DivisionEnv(gym.Env):
     def _update_red_brigade_options(self) -> None:
         """Compute Red brigade obs, query the frozen policy, and inject options.
 
-        The policy receives the Red brigade observation (a mirror of the Blue
-        brigade observation from the Red side's perspective) and returns
-        option indices for each Red brigade.  These indices are then fanned
-        out to all Red battalions within each brigade via
-        :attr:`~envs.brigade_env.BrigadeEnv._forced_red_options`.
+        The frozen brigade policy receives a :class:`~envs.brigade_env.BrigadeEnv`-
+        compatible observation for the Red side (shape ``3 + 7 * n_red + 1``,
+        treating Red battalions as the "blue" side) and returns a per-battalion
+        action of shape ``(n_red,)`` with option indices in ``[0, n_options)``.
+        Each option index is injected directly into
+        :attr:`~envs.brigade_env.BrigadeEnv._forced_red_options` for the
+        corresponding Red battalion, bypassing the default Red action logic.
         """
-        red_brigade_obs = self._get_red_brigade_obs()
+        red_obs = self._get_red_brigade_obs()
         red_action, _ = self._red_brigade_policy.predict(
-            red_brigade_obs, deterministic=False
+            red_obs, deterministic=False
         )
         red_action = np.asarray(red_action, dtype=np.int64).flatten()
 
+        if len(red_action) < self.n_red:
+            raise ValueError(
+                f"Frozen brigade policy returned action of length {len(red_action)}, "
+                f"but expected at least {self.n_red} (one per Red battalion)."
+            )
+
         forced: dict[str, int] = {}
-        for i in range(self.n_red_brigades):
-            cmd = int(np.clip(red_action[i], 0, self.n_div_options - 1))
-            for j in range(self.n_red_per_brigade):
-                idx = i * self.n_red_per_brigade + j
-                forced[f"red_{idx}"] = cmd
+        for idx in range(self.n_red):
+            cmd = int(np.clip(red_action[idx], 0, self.n_div_options - 1))
+            forced[f"red_{idx}"] = cmd
         self._brigade._forced_red_options = forced
 
     # ------------------------------------------------------------------
@@ -605,112 +616,115 @@ class DivisionEnv(gym.Env):
     # ------------------------------------------------------------------
 
     def _get_red_brigade_obs(self) -> np.ndarray:
-        """Build a brigade-style observation for the Red side.
+        """Build a :class:`~envs.brigade_env.BrigadeEnv`-compatible observation for Red.
 
-        The observation mirrors the Blue brigade obs but from Red's
-        perspective: sector control values are inverted (Red's share),
-        per-brigade slots describe Red brigades, and the threat vectors
-        point towards the nearest Blue brigade.
+        The observation mirrors the format that a brigade-level PPO policy
+        was trained on, treating Red battalions as the "blue" side:
+
+        * ``_BRIGADE_N_SECTORS`` (= 3) sector-control values — Red's strength
+          share in each of 3 equal vertical strips.
+        * Per-Red-battalion ``[strength, morale]`` — zeros for dead battalions.
+        * Per-Red-battalion enemy threat ``[dist/diag, cos_bear, sin_bear,
+          e_str, e_mor]`` — nearest alive Blue *battalion* (not centroid).
+          Sentinel ``[1, 0, 0, 0, 0]`` when no Blue battalion is alive.
+        * Step progress.
+
+        The returned array has shape ``(_BRIGADE_N_SECTORS + 7 * n_red + 1,)``
+        and is clipped using per-element bounds, independent of
+        ``self.observation_space`` (which is sized for the Blue division obs).
         """
         parts: list[float] = []
         inner = self._brigade._inner
 
-        # Theatre sector control from Red's perspective (Red's share per sector)
-        for blue_str, red_str in self._get_theatre_sector_strengths(inner):
+        # ── 1. Sector control — 3 strips, Red's share ─────────────────
+        sector_width = self.map_width / _BRIGADE_N_SECTORS
+        for s in range(_BRIGADE_N_SECTORS):
+            x_lo = s * sector_width
+            x_hi = (s + 1) * sector_width
+            blue_str = 0.0
+            red_str = 0.0
+            for agent_id, b in inner._battalions.items():
+                if agent_id not in inner._alive:
+                    continue
+                in_sector = (x_lo <= b.x < x_hi) or (
+                    s == _BRIGADE_N_SECTORS - 1 and b.x == self.map_width
+                )
+                if in_sector:
+                    if agent_id.startswith("blue_"):
+                        blue_str += float(b.strength)
+                    else:
+                        red_str += float(b.strength)
             total = blue_str + red_str
             parts.append(red_str / total if total > 0.0 else 0.5)
 
-        # Per-Red-brigade status
-        for i in range(self.n_red_brigades):
-            strengths = []
-            morales = []
-            alive_count = 0
-            for j in range(self.n_red_per_brigade):
-                agent_id = f"red_{i * self.n_red_per_brigade + j}"
-                if agent_id in inner._battalions and agent_id in inner._alive:
-                    b = inner._battalions[agent_id]
-                    strengths.append(float(b.strength))
-                    morales.append(float(b.morale))
-                    alive_count += 1
-            avg_str = float(np.mean(strengths)) if strengths else 0.0
-            avg_mor = float(np.mean(morales)) if morales else 0.0
-            alive_ratio = alive_count / self.n_red_per_brigade
-            parts.extend([avg_str, avg_mor, alive_ratio])
+        # ── 2. Per-Red-battalion strength + morale ─────────────────────
+        for idx in range(self.n_red):
+            agent_id = f"red_{idx}"
+            if agent_id in inner._battalions and agent_id in inner._alive:
+                b = inner._battalions[agent_id]
+                parts.append(float(b.strength))
+                parts.append(float(b.morale))
+            else:
+                parts.extend([0.0, 0.0])
 
-        # Per-Red-brigade threat vector (nearest Blue brigade centroid)
-        blue_brigade_centroids = self._get_blue_brigade_centroids(inner)
+        # ── 3. Per-Red-battalion enemy threat → nearest alive Blue ─────
+        alive_blue = [
+            (b_id, inner._battalions[b_id])
+            for b_id in inner._alive
+            if b_id.startswith("blue_") and b_id in inner._battalions
+        ]
 
-        for i in range(self.n_red_brigades):
-            rx_list, ry_list = [], []
-            for j in range(self.n_red_per_brigade):
-                agent_id = f"red_{i * self.n_red_per_brigade + j}"
-                if agent_id in inner._battalions and agent_id in inner._alive:
-                    b = inner._battalions[agent_id]
-                    rx_list.append(b.x)
-                    ry_list.append(b.y)
-
-            if not rx_list or not blue_brigade_centroids:
+        for idx in range(self.n_red):
+            agent_id = f"red_{idx}"
+            if agent_id not in inner._alive or agent_id not in inner._battalions:
                 parts.extend([1.0, 0.0, 0.0, 0.0, 0.0])
                 continue
 
-            cx = float(np.mean(rx_list))
-            cy = float(np.mean(ry_list))
+            rb = inner._battalions[agent_id]
+
+            if not alive_blue:
+                parts.extend([1.0, 0.0, 0.0, 0.0, 0.0])
+                continue
 
             best_dist = float("inf")
-            best_centroid = None
-            best_e_str = 0.0
-            best_e_mor = 0.0
-            for (bx, by, e_str, e_mor) in blue_brigade_centroids:
-                dx = bx - cx
-                dy = by - cy
+            best_b = None
+            for _b_id, bb in alive_blue:
+                dx = bb.x - rb.x
+                dy = bb.y - rb.y
                 d = math.sqrt(dx * dx + dy * dy)
                 if d < best_dist:
                     best_dist = d
-                    best_centroid = (bx, by)
-                    best_e_str = e_str
-                    best_e_mor = e_mor
+                    best_b = bb
 
-            assert best_centroid is not None
-            dx = best_centroid[0] - cx
-            dy = best_centroid[1] - cy
+            assert best_b is not None
+            dx = best_b.x - rb.x
+            dy = best_b.y - rb.y
             bearing = math.atan2(dy, dx)
 
             parts.append(min(best_dist / self.map_diagonal, 1.0))
             parts.append(math.cos(bearing))
             parts.append(math.sin(bearing))
-            parts.append(best_e_str)
-            parts.append(best_e_mor)
+            parts.append(float(best_b.strength))
+            parts.append(float(best_b.morale))
 
-        # Step progress
+        # ── 4. Step progress ───────────────────────────────────────────
         parts.append(min(inner._step_count / self.max_steps, 1.0))
 
-        # Clip to obs bounds — Red obs uses the same dims as Blue obs
         obs = np.array(parts, dtype=np.float32)
-        return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
-    def _get_blue_brigade_centroids(
-        self, inner
-    ) -> list[tuple[float, float, float, float]]:
-        """Return ``(cx, cy, avg_strength, avg_morale)`` for each alive Blue brigade."""
-        centroids = []
-        for i in range(self.n_brigades):
-            xs, ys, strs, mors = [], [], [], []
-            for j in range(self.n_blue_per_brigade):
-                agent_id = f"blue_{i * self.n_blue_per_brigade + j}"
-                if agent_id in inner._battalions and agent_id in inner._alive:
-                    b = inner._battalions[agent_id]
-                    xs.append(b.x)
-                    ys.append(b.y)
-                    strs.append(float(b.strength))
-                    mors.append(float(b.morale))
-            if xs:
-                centroids.append((
-                    float(np.mean(xs)),
-                    float(np.mean(ys)),
-                    float(np.mean(strs)),
-                    float(np.mean(mors)),
-                ))
-        return centroids
+        # Build per-element bounds for the BrigadeEnv-compatible obs layout.
+        # This is independent of self.observation_space (Blue division obs).
+        lows: list[float] = [0.0] * _BRIGADE_N_SECTORS
+        highs: list[float] = [1.0] * _BRIGADE_N_SECTORS
+        for _ in range(self.n_red):   # strength, morale per battalion
+            lows.extend([0.0, 0.0])
+            highs.extend([1.0, 1.0])
+        for _ in range(self.n_red):   # dist, cos, sin, e_str, e_mor per battalion
+            lows.extend([0.0, -1.0, -1.0, 0.0, 0.0])
+            highs.extend([1.0,  1.0,  1.0, 1.0, 1.0])
+        lows.append(0.0)
+        highs.append(1.0)
+        return np.clip(obs, np.array(lows, dtype=np.float32), np.array(highs, dtype=np.float32))
 
     # ------------------------------------------------------------------
     # Gymnasium API: render / close

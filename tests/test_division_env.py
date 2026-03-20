@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 
@@ -568,6 +569,7 @@ class TestThreeEchelonHierarchy(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
+
 class TestObsDimFormula(unittest.TestCase):
     """Verify the obs_dim formula for various brigade counts."""
 
@@ -593,6 +595,158 @@ class TestObsDimFormula(unittest.TestCase):
             )
             self.assertEqual(env._obs_dim, _division_obs_dim(n))
             env.close()
+
+
+# ---------------------------------------------------------------------------
+# 10. Frozen Red brigade policy injection
+# ---------------------------------------------------------------------------
+
+
+class _StubBrigadePolicy:
+    """Deterministic stub that mimics an SB3 PPO predict() interface.
+
+    Always returns option index 0 for every Red battalion, allowing tests
+    to verify that the obs shape is correct and that actions are injected
+    into _forced_red_options properly.
+    """
+
+    def __init__(self, n_red: int, expected_obs_dim: int) -> None:
+        self.n_red = n_red
+        self.expected_obs_dim = expected_obs_dim
+        self.last_obs: Optional[np.ndarray] = None
+
+    def predict(self, obs: np.ndarray, deterministic: bool = False):
+        # Verify the observation has the correct BrigadeEnv-compatible shape
+        assert obs.shape == (self.expected_obs_dim,), (
+            f"Expected obs shape ({self.expected_obs_dim},), got {obs.shape}"
+        )
+        self.last_obs = obs.copy()
+        # Return option 0 for every Red battalion
+        return np.zeros(self.n_red, dtype=np.int64), None
+
+
+class TestFrozenRedBrigadePolicy(unittest.TestCase):
+    """Verify the frozen Red brigade policy injection path end-to-end."""
+
+    def _make_expected_obs_dim(self, n_red: int) -> int:
+        """Return the expected BrigadeEnv-compatible obs dim for n_red battalions."""
+        from envs.brigade_env import N_SECTORS
+        return N_SECTORS + 7 * n_red + 1
+
+    def test_red_obs_shape_2v2(self) -> None:
+        """_get_red_brigade_obs() returns shape matching BrigadeEnv-compatible obs."""
+        env = make_env(n_brigades=2, n_blue_per_brigade=2, n_red_brigades=2, n_red_per_brigade=2)
+        env.reset(seed=0)
+        obs = env._get_red_brigade_obs()
+        expected_dim = self._make_expected_obs_dim(env.n_red)
+        self.assertEqual(obs.shape, (expected_dim,))
+        env.close()
+
+    def test_red_obs_shape_1v1(self) -> None:
+        env = make_env(n_brigades=1, n_blue_per_brigade=1, n_red_brigades=1, n_red_per_brigade=1)
+        env.reset(seed=0)
+        obs = env._get_red_brigade_obs()
+        expected_dim = self._make_expected_obs_dim(env.n_red)
+        self.assertEqual(obs.shape, (expected_dim,))
+        env.close()
+
+    def test_red_obs_shape_asymmetric(self) -> None:
+        """Red obs shape is correct when n_red != n_blue."""
+        env = make_env(n_brigades=2, n_blue_per_brigade=2, n_red_brigades=2, n_red_per_brigade=3)
+        env.reset(seed=0)
+        obs = env._get_red_brigade_obs()
+        expected_dim = self._make_expected_obs_dim(env.n_red)
+        self.assertEqual(obs.shape, (expected_dim,))
+        env.close()
+
+    def test_red_obs_within_bounds(self) -> None:
+        """Red obs values must be within their declared per-element bounds."""
+        from envs.brigade_env import N_SECTORS
+        env = make_env(n_brigades=2, n_blue_per_brigade=2, n_red_brigades=2, n_red_per_brigade=2)
+        env.reset(seed=0)
+        obs = env._get_red_brigade_obs()
+        n_red = env.n_red
+        # Build expected bounds
+        lows = [0.0] * N_SECTORS
+        highs = [1.0] * N_SECTORS
+        for _ in range(n_red):
+            lows.extend([0.0, 0.0])
+            highs.extend([1.0, 1.0])
+        for _ in range(n_red):
+            lows.extend([0.0, -1.0, -1.0, 0.0, 0.0])
+            highs.extend([1.0,  1.0,  1.0, 1.0, 1.0])
+        lows.append(0.0)
+        highs.append(1.0)
+        lo = np.array(lows, dtype=np.float32)
+        hi = np.array(highs, dtype=np.float32)
+        self.assertTrue(
+            np.all(obs >= lo - 1e-5) and np.all(obs <= hi + 1e-5),
+            msg=f"Red obs out of bounds: min={obs.min():.4f} max={obs.max():.4f}",
+        )
+        env.close()
+
+    def test_stub_policy_inject_and_clear(self) -> None:
+        """Stub policy: predict() is called, forced_red_options populated then cleared."""
+        n_red = 4
+        env = make_env(n_brigades=2, n_blue_per_brigade=2, n_red_brigades=2, n_red_per_brigade=2)
+        expected_obs_dim = self._make_expected_obs_dim(n_red)
+        stub = _StubBrigadePolicy(n_red=n_red, expected_obs_dim=expected_obs_dim)
+        env.set_brigade_policy(stub)
+        env.reset(seed=0)
+
+        # The stub should have been called during step → _update_red_brigade_options
+        env.step(env.action_space.sample())
+
+        # Stub received correct obs shape
+        self.assertIsNotNone(stub.last_obs)
+        self.assertEqual(stub.last_obs.shape, (expected_obs_dim,))
+
+        # After step, forced_red_options should be cleared
+        self.assertEqual(env._brigade._forced_red_options, {})
+        env.close()
+
+    def test_stub_policy_forces_red_options_during_step(self) -> None:
+        """_forced_red_options is non-empty during the step (before clearing)."""
+        n_red = 2
+        env = make_env(n_brigades=1, n_blue_per_brigade=1, n_red_brigades=1, n_red_per_brigade=2)
+        expected_obs_dim = self._make_expected_obs_dim(n_red)
+        stub = _StubBrigadePolicy(n_red=n_red, expected_obs_dim=expected_obs_dim)
+        env.set_brigade_policy(stub)
+        env.reset(seed=0)
+
+        # Manually call _update_red_brigade_options (without step) to inspect
+        env._update_red_brigade_options()
+        forced = env._brigade._forced_red_options
+        # Should have entries for both Red battalions (red_0 and red_1)
+        self.assertEqual(len(forced), n_red)
+        for idx in range(n_red):
+            self.assertIn(f"red_{idx}", forced)
+            # Stub returns 0 for all
+            self.assertEqual(forced[f"red_{idx}"], 0)
+        env.close()
+
+    def test_stub_policy_full_episode(self) -> None:
+        """Full episode runs without error using stub brigade policy."""
+        n_red = 2
+        env = make_env(n_brigades=1, n_blue_per_brigade=1, n_red_brigades=1,
+                       n_red_per_brigade=2, max_steps=100)
+        expected_obs_dim = self._make_expected_obs_dim(n_red)
+        stub = _StubBrigadePolicy(n_red=n_red, expected_obs_dim=expected_obs_dim)
+        env.set_brigade_policy(stub)
+
+        obs, _ = env.reset(seed=0)
+        done = False
+        for _ in range(200):
+            action = env.action_space.sample()
+            obs, reward, terminated, truncated, info = env.step(action)
+            if terminated or truncated:
+                done = True
+                break
+
+        self.assertTrue(done, "Episode with stub Red policy should terminate")
+        self.assertIsNotNone(stub.last_obs)
+        self.assertTrue(np.all(np.isfinite(obs)))
+        env.close()
 
 
 if __name__ == "__main__":

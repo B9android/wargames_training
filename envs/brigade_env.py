@@ -607,7 +607,12 @@ class BrigadeEnv(gym.Env):
         4. Zero (stationary) action — default.
         """
         if self._forced_red_options and agent_id in self._forced_red_options:
-            opt_idx = self._forced_red_options[agent_id]
+            opt_idx = int(self._forced_red_options[agent_id])
+            if opt_idx < 0 or opt_idx >= self.n_options:
+                raise ValueError(
+                    f"Invalid forced option index {opt_idx!r} for Red agent {agent_id!r}; "
+                    f"expected integer in [0, {self.n_options - 1}]."
+                )
             obs = self._last_obs.get(
                 agent_id, np.zeros(self._inner._obs_dim, dtype=np.float32)
             )

@@ -65,6 +65,17 @@ __all__ = [
 def load_frozen_brigade_policy(checkpoint_path: Path, device: str = "cpu") -> PPO:
     """Load an SB3 PPO brigade checkpoint and return a **frozen** policy.
 
+    The loaded policy is intended to drive Red battalions as a challenging
+    opponent inside :class:`~envs.division_env.DivisionEnv`.  It must have
+    been trained on a :class:`~envs.brigade_env.BrigadeEnv` whose Red-side
+    battalion count matches ``n_red`` of the target ``DivisionEnv``.
+
+    At each division step the policy receives a
+    :class:`~envs.brigade_env.BrigadeEnv`-compatible observation for the
+    Red side of shape ``(3 + 7 * n_red + 1,)`` (treating Red battalions as
+    the "blue" side) and returns a per-battalion action of shape ``(n_red,)``
+    with option indices in ``[0, n_options)``.
+
     The PPO model's internal policy network parameters are frozen with
     ``requires_grad=False`` so no gradients flow through the policy during
     division training.
@@ -73,7 +84,8 @@ def load_frozen_brigade_policy(checkpoint_path: Path, device: str = "cpu") -> PP
     ----------
     checkpoint_path:
         Path to an SB3 PPO ``.zip`` checkpoint saved by
-        :mod:`training.train_brigade`.
+        :mod:`training.train_brigade`.  The checkpoint must have been
+        trained with the same ``n_blue`` (= Red-side ``n_red`` here).
     device:
         PyTorch device string (``"cpu"`` or ``"cuda"``).
 
