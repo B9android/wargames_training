@@ -11,7 +11,7 @@
 |---|---|---|---|
 | **v1** | Foundation — 1v1 battalion | ✅ Complete | M4 |
 | **v2** | Multi-Agent — MARL 2v2+ | ✅ Complete | M6 |
-| **v3** | Hierarchy — Brigade/Division HRL | 📋 Planned | M8 |
+| **v3** | Hierarchy — Brigade/Division HRL | ✅ Complete | M8 |
 | **v4** | League — AlphaStar-style training | 📋 Planned | M10 |
 | **v5** | Real-World Interface & Analysis | 🔮 Future | TBD |
 
@@ -80,24 +80,24 @@ Emergent flanking, fire concentration, and mutual support.
 
 ---
 
-## v3: Hierarchical RL (Planned)
+## v3: Hierarchical RL (Complete ✅)
 
 **Goal:** Brigade and division commanders issue macro-commands to frozen
 battalion policies. HRL architecture matching Black (NPS 2024).
 
 ### Epics
-- [ ] **E3.1** — SMDP / Options Framework
-- [ ] **E3.2** — Brigade Commander Layer
-- [ ] **E3.3** — Division Commander Layer
-- [ ] **E3.4** — Hierarchical Curriculum (bottom-up training)
-- [ ] **E3.5** — Temporal Abstraction Tuning
-- [ ] **E3.6** — Multi-Model Policy Library (per echelon)
-- [ ] **E3.7** — HRL Evaluation vs. Flat MARL
-- [ ] **E3.8** — v3 Documentation & Release
+- [x] **E3.1** — SMDP / Options Framework
+- [x] **E3.2** — Brigade Commander Layer
+- [x] **E3.3** — Division Commander Layer
+- [x] **E3.4** — Hierarchical Curriculum (bottom-up training)
+- [x] **E3.5** — Temporal Abstraction Tuning
+- [x] **E3.6** — Multi-Model Policy Library (per echelon)
+- [x] **E3.7** — HRL Evaluation vs. Flat MARL
+- [x] **E3.8** — v3 Documentation & Release
 
 ### Milestones
-- M7: HRL Battalion→Brigade (target 2027-09-30)
-- M8: v3 Complete (target 2027-12-31)
+- M7: HRL Battalion→Brigade ✅
+- M8: v3 Complete ✅
 
 ### Key Research Questions
 - Does hierarchical decomposition outperform flat MARL at scale?

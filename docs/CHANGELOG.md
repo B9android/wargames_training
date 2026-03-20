@@ -11,6 +11,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0] — 2026-03-20
+
+### Added
+- **SMDP / Options framework** (`envs/smdp_wrapper.py`, `envs/options.py`) —
+  Semi-Markov Decision Process wrapper enabling temporal abstraction; option
+  primitives (advance, hold, retreat, flank-left, flank-right) with configurable
+  `max_steps`; `make_default_options()` factory.
+- **Brigade Commander** (`envs/brigade_env.py`, `training/train_brigade.py`) —
+  `BrigadeEnv` wrapping `MultiBattalionEnv`; obs_dim = 3 + 7 × n_blue + 1
+  (sector control, battalion strength/morale, threat vectors, step); PPO-based
+  brigade training with frozen MAPPO battalion sub-policies; config
+  `configs/experiment_brigade.yaml`.
+- **Division Commander** (`envs/division_env.py`, `training/train_division.py`) —
+  `DivisionEnv` wrapping `BrigadeEnv`; obs_dim = 5 + 8 × n_brigades + 1
+  (theatre sectors, brigade status, threat, step); `_forced_red_options` for
+  injecting Red brigade commands; config `configs/experiment_division.yaml`.
+- **Hierarchical curriculum** (`training/hrl_curriculum.py`) —
+  `HRLCurriculumScheduler` with `HRLPhase` enum
+  (PHASE_1_BATTALION → PHASE_2_BRIGADE → PHASE_3_DIVISION); dual promotion
+  criteria: rolling win-rate ≥ threshold **and** cached Elo ≥ elo_threshold.
+- **Adaptive temporal abstraction** (`training/adaptive_temporal.py`) —
+  `AdaptiveTemporalScheduler` varying temporal ratio from `base_ratio` to
+  `min_ratio` across episode progress; `SWEEP_RATIOS` constant for grid-search.
+- **Policy registry** (`training/policy_registry.py`) — `PolicyRegistry` backed
+  by a JSON manifest; `Echelon` enum (battalion/brigade/division); versioned
+  register/get/remove/list/load/save; CLI: `python -m training.policy_registry`.
+- **Freeze utilities** (`training/utils/freeze_policy.py`) —
+  `freeze_mappo_policy()`, `freeze_sb3_policy()`, `assert_frozen()`,
+  `load_and_freeze_mappo()`, `load_and_freeze_sb3()` for bottom-up curriculum.
+- **HRL evaluation harness** (`training/evaluate_hrl.py`) — end-to-end
+  HRL vs. flat MARL tournament (`run_tournament()`); bootstrapped 95 % CIs
+  (`bootstrap_ci()`); JSON output; CLI entry-point.
+- **HRL analysis notebook** (`notebooks/v3_hrl_analysis.ipynb`) — tournament
+  result loading, win-rate bar charts, CI error bars, echelon latency plots.
+- **HRL configs** (`configs/hrl/phase1_battalion.yaml`,
+  `phase2_brigade.yaml`, `phase3_division.yaml`) — per-phase training configs
+  wiring curriculum promotions, temporal ratios, and checkpoint paths.
+- **Documentation** — `docs/hrl_architecture.md` (three-echelon command
+  hierarchy, observation/action spaces, reward flow),
+  `docs/hrl_training_protocol.md` (bottom-up training protocol, phase
+  descriptions, promotion criteria, evaluation methodology).
+
+### Changed
+- `envs/__init__.py` updated to export `BrigadeEnv` and `DivisionEnv`.
+- `training/self_play.py` — `TeamOpponentPool` now supports brigade-level
+  MAPPO snapshots alongside battalion-level policies.
+
+---
+
 ## [2.0.0] — 2026-03-20
 
 ### Added
