@@ -1,0 +1,18 @@
+# configs/scenarios/3v3.yaml
+# 3v3 symmetric scenario: 3 Blue agents vs 3 Red agents.
+#
+# Entry-level NvN scenario for the E2.5 scaling epic.
+# Requires Blue agents to coordinate across a larger team while
+# facing the same numerical pressure.
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 3                          # Blue (MAPPO-controlled) agents
+  n_red: 3                           # Red (scripted/stationary) agents — symmetric
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 500.0           # medium-range; consistent with 4v4 and 6v6 scaling configs
+  red_random: false                  # false = stationary Red; true = random Red actions

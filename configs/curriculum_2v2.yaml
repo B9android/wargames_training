@@ -1,0 +1,67 @@
+# configs/curriculum_2v2.yaml
+# E2.3 — 2v2 Curriculum training configuration.
+#
+# Runs the staged curriculum:  1v1 (frozen v1)  →  2v1  →  2v2
+#
+# Usage:
+#   python training/train_mappo.py --config-name curriculum_2v2
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/train_mappo.py --config-name curriculum_2v2 \
+#       curriculum.promote_threshold=0.75
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null                       # W&B team/org (null → personal account)
+  tags: ["v2", "mappo", "curriculum", "2v2", "cooperative"]
+  log_freq: 2000                     # log every N timesteps
+
+# ── Curriculum ────────────────────────────────────────────────────────────
+curriculum:
+  enabled: true
+  promote_threshold: 0.70            # rolling win rate required to advance
+  win_rate_window: 50                # number of episodes in the rolling window
+  # Optional: path to a SB3 v1 PPO checkpoint for warm-starting the actor.
+  # Leave null to start from random initialization.
+  v1_checkpoint: null                # e.g. "checkpoints/ppo_battalion_final.zip"
+
+# ── Environment (2v2 final stage; earlier stages set n_blue/n_red dynamically)
+env:
+  n_blue: 2
+  n_red: 2
+  map_width: 1000.0
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 600.0
+  red_random: false
+
+# ── MAPPO training ────────────────────────────────────────────────────────
+training:
+  total_timesteps: 600000            # longer run to cover all three stages
+  n_steps: 256
+  n_epochs: 10
+  batch_size: 64
+  lr: 3.0e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  vf_coef: 0.5
+  ent_coef: 0.01
+  max_grad_norm: 0.5
+  share_parameters: true
+  actor_hidden_sizes: [128, 64]
+  critic_hidden_sizes: [128, 64]
+  device: "cpu"
+  seed: 42
+
+# ── Evaluation / checkpointing ────────────────────────────────────────────
+eval:
+  checkpoint_dir: "checkpoints/curriculum_2v2/"
+  checkpoint_freq: 50000
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
