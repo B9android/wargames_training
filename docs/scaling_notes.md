@@ -11,8 +11,10 @@ up to 6v6 as part of Epic E2.5.
 ## Environment Parameterization
 
 `MultiBattalionEnv` accepts `n_blue` and `n_red` arguments (both ≥ 1) to
-control team sizes.  No architectural changes were required — the existing
-observation and state construction already scales linearly with agent count.
+control team sizes.  No architectural changes were required — the observation
+and global state *dimensionality* scales linearly with agent count, although
+per-step construction is O(n_total²) overall since each agent's observation
+iterates over all other units (see runtime notes below).
 
 ### Observation Dimensionality
 
@@ -54,7 +56,6 @@ Scenario YAML configs have been added under `configs/scenarios/`:
 
 | File          | Description                                           |
 |---------------|-------------------------------------------------------|
-| `1v1.yaml`    | Single-battalion duel (baseline)                      |
 | `2v1.yaml`    | Asymmetric — 2 Blue vs 1 Red (curriculum stage 2)    |
 | `2v2.yaml`    | Symmetric 2v2 (curriculum final stage / 2v2 baseline)|
 | `3v3.yaml`    | Entry-level NvN — 3 Blue vs 3 Red                    |
@@ -111,10 +112,11 @@ predicts.
 A performance regression test (`tests/test_multi_battalion_env.py`,
 class `TestScalingPerformance`) measures wall-clock steps/sec and guards
 against unexpected algorithmic regressions at the 3v3 level (≥ 40% of 2v2
-throughput).  The 40% threshold is set above the O(n²) theoretical minimum
-(≈ 44%) to catch genuine regressions while tolerating normal quadratic
-scaling.  Larger sizes (4v4, 6v6) are documented here but not gated in CI
-to avoid flaky timing-based failures on resource-constrained runners.
+throughput).  The 40% threshold is set slightly below the O(n²) theoretical
+expectation (≈ 44%) to allow for measurement noise while still catching
+severe regressions beyond normal quadratic scaling.  Larger sizes (4v4,
+6v6) are documented here but not gated in CI to avoid flaky timing-based
+failures on resource-constrained runners.
 
 The E2.5 acceptance criterion "≤ 20% throughput regression from 2v2 baseline"
 refers to changes in the *same* scenario size before and after the epic's
@@ -132,4 +134,4 @@ wall-clock throughput).
   apply attention-based encoders to handle dynamic team sizes more
   gracefully.
 - Benchmarks above are theoretical; empirical wall-clock numbers will be
-  added after running `scripts/benchmark_nvn.py`.
+  added after running the NvN benchmarking entry point for this environment.

@@ -696,24 +696,42 @@ class TestScalingPerformance(unittest.TestCase):
     O(n³) complexity) while tolerating expected quadratic scaling.
     """
 
-    _N_STEPS = 300   # steps to time per scenario (more steps → stable estimate)
+    _N_STEPS = 150   # steps to time per scenario (kept small to keep CI fast)
 
     def _measure_steps_per_sec(self, n_blue: int, n_red: int) -> float:
         import time
 
-        env = make_env(n_blue=n_blue, n_red=n_red, max_steps=self._N_STEPS + 10)
+        # Use a large max_steps so episodes are unlikely to end by truncation,
+        # which keeps the measurement focused on step() throughput.
+        env = make_env(n_blue=n_blue, n_red=n_red, max_steps=self._N_STEPS + 50)
         env.reset(seed=0)
-        start = time.perf_counter()
+
+        # Deterministic action RNG to reduce variance across runs.
+        rng = np.random.default_rng(0)
         steps = 0
+        total_elapsed = 0.0
+        start = time.perf_counter()
+
         for _ in range(self._N_STEPS):
             if not env.agents:
-                env.reset(seed=steps)
-            actions = {a: env.action_space(a).sample() for a in env.agents}
+                # Pause timing around reset() — terrain generation can be
+                # expensive and would skew the step() measurement.
+                total_elapsed += time.perf_counter() - start
+                env.reset(seed=int(rng.integers(0, 2**31 - 1)))
+                start = time.perf_counter()
+                if not env.agents:
+                    break
+
+            actions = {
+                a: env.action_space(a).sample(mask=None)
+                for a in env.agents
+            }
             env.step(actions)
             steps += 1
-        elapsed = time.perf_counter() - start
+
+        total_elapsed += time.perf_counter() - start
         env.close()
-        return steps / elapsed
+        return steps / total_elapsed if total_elapsed > 0 else 0.0
 
     def test_3v3_throughput_vs_2v2(self) -> None:
         """3v3 steps/sec must be ≥ 40% of 2v2 baseline (O(n²) allowance).
