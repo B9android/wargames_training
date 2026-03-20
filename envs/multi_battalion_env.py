@@ -640,12 +640,12 @@ class MultiBattalionEnv(ParallelEnv):
         blue = [
             b
             for agent_id, b in self._battalions.items()
-            if agent_id.startswith("blue_") and not b.routed and b.strength > 0
+            if agent_id.startswith("blue_") and not b.routed and b.strength > DESTROYED_THRESHOLD
         ]
         red = [
             b
             for agent_id, b in self._battalions.items()
-            if agent_id.startswith("red_") and not b.routed and b.strength > 0
+            if agent_id.startswith("red_") and not b.routed and b.strength > DESTROYED_THRESHOLD
         ]
         return _compute_coordination(blue, red, support_radius=support_radius)
 
