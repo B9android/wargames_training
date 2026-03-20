@@ -227,6 +227,8 @@ class MAPPOPolicy(nn.Module):
         self.state_dim = state_dim
         self.n_agents = n_agents
         self.share_parameters = share_parameters
+        self.actor_hidden_sizes: Tuple[int, ...] = tuple(actor_hidden_sizes)
+        self.critic_hidden_sizes: Tuple[int, ...] = tuple(critic_hidden_sizes)
 
         if share_parameters:
             self.actor: nn.Module = MAPPOActor(obs_dim, action_dim, actor_hidden_sizes)

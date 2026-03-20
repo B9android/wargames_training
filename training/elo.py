@@ -8,9 +8,12 @@ a JSON file so they survive across training runs.
 Scripted baseline opponents have *fixed* seed ratings that are never
 modified by calls to :meth:`EloRegistry.update`.
 
+A :class:`TeamEloRegistry` subclass extends the registry for multi-agent
+team ratings with :data:`TEAM_BASELINE_RATINGS`.
+
 Usage::
 
-    from training.elo import EloRegistry
+    from training.elo import EloRegistry, TeamEloRegistry
 
     registry = EloRegistry("checkpoints/elo_registry.json")
 
@@ -48,6 +51,21 @@ BASELINE_RATINGS: dict[str, float] = {
     "scripted_l3": 800.0,
     "scripted_l4": 900.0,
     "scripted_l5": 1000.0,
+}
+
+#: Fixed seed ratings for multi-agent team baselines.
+#: Mirrors :data:`BASELINE_RATINGS` but scoped to team-level matchups.
+#: The identical rating progression anchors the same relative difficulty
+#: scale for teams as for single-agent opponents, making cross-context
+#: comparisons straightforward.  Adjust these values if team dynamics
+#: justify a different calibration.
+TEAM_BASELINE_RATINGS: dict[str, float] = {
+    "random_team": 500.0,
+    "scripted_team_l1": 600.0,
+    "scripted_team_l2": 700.0,
+    "scripted_team_l3": 800.0,
+    "scripted_team_l4": 900.0,
+    "scripted_team_l5": 1000.0,
 }
 
 # ---------------------------------------------------------------------------
@@ -273,5 +291,87 @@ class EloRegistry:
     def __repr__(self) -> str:  # pragma: no cover
         return (
             f"EloRegistry(path={self._path!r}, "
+            f"n_agents={len(self._ratings)})"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TeamEloRegistry
+# ---------------------------------------------------------------------------
+
+
+class TeamEloRegistry(EloRegistry):
+    """Elo registry specialised for multi-agent team ratings.
+
+    Extends :class:`EloRegistry` with team-specific baseline ratings
+    (:data:`TEAM_BASELINE_RATINGS`).  All base-class methods work
+    identically; team baselines are protected against modification just
+    like the single-agent :data:`BASELINE_RATINGS`.
+
+    Typical usage::
+
+        from training.elo import TeamEloRegistry
+
+        registry = TeamEloRegistry(path="checkpoints/team_elo.json")
+
+        # After a self-play evaluation round:
+        delta = registry.update(
+            agent="mappo_blue",
+            opponent="self_play_pool",
+            outcome=0.6,
+            n_games=20,
+        )
+
+    Parameters
+    ----------
+    path:
+        Path to the JSON persistence file.  Pass ``None`` for an
+        in-memory registry that cannot be saved to disk.
+    """
+
+    def get_rating(self, name: str) -> float:
+        """Return Elo rating for *name*, checking team baselines.
+
+        Look-up order:
+
+        1. Stored ratings (updated agents).
+        2. :data:`TEAM_BASELINE_RATINGS` (multi-agent team baselines).
+        3. :data:`BASELINE_RATINGS` (single-agent scripted baselines).
+        4. :data:`DEFAULT_RATING` fallback.
+        """
+        if name in self._ratings:
+            return self._ratings[name]
+        if name in TEAM_BASELINE_RATINGS:
+            return TEAM_BASELINE_RATINGS[name]
+        return BASELINE_RATINGS.get(name, DEFAULT_RATING)
+
+    def update(
+        self,
+        agent: str,
+        opponent: str,
+        outcome: float,
+        n_games: int = 1,
+    ) -> float:
+        """Update team Elo, protecting both BASELINE_RATINGS and TEAM_BASELINE_RATINGS.
+
+        See :meth:`EloRegistry.update` for parameter and return-value
+        documentation.
+
+        Raises
+        ------
+        ValueError
+            If *agent* is in :data:`TEAM_BASELINE_RATINGS` (in addition to
+            the parent-class guard against :data:`BASELINE_RATINGS`).
+        """
+        if agent in TEAM_BASELINE_RATINGS:
+            raise ValueError(
+                f"Cannot update rating for team baseline '{agent}'. "
+                "Baseline ratings are fixed and cannot be modified."
+            )
+        return super().update(agent, opponent, outcome, n_games)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return (
+            f"TeamEloRegistry(path={self._path!r}, "
             f"n_agents={len(self._ratings)})"
         )
