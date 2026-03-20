@@ -1,0 +1,54 @@
+# configs/experiment_division.yaml
+# Division Commander PPO experiment configuration (E3.3)
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/train_division.py training.total_timesteps=2000000
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null                       # W&B team/org (null → personal account)
+  tags: ["v3", "division", "hrl", "e3.3"]
+  log_freq: 4                        # SB3 log_interval (rollouts)
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_brigades: 2                      # Blue brigades controlled by division
+  n_blue_per_brigade: 2              # Blue battalions per brigade
+  n_red_brigades: 2                  # Red brigades
+  n_red_per_brigade: 2               # Red battalions per brigade
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500                     # max primitive steps per episode
+  randomize_terrain: true
+  visibility_radius: 600.0
+  red_random: false                  # false = stationary Red; true = random
+  brigade_checkpoint: null           # path to frozen brigade PPO .zip for Red
+                                     # e.g. checkpoints/brigade/ppo_brigade_final.zip
+
+# ── Division PPO training ─────────────────────────────────────────────────
+training:
+  total_timesteps: 1000000           # division macro-steps (acceptance: ≤1M)
+  n_steps: 512                       # rollout buffer size
+  n_epochs: 10                       # PPO update epochs per rollout
+  batch_size: 64                     # minibatch size
+  lr: 3.0e-4                         # Adam learning rate
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  device: "cpu"
+  seed: 42
+
+# ── Evaluation / checkpointing ────────────────────────────────────────────
+eval:
+  checkpoint_dir: "checkpoints/division/"
+  checkpoint_freq: 100000            # save every N division macro-steps
+  eval_freq: 20000                   # win-rate evaluation every N macro-steps
+  n_eval_episodes: 20
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
