@@ -33,7 +33,7 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -55,6 +55,10 @@ from training.curriculum_scheduler import (
     CurriculumStage,
     load_v1_weights_into_mappo,
 )
+
+if TYPE_CHECKING:
+    from training.self_play import TeamOpponentPool
+    from training.elo import TeamEloRegistry
 
 log = logging.getLogger(__name__)
 
@@ -386,6 +390,44 @@ class MAPPOTrainer:
         self._ep_coord_steps: int = 0
         self._ep_coord_history: list[dict[str, float]] = []
 
+        # ------------------------------------------------------------------
+        # Self-play state
+        # ------------------------------------------------------------------
+
+        #: Frozen opponent policy used to drive Red agents during self-play.
+        #: ``None`` means Red falls back to the *red_random* / zero-action
+        #: mode configured at construction time.
+        self._red_policy: Optional[MAPPOPolicy] = None
+
+        # Metric accumulators flushed by _log_wandb() on each logging step.
+        self._sp_win_rate_history: list[float] = []
+        self._sp_exploit_history: list[float] = []
+        self._sp_elo_history: list[float] = []
+
+    # ------------------------------------------------------------------
+    # Self-play helpers
+    # ------------------------------------------------------------------
+
+    def set_red_policy(self, policy: Optional[MAPPOPolicy]) -> None:
+        """Set (or clear) the frozen policy used to drive Red agents.
+
+        When *policy* is ``None`` the trainer reverts to its default
+        ``red_random`` / zero-action behaviour.
+
+        Parameters
+        ----------
+        policy:
+            A frozen :class:`~models.mappo_policy.MAPPOPolicy` snapshot
+            (typically loaded from a :class:`~training.self_play.TeamOpponentPool`),
+            or ``None`` to clear the current Red policy.
+        """
+        if policy is not None:
+            # Move to the trainer's device and ensure the snapshot is in
+            # evaluation mode so batch-norm / dropout layers behave correctly.
+            policy = policy.to(self.device)
+            policy.eval()
+        self._red_policy = policy
+
     # ------------------------------------------------------------------
     # Environment helpers
     # ------------------------------------------------------------------
@@ -422,12 +464,33 @@ class MAPPOTrainer:
         return np.stack(obs_list)
 
     def _red_actions(self) -> dict[str, np.ndarray]:
-        """Return action dict for Red agents (random or zero)."""
+        """Return action dict for Red agents (policy-driven, random, or zero).
+
+        Priority order:
+
+        1. :attr:`_red_policy` (self-play frozen snapshot) — if set.
+        2. Random actions — when ``red_random=True``.
+        3. Zero (stationary) actions — default.
+        """
         red_acts = {}
         for i in range(self.n_red):
             agent_id = f"red_{i}"
             if agent_id in self.env.agents:
-                if self.red_random:
+                if self._red_policy is not None:
+                    agent_obs = self._obs_buf.get(
+                        agent_id, np.zeros(self.obs_dim, dtype=np.float32)
+                    )
+                    obs_t = torch.as_tensor(agent_obs, device=self.device).unsqueeze(0)
+                    with torch.no_grad():
+                        acts_t, _ = self._red_policy.act(
+                            obs_t,
+                            agent_idx=i % self._red_policy.n_agents,
+                            deterministic=False,
+                        )
+                    red_acts[agent_id] = np.clip(
+                        acts_t[0].cpu().numpy(), self._act_low, self._act_high
+                    )
+                elif self.red_random:
                     red_acts[agent_id] = self.env.action_space(agent_id).sample()
                 else:
                     red_acts[agent_id] = np.zeros(self.action_dim, dtype=np.float32)
@@ -728,6 +791,24 @@ class MAPPOTrainer:
         if curriculum_scheduler is not None:
             log_dict.update(curriculum_scheduler.wandb_metrics())
 
+        # Self-play win rate vs pool (flushed from accumulated evaluations)
+        if self._sp_win_rate_history:
+            recent_sp_wr = self._sp_win_rate_history
+            self._sp_win_rate_history = []
+            log_dict["self_play/win_rate_vs_pool"] = float(np.mean(recent_sp_wr))
+
+        # Nash exploitability proxy
+        if self._sp_exploit_history:
+            recent_ex = self._sp_exploit_history
+            self._sp_exploit_history = []
+            log_dict["self_play/exploitability"] = float(np.mean(recent_ex))
+
+        # Team Elo (most recent rating, if any)
+        if self._sp_elo_history:
+            recent_elo = self._sp_elo_history
+            self._sp_elo_history = []
+            log_dict["elo/team_rating"] = float(recent_elo[-1])
+
         log_dict.update({f"train/{k}": v for k, v in losses.items()})
         wandb.log(log_dict, step=self._total_steps)
 
@@ -742,6 +823,12 @@ class MAPPOTrainer:
         checkpoint_dir: Optional[Path] = None,
         checkpoint_freq: int = 50_000,
         curriculum_scheduler: Optional[CurriculumScheduler] = None,
+        self_play_pool: Optional["TeamOpponentPool"] = None,
+        snapshot_freq: int = 50_000,
+        eval_freq: int = 50_000,
+        n_eval_episodes: int = 20,
+        team_elo_registry: Optional["TeamEloRegistry"] = None,
+        elo_agent_name: Optional[str] = None,
     ) -> None:
         """Run the MAPPO training loop.
 
@@ -761,16 +848,52 @@ class MAPPOTrainer:
             When provided, episode wins are recorded after each rollout and
             the training environment is swapped when promotion criteria are
             met.  Stage transitions are logged to W&B.
+        self_play_pool:
+            Optional :class:`~training.self_play.TeamOpponentPool`.  When
+            provided, the current policy is periodically snapshotted into
+            the pool and the Red opponent is updated with a sampled frozen
+            policy snapshot (team self-play).
+        snapshot_freq:
+            How often (in environment steps) to take a self-play snapshot
+            and update the Red opponent (default 50 000).
+        eval_freq:
+            How often (in environment steps) to evaluate win rate vs the
+            pool and compute the Nash exploitability proxy (default 50 000).
+        n_eval_episodes:
+            Number of episodes per self-play evaluation round (default 20).
+        team_elo_registry:
+            Optional :class:`~training.elo.TeamEloRegistry`.  When provided,
+            the Blue team's rating is updated after each evaluation round and
+            logged to W&B under ``elo/team_rating``.
+        elo_agent_name:
+            Key used in *team_elo_registry* to identify the Blue team.
+            Defaults to ``"mappo_blue"``.
         """
+        from training.self_play import (
+            evaluate_team_vs_pool,
+            nash_exploitability_proxy,
+            _max_team_version_in_pool,
+        )
+
         self._reset_env(seed=self.seed)
         last_log = 0
         last_ckpt = 0
+        last_sp_snapshot = 0
+        last_sp_eval = 0
+        _sp_version: int = (
+            _max_team_version_in_pool(self_play_pool)
+            if self_play_pool is not None
+            else 0
+        )
+        _elo_agent: str = elo_agent_name or "mappo_blue"
 
         log.info(
-            "MAPPO training start | total_timesteps=%d | n_blue=%d | share_params=%s",
+            "MAPPO training start | total_timesteps=%d | n_blue=%d | share_params=%s"
+            " | self_play=%s",
             total_timesteps,
             self.n_blue,
             self.policy.share_parameters,
+            self_play_pool is not None,
         )
 
         while self._total_steps < total_timesteps:
@@ -851,6 +974,77 @@ class MAPPOTrainer:
                             self.state_dim,
                             new_state_dim,
                         )
+
+            # ------------------------------------------------------------------
+            # Self-play: snapshot policy and update Red opponent
+            # ------------------------------------------------------------------
+            if (
+                self_play_pool is not None
+                and self._total_steps - last_sp_snapshot >= snapshot_freq
+                and self._total_steps > 0
+            ):
+                _sp_version += 1
+                self_play_pool.add(self.policy, _sp_version)
+                opponent = self_play_pool.sample()
+                if opponent is not None:
+                    self.set_red_policy(opponent)
+                    log.info(
+                        "Self-play: snapshot v%d saved, Red policy updated (pool=%d)",
+                        _sp_version,
+                        self_play_pool.size,
+                    )
+                last_sp_snapshot = self._total_steps
+
+            # ------------------------------------------------------------------
+            # Self-play: evaluate win rate, exploitability, and team Elo
+            # ------------------------------------------------------------------
+            if (
+                self_play_pool is not None
+                and self_play_pool.size > 0
+                and self._total_steps - last_sp_eval >= eval_freq
+                and self._total_steps > 0
+            ):
+                sampled_opp = self_play_pool.sample()
+                if sampled_opp is not None:
+                    win_rate = evaluate_team_vs_pool(
+                        policy=self.policy,
+                        opponent=sampled_opp,
+                        n_blue=self.n_blue,
+                        n_red=self.n_red,
+                        n_episodes=n_eval_episodes,
+                        deterministic=True,
+                    )
+                    self._sp_win_rate_history.append(win_rate)
+
+                    exploit = nash_exploitability_proxy(
+                        policy=self.policy,
+                        pool=self_play_pool,
+                        n_blue=self.n_blue,
+                        n_red=self.n_red,
+                        # Use ¼ of the win-rate budget per opponent to keep
+                        # per-opponent cost tractable; at least 5 episodes.
+                        n_episodes_per_opponent=max(5, n_eval_episodes // 4),
+                    )
+                    self._sp_exploit_history.append(exploit)
+
+                    if team_elo_registry is not None:
+                        delta = team_elo_registry.update(
+                            agent=_elo_agent,
+                            opponent="self_play_pool",
+                            outcome=win_rate,
+                            n_games=n_eval_episodes,
+                        )
+                        elo = team_elo_registry.get_rating(_elo_agent)
+                        self._sp_elo_history.append(elo)
+                        log.info(
+                            "Team Elo: agent=%s elo=%.1f delta=%+.1f win_rate=%.3f",
+                            _elo_agent,
+                            elo,
+                            delta,
+                            win_rate,
+                        )
+
+                last_sp_eval = self._total_steps
 
             if self._total_steps - last_log >= log_interval:
                 self._log_wandb(losses, curriculum_scheduler=curriculum_scheduler)
