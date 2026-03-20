@@ -498,8 +498,59 @@ def main(argv: Optional[list[str]] = None) -> None:
     )
     parser.add_argument(
         "--checkpoint",
-        required=True,
-        help="Path to the SB3 .zip checkpoint (extension optional).",
+        default=None,
+        help=(
+            "Path to the SB3 .zip checkpoint (extension optional).  "
+            "Required unless --battalion-policy is provided together with "
+            "--policy-registry."
+        ),
+    )
+    # ── Multi-echelon policy selection (E3.6) ────────────────────────────
+    policy_group = parser.add_argument_group(
+        "multi-echelon policy selection (E3.6)",
+        description=(
+            "Use a versioned policy from the PolicyRegistry.  "
+            "Requires --policy-registry to be set.  "
+            "Each flag accepts a version string (e.g. 'v2_final')."
+        ),
+    )
+    policy_group.add_argument(
+        "--policy-registry",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Path to the PolicyRegistry JSON manifest.  "
+            "When provided the --*-policy flags resolve versions from this "
+            "registry."
+        ),
+    )
+    policy_group.add_argument(
+        "--battalion-policy",
+        metavar="VERSION",
+        default=None,
+        help=(
+            "Version of the battalion policy to load from --policy-registry.  "
+            "When supplied (with --policy-registry), the resolved checkpoint "
+            "path overrides --checkpoint."
+        ),
+    )
+    policy_group.add_argument(
+        "--brigade-policy",
+        metavar="VERSION",
+        default=None,
+        help=(
+            "Version of the brigade policy to load from --policy-registry.  "
+            "Stored for use by the HRL evaluation pipeline."
+        ),
+    )
+    policy_group.add_argument(
+        "--division-policy",
+        metavar="VERSION",
+        default=None,
+        help=(
+            "Version of the division policy to load from --policy-registry.  "
+            "Stored for use by the HRL evaluation pipeline."
+        ),
     )
     parser.add_argument(
         "--opponent",
@@ -578,11 +629,68 @@ def main(argv: Optional[list[str]] = None) -> None:
         parser.error(f"--n-episodes must be >= 1, got {args.n_episodes}.")
 
     # ------------------------------------------------------------------
+    # Resolve checkpoint via PolicyRegistry when --*-policy flags given
+    # ------------------------------------------------------------------
+    checkpoint = args.checkpoint
+
+    has_policy_flag = (
+        args.battalion_policy is not None
+        or args.brigade_policy is not None
+        or args.division_policy is not None
+    )
+    if has_policy_flag and args.policy_registry is None:
+        parser.error(
+            "--policy-registry is required when using "
+            "--battalion-policy / --brigade-policy / --division-policy."
+        )
+
+    if has_policy_flag:
+        from training.policy_registry import PolicyRegistry  # noqa: PLC0415
+        _pol_reg = PolicyRegistry(path=args.policy_registry)
+
+        if args.battalion_policy is not None:
+            try:
+                _entry = _pol_reg.get("battalion", args.battalion_policy)
+            except KeyError as exc:
+                parser.error(str(exc))
+            checkpoint = _entry.path
+            print(
+                f"Battalion policy: {args.battalion_policy} \u2192 {_entry.path}"
+                + (f" (run_id={_entry.run_id})" if _entry.run_id else "")
+            )
+
+        if args.brigade_policy is not None:
+            try:
+                _entry = _pol_reg.get("brigade", args.brigade_policy)
+                print(
+                    f"Brigade policy:   {args.brigade_policy} \u2192 {_entry.path}"
+                    + (f" (run_id={_entry.run_id})" if _entry.run_id else "")
+                )
+            except KeyError as exc:
+                parser.error(str(exc))
+
+        if args.division_policy is not None:
+            try:
+                _entry = _pol_reg.get("division", args.division_policy)
+                print(
+                    f"Division policy:  {args.division_policy} \u2192 {_entry.path}"
+                    + (f" (run_id={_entry.run_id})" if _entry.run_id else "")
+                )
+            except KeyError as exc:
+                parser.error(str(exc))
+
+    if checkpoint is None:
+        parser.error(
+            "--checkpoint is required unless --battalion-policy is provided "
+            "together with --policy-registry."
+        )
+
+    # ------------------------------------------------------------------
     # Rendered / recorded path
     # ------------------------------------------------------------------
     if args.render or args.record:
         env = _make_env(args.opponent, seed=args.seed)
-        model = PPO.load(args.checkpoint, env=env)
+        model = PPO.load(checkpoint, env=env)
         wins = draws = losses = 0
         record_dir = Path(args.record) if args.record else None
         try:
@@ -626,7 +734,7 @@ def main(argv: Optional[list[str]] = None) -> None:
                     draws += 1
 
                 if recorder is not None and record_dir is not None:
-                    ckpt_stem = Path(args.checkpoint).stem
+                    ckpt_stem = Path(checkpoint).stem
                     save_path = record_dir / f"{ckpt_stem}_ep{ep:04d}.json"
                     recorder.save(save_path)
                     print(f"Recorded:  {save_path}")
@@ -644,7 +752,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         )
     else:
         result = evaluate_detailed(
-            checkpoint_path=args.checkpoint,
+            checkpoint_path=checkpoint,
             n_episodes=args.n_episodes,
             deterministic=args.deterministic,
             seed=args.seed,
@@ -655,7 +763,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     # given we load from (and later persist to) that file; otherwise we use an
     # in-memory registry (path=None) so no file is created without explicit
     # opt-in.
-    agent_name = args.agent_name or args.checkpoint
+    agent_name = args.agent_name or checkpoint
     registry = EloRegistry(args.elo_registry)  # None → in-memory
 
     opp_elo = registry.get_rating(args.opponent)
