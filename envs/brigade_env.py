@@ -119,6 +119,12 @@ class BrigadeEnv(gym.Env):
         Maximum primitive-step episode length.
     options:
         Option vocabulary.  ``None`` uses :func:`~envs.options.make_default_options`.
+        When ``None``, the vocabulary is built using ``temporal_ratio`` as the
+        option ``max_steps`` cap.
+    temporal_ratio:
+        Number of primitive battalion steps per brigade macro-step (option
+        duration cap).  Ignored when an explicit ``options`` list is supplied.
+        Must be ``>= 1``.  Corresponds to the hyperparameter swept in E3.5.
     battalion_policy:
         Optional frozen :class:`~models.mappo_policy.MAPPOPolicy` used to
         drive Red agents.  All parameters are detached (``requires_grad=False``).
@@ -144,6 +150,7 @@ class BrigadeEnv(gym.Env):
         map_height: float = MAP_HEIGHT,
         max_steps: int = MAX_STEPS,
         options: Optional[list[Option]] = None,
+        temporal_ratio: int = 10,
         battalion_policy=None,
         red_random: bool = False,
         randomize_terrain: bool = True,
@@ -154,6 +161,8 @@ class BrigadeEnv(gym.Env):
             raise ValueError(f"n_blue must be >= 1, got {n_blue}")
         if int(n_red) < 1:
             raise ValueError(f"n_red must be >= 1, got {n_red}")
+        if int(temporal_ratio) < 1:
+            raise ValueError(f"temporal_ratio must be >= 1, got {temporal_ratio}")
 
         self.n_blue = int(n_blue)
         self.n_red = int(n_red)
@@ -163,9 +172,14 @@ class BrigadeEnv(gym.Env):
         self.max_steps = int(max_steps)
         self.red_random = bool(red_random)
         self.render_mode = render_mode
+        self.temporal_ratio: int = int(temporal_ratio)
 
-        # Option vocabulary
-        self._options: list[Option] = list(options) if options is not None else make_default_options()
+        # Option vocabulary — use temporal_ratio as max_steps when no custom
+        # options are provided so the hyperparameter takes effect.
+        self._options: list[Option] = (
+            list(options) if options is not None
+            else make_default_options(max_steps=self.temporal_ratio)
+        )
         if len(self._options) == 0:
             raise ValueError("options must contain at least one Option.")
         self.n_options: int = len(self._options)

@@ -1,0 +1,40 @@
+# configs/sweeps/temporal_ratio_sweep.yaml
+# E3.5 — Temporal Abstraction Tuning sweep configuration.
+#
+# Tests four temporal abstraction ratios (primitive battalion steps per
+# brigade macro-step) to find the value that maximises brigade win-rate
+# while minimising catastrophic forgetting at battalion level.
+#
+# Ratios under test:
+#   5  — very short options; fine-grained commander control
+#   10 — balanced; default recommendation from HRL literature
+#   20 — medium-length options; true macro-commands
+#   50 — long options; battalion policies dominate the horizon
+#
+# Usage:
+#   wandb sweep configs/sweeps/temporal_ratio_sweep.yaml
+#   wandb agent <sweep_id>
+#
+# Each agent run invokes train_brigade.py with a Hydra CLI override that
+# sets env.temporal_ratio to one of the four values.  Hydra is launched
+# in --multirun mode so the sweep agent can inject parameters directly.
+#
+# See also:
+#   training/adaptive_temporal.py — AdaptiveTemporalScheduler
+#   configs/hrl/phase2_brigade.yaml — default temporal_ratio after sweep
+
+program: python training/train_brigade.py
+method: grid
+
+project: wargames_training
+name: e3.5_temporal_ratio_sweep
+
+# ── Metric to optimise ────────────────────────────────────────────────────
+metric:
+  name: brigade/win_rate
+  goal: maximize
+
+# ── Sweep parameters ─────────────────────────────────────────────────────
+parameters:
+  env.temporal_ratio:
+    values: [5, 10, 20, 50]
