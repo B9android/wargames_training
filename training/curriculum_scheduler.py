@@ -2,12 +2,15 @@
 """Curriculum scheduler for the E2.3 staged 2v2 training pipeline.
 
 Implements a three-stage curriculum that bootstraps cooperative skills by
-progressing from 1v1 (using a frozen v1 checkpoint) through an asymmetric 2v1
-scenario to the full 2v2 cooperative challenge:
+progressing from 1v1 (optionally warm-started from a v1 checkpoint) through
+an asymmetric 2v1 scenario to the full 2v2 cooperative challenge:
 
-    Stage STAGE_1V1  →  1v1  (frozen v1 policy seeds initial weights)
+    Stage STAGE_1V1  →  1v1  (optional v1 warm-start; weights continue training)
     Stage STAGE_2V1  →  2v1  (Blue 2-agent advantage; Red stationary)
     Stage STAGE_2V2  →  2v2  (symmetric; Blue must cooperate to win)
+
+Note: ``load_v1_weights_into_mappo`` performs a warm-start (partial weight
+transfer) only — the v1 weights are not frozen and training continues normally.
 
 Promotion logic
 ---------------
@@ -300,10 +303,26 @@ def load_v1_weights_into_mappo(
 ) -> dict:
     """Copy shared-trunk weights from a SB3 PPO v1 checkpoint into a MAPPO actor.
 
-    The v1 SB3 checkpoint stores the policy network under the key
-    ``policy`` inside the zip.  The features extractor (``mlp_extractor``) and
-    action network (``action_net``) weights are mapped onto the MAPPO actor's
-    ``trunk`` and ``action_mean`` layers where shapes match.
+    SB3 ``BattalionMlpPolicy`` (``net_arch=[128, 128]``) stores its actor
+    network under ``mlp_extractor.policy_net.*`` (even indices are Linear
+    layers; odd indices are activation functions with no parameters) and the
+    final action head under ``action_net.*``.
+
+    MAPPO ``MAPPOActor`` (``hidden_sizes=(128, 64)``) stores its trunk under
+    ``actor.trunk.*`` where Linear layers are at indices 0, 3, 6, …
+    (interleaved with LayerNorm at 1, 4, … and Tanh at 2, 5, …) and the
+    action head under ``actor.action_mean.*``.
+
+    Mapping strategy
+    ~~~~~~~~~~~~~~~~
+    Linear layers are matched *positionally* — the *i*-th Linear layer in
+    ``mlp_extractor.policy_net`` maps to the *i*-th Linear layer in
+    ``actor.trunk``.  Layers whose weight shapes do not match are silently
+    skipped (or raise ``ValueError`` when ``strict=True``).
+
+    Additionally ``log_std`` → ``actor.log_std`` and
+    ``action_net.*`` → ``actor.action_mean.*`` are transferred when shapes
+    match.
 
     Parameters
     ----------
@@ -319,11 +338,12 @@ def load_v1_weights_into_mappo(
 
     Returns
     -------
-    A dict with keys ``"loaded"`` (list of transferred layer names) and
+    A dict with keys ``"loaded"`` (list of transferred MAPPO layer names) and
     ``"skipped"`` (list of skipped layer names).
     """
-    import zipfile
     import io
+    import re
+    import zipfile
 
     v1_path = Path(v1_checkpoint_path)
     if not v1_path.exists():
@@ -339,48 +359,101 @@ def load_v1_weights_into_mappo(
         with zf.open("policy.pth") as f:
             v1_state: dict = torch.load(io.BytesIO(f.read()), map_location="cpu")
 
-    # Build a name-mapping from v1 feature-extractor keys to MAPPO actor keys.
-    # SB3 BattalionMlpPolicy stores weights under mlp_extractor.* and action_net.*
-    # The MAPPO actor stores them under actor.trunk.* and actor.action_mean.*
-    # (or actors.0.trunk.* etc. when share_parameters=False).
     transferred: list[str] = []
     skipped: list[str] = []
 
     mappo_state = mappo_policy.state_dict()
     new_state: dict = {}
 
-    # We prefix-map:  "mlp_extractor." → "actor.trunk." (shared actor)
-    #                 "action_net."    → "actor.action_mean."
-    # Only transfer layers whose shapes match.
-    _prefix_map = [
-        ("mlp_extractor.", "actor.trunk."),
-        ("action_net.", "actor.action_mean."),
-    ]
+    def _try_transfer(v1_key: str, mappo_key: str, v1_tensor: torch.Tensor) -> None:
+        """Attempt to transfer one tensor; update transferred/skipped lists."""
+        if mappo_key in mappo_state:
+            if mappo_state[mappo_key].shape == v1_tensor.shape:
+                new_state[mappo_key] = v1_tensor
+                transferred.append(mappo_key)
+            else:
+                msg = (
+                    f"Shape mismatch for {mappo_key}: "
+                    f"v1={v1_tensor.shape} mappo={mappo_state[mappo_key].shape}"
+                )
+                if strict:
+                    raise ValueError(msg)
+                log.warning("load_v1_weights_into_mappo: skipping %s", msg)
+                skipped.append(mappo_key)
+        else:
+            skipped.append(mappo_key)
 
-    for v1_key, v1_tensor in v1_state.items():
-        mapped = False
-        for v1_prefix, mappo_prefix in _prefix_map:
-            if v1_key.startswith(v1_prefix):
-                mappo_key = mappo_prefix + v1_key[len(v1_prefix):]
-                if mappo_key in mappo_state:
-                    if mappo_state[mappo_key].shape == v1_tensor.shape:
-                        new_state[mappo_key] = v1_tensor
-                        transferred.append(mappo_key)
-                    else:
-                        msg = (
-                            f"Shape mismatch for {mappo_key}: "
-                            f"v1={v1_tensor.shape} mappo={mappo_state[mappo_key].shape}"
-                        )
-                        if strict:
-                            raise ValueError(msg)
-                        log.warning("load_v1_weights_into_mappo: skipping %s", msg)
-                        skipped.append(mappo_key)
-                else:
-                    skipped.append(mappo_key)
-                mapped = True
-                break
-        if not mapped:
-            skipped.append(v1_key)
+    # ------------------------------------------------------------------
+    # 1. Transfer mlp_extractor.policy_net Linear layers → actor.trunk
+    #    positionally (i-th SB3 Linear → i-th MAPPO trunk Linear).
+    #
+    #    SB3 indices: 0, 2, 4, ... are Linear (odd indices are Tanh, no params).
+    #    MAPPO indices: 0, 3, 6, ... are Linear (LayerNorm 1,4,… Tanh 2,5,…).
+    #    We detect Linear layers by their weight tensor being 2-D.
+    # ------------------------------------------------------------------
+    pnet_pat = re.compile(r"^mlp_extractor\.policy_net\.(\d+)\.(weight|bias)$")
+    trunk_pat = re.compile(r"^actor\.trunk\.(\d+)\.(weight|bias)$")
+
+    # Collect SB3 policy_net layers indexed by their Sequential index.
+    pnet_layers: dict[int, dict[str, tuple[str, torch.Tensor]]] = {}
+    for k, v in v1_state.items():
+        m = pnet_pat.match(k)
+        if m:
+            idx, kind = int(m.group(1)), m.group(2)
+            pnet_layers.setdefault(idx, {})[kind] = (k, v)
+
+    # Keep only Linear layers (weight is 2-D).
+    v1_trunk_linears: list[dict[str, tuple[str, torch.Tensor]]] = []
+    for idx in sorted(pnet_layers):
+        entry = pnet_layers[idx]
+        w_key, w_tensor = entry.get("weight", (None, None))
+        if w_tensor is not None and w_tensor.dim() == 2:
+            v1_trunk_linears.append(entry)
+
+    # Collect MAPPO actor.trunk Linear layers (weight is 2-D).
+    mappo_trunk_layers: dict[int, dict[str, tuple[str, torch.Tensor]]] = {}
+    for k, v in mappo_state.items():
+        m = trunk_pat.match(k)
+        if m:
+            idx, kind = int(m.group(1)), m.group(2)
+            mappo_trunk_layers.setdefault(idx, {})[kind] = (k, v)
+
+    mappo_trunk_linears: list[dict[str, tuple[str, torch.Tensor]]] = []
+    for idx in sorted(mappo_trunk_layers):
+        entry = mappo_trunk_layers[idx]
+        _, w_tensor = entry.get("weight", (None, None))
+        if w_tensor is not None and w_tensor.dim() == 2:
+            mappo_trunk_linears.append(entry)
+
+    # Match by position.
+    for i, v1_entry in enumerate(v1_trunk_linears):
+        if i >= len(mappo_trunk_linears):
+            for kind, (k, _) in v1_entry.items():
+                skipped.append(k)
+            continue
+        mappo_entry = mappo_trunk_linears[i]
+        for kind in ("weight", "bias"):
+            if kind in v1_entry and kind in mappo_entry:
+                v1_key, v1_tensor = v1_entry[kind]
+                mappo_key, _ = mappo_entry[kind]
+                _try_transfer(v1_key, mappo_key, v1_tensor)
+
+    # ------------------------------------------------------------------
+    # 2. Transfer action_net.* → actor.action_mean.*
+    # ------------------------------------------------------------------
+    action_pat = re.compile(r"^action_net\.(weight|bias)$")
+    for k, v in v1_state.items():
+        m = action_pat.match(k)
+        if m:
+            kind = m.group(1)
+            mappo_key = f"actor.action_mean.{kind}"
+            _try_transfer(k, mappo_key, v)
+
+    # ------------------------------------------------------------------
+    # 3. Transfer log_std → actor.log_std
+    # ------------------------------------------------------------------
+    if "log_std" in v1_state:
+        _try_transfer("log_std", "actor.log_std", v1_state["log_std"])
 
     if new_state:
         mappo_state.update(new_state)

@@ -319,25 +319,69 @@ class TestLoadV1Weights(unittest.TestCase):
                 load_v1_weights_into_mappo(zip_path, mock_policy)
 
     def test_shape_mismatch_skipped(self) -> None:
-        """Layers with shape mismatch should be skipped (strict=False)."""
+        """Layers with a shape mismatch are skipped (strict=False).
+
+        ``mlp_extractor.policy_net.0.weight`` maps positionally to
+        ``actor.trunk.0.weight``.  We supply a tensor with the wrong shape so
+        the shape-check / skip branch is actually exercised.
+        """
         from models.mappo_policy import MAPPOPolicy
 
-        # Build a tiny MAPPOPolicy (1v1 compatible obs size)
-        n_total = 2  # 1 blue + 1 red
+        n_total = 2  # 1 blue + 1 red → obs_dim=12
         obs_dim = 6 + 5 * (n_total - 1) + 1   # = 12
         policy = MAPPOPolicy(obs_dim=obs_dim, action_dim=3, state_dim=13, n_agents=1)
 
-        # Fake v1 state with wrong shapes for all transferred keys
+        mappo_state = policy.state_dict()
+        actual_shape = mappo_state["actor.trunk.0.weight"].shape  # (128, 12)
+        wrong_shape = (actual_shape[0] + 1, actual_shape[1] + 1)  # (129, 13)
+
+        # Use the correct SB3 key prefix so the mapping logic reaches the shape check.
         fake_v1_state = {
-            "mlp_extractor.policy_net.0.weight": torch.zeros(999, 999),
-            "mlp_extractor.policy_net.0.bias": torch.zeros(999),
+            "mlp_extractor.policy_net.0.weight": torch.zeros(*wrong_shape),
+            "mlp_extractor.policy_net.0.bias": torch.zeros(wrong_shape[0]),
         }
 
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = self._make_mock_v1_zip(Path(tmp), fake_v1_state)
             result = load_v1_weights_into_mappo(zip_path, policy)
-            # Nothing should be loaded (shape mismatch → skipped)
+            # Both layers have wrong shape → should be skipped, not loaded.
             self.assertEqual(len(result["loaded"]), 0)
+            self.assertGreater(len(result["skipped"]), 0)
+
+    def test_realistic_sb3_keys_transfer(self) -> None:
+        """SB3-style keys with matching shapes transfer successfully.
+
+        Simulates a 1v1 ``BattalionMlpPolicy`` (net_arch=[128, 128]) checkpoint.
+        Only the first Linear layer, log_std and action_mean.bias have matching
+        shapes (SB3's second hidden is 128×128 while MAPPO's is 64×128).
+        """
+        from models.mappo_policy import MAPPOPolicy
+
+        obs_dim = 12  # 1v1 BattalionEnv observation dim
+        policy = MAPPOPolicy(obs_dim=obs_dim, action_dim=3, state_dim=13, n_agents=1)
+
+        # Construct a fake SB3 state dict with the exact keys and shapes that
+        # BattalionMlpPolicy(net_arch=[128, 128]) actually produces.
+        fake_sb3_state = {
+            "log_std": torch.zeros(3),
+            "mlp_extractor.policy_net.0.weight": torch.ones(128, obs_dim),  # ✓ matches
+            "mlp_extractor.policy_net.0.bias": torch.ones(128),             # ✓ matches
+            "mlp_extractor.policy_net.2.weight": torch.ones(128, 128),      # ✗ MAPPO (64,128)
+            "mlp_extractor.policy_net.2.bias": torch.ones(128),             # ✗ MAPPO (64,)
+            "action_net.weight": torch.ones(3, 128),                        # ✗ MAPPO (3,64)
+            "action_net.bias": torch.ones(3),                               # ✓ matches
+            "value_net.weight": torch.ones(1, 128),                         # not mapped
+            "value_net.bias": torch.ones(1),                                # not mapped
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = self._make_mock_v1_zip(Path(tmp), fake_sb3_state)
+            result = load_v1_weights_into_mappo(zip_path, policy)
+            # First trunk layer, action_mean.bias and log_std must transfer.
+            self.assertGreater(len(result["loaded"]), 0)
+            self.assertIn("actor.trunk.0.weight", result["loaded"])
+            self.assertIn("actor.trunk.0.bias", result["loaded"])
+            self.assertIn("actor.log_std", result["loaded"])
 
     def test_no_matching_keys(self) -> None:
         """A v1 checkpoint with no mapped keys should return empty loaded list."""
@@ -359,24 +403,17 @@ class TestLoadV1Weights(unittest.TestCase):
         """strict=True should raise ValueError on shape mismatch."""
         from models.mappo_policy import MAPPOPolicy
 
-        n_total = 2
-        obs_dim = 6 + 5 * (n_total - 1) + 1
+        obs_dim = 12
         policy = MAPPOPolicy(obs_dim=obs_dim, action_dim=3, state_dim=13, n_agents=1)
 
-        # Get actual MAPPO actor key to generate a matching (but wrong-shape) tensor
         mappo_state = policy.state_dict()
-        # Find the first actor.trunk key
-        actor_key = next(
-            (k for k in mappo_state if k.startswith("actor.trunk.")), None
-        )
-        if actor_key is None:
-            self.skipTest("No actor.trunk key found in policy state dict")
+        actual_shape = mappo_state["actor.trunk.0.weight"].shape  # (128, 12)
+        wrong_shape = (actual_shape[0] + 1, actual_shape[1] + 1)
 
-        # Build fake v1 key (mlp_extractor. prefix)
-        v1_key = "mlp_extractor." + actor_key[len("actor.trunk."):]
-        actual_shape = mappo_state[actor_key].shape
-        wrong_shape = (actual_shape[0] + 1,) + actual_shape[1:]
-        fake_v1_state = {v1_key: torch.zeros(*wrong_shape)}
+        # mlp_extractor.policy_net.0.weight maps positionally → actor.trunk.0.weight
+        fake_v1_state = {
+            "mlp_extractor.policy_net.0.weight": torch.zeros(*wrong_shape),
+        }
 
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = self._make_mock_v1_zip(Path(tmp), fake_v1_state)
@@ -405,9 +442,8 @@ class TestMAPPOTrainerWinTracking(unittest.TestCase):
         policy = MAPPOPolicy(obs_dim=obs_dim, action_dim=3, state_dim=state_dim, n_agents=1)
         trainer = MAPPOTrainer(policy=policy, env=env, n_steps=20, seed=0)
         trainer.collect_rollout()
-        # After at least one episode, win history should be populated
-        # (at least one episode must have completed within 20 steps)
-        self.assertGreaterEqual(len(trainer._ep_win_history), 0)  # at least tracked
+        # With max_steps=10 and n_steps=20, at least one full episode must complete.
+        self.assertGreater(len(trainer._ep_win_history), 0)
         env.close()
 
     def test_curriculum_env_swap(self) -> None:
