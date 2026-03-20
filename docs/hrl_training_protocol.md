@@ -40,7 +40,7 @@ corresponding config files under
 | **Config**         | `configs/hrl/phase1_battalion.yaml`                |
 | **Checkpoint**     | `checkpoints/hrl/phase1_battalion/mappo_policy_final.pt` |
 | **Win-rate crit.** | ≥ 0.70 over 50 episodes                           |
-| **Elo criterion**  | ≥ 800 (scripted\_l3 level)                        |
+| **Elo criterion**  | ≥ 1100 (above default Elo of 1000)                |
 
 ### What is trained
 
@@ -59,7 +59,7 @@ Once **both** criteria are met simultaneously:
    ```python
    from training.utils.freeze_policy import freeze_mappo_policy, assert_frozen
    freeze_mappo_policy(policy)
-   assert_frozen(policy)   # raises AssertionError if any param has requires_grad=True
+   assert_frozen(policy)   # raises RuntimeError if any param has requires_grad=True
    ```
 3. The frozen policy is passed to `BrigadeEnv` as `battalion_policy`.
 
@@ -81,7 +81,7 @@ assert_frozen(frozen_battalion_policy)  # must not raise
 | **Config**         | `configs/hrl/phase2_brigade.yaml`                  |
 | **Checkpoint**     | `checkpoints/hrl/phase2_brigade/ppo_brigade_final.zip` |
 | **Win-rate crit.** | ≥ 0.65 over 30 episodes                           |
-| **Elo criterion**  | ≥ 800 (scripted\_l3 level)                        |
+| **Elo criterion**  | ≥ 1100 (above default Elo of 1000)                |
 
 ### What is trained
 
@@ -122,7 +122,7 @@ Once **both** criteria are met simultaneously:
 | **Config**         | `configs/hrl/phase3_division.yaml`                   |
 | **Checkpoint**     | `checkpoints/hrl/phase3_division/ppo_division_final.zip` |
 | **Win-rate crit.** | ≥ 0.60 over 20 episodes                             |
-| **Elo criterion**  | ≥ 800 (scripted\_l3 level)                          |
+| **Elo criterion**  | ≥ 1100 (above default Elo of 1000)                  |
 
 ### What is trained
 
@@ -152,7 +152,7 @@ from training.elo import EloRegistry
 scheduler = HRLCurriculumScheduler(
     win_rate_threshold=0.70,   # Phase 1 default
     win_rate_window=50,
-    elo_threshold=800.0,
+    elo_threshold=1100.0,
 )
 elo_registry = EloRegistry(path=None)  # in-memory for testing
 
@@ -175,13 +175,13 @@ The `should_promote()` method enforces:
 ## Freezing Utilities
 
 [`training/utils/freeze_policy.py`](../training/utils/freeze_policy.py)
-exposes four public functions:
+exposes five public functions:
 
 | Function                  | Purpose                                                        |
 |---------------------------|----------------------------------------------------------------|
 | `freeze_mappo_policy(m)`  | Set `requires_grad=False` + `eval()` on a `torch.nn.Module`   |
 | `freeze_sb3_policy(ppo)`  | Freeze `.policy` of an SB3 PPO model                          |
-| `assert_frozen(m)`        | Raise `AssertionError` if any parameter has `requires_grad=True` |
+| `assert_frozen(m)`        | Raise `RuntimeError` if any parameter has `requires_grad=True` |
 | `load_and_freeze_mappo(…)`| Load a MAPPO `.pt` checkpoint and return a frozen policy       |
 | `load_and_freeze_sb3(…)`  | Load an SB3 `.zip` checkpoint and return a frozen PPO model    |
 
@@ -268,6 +268,6 @@ python -m pytest tests/test_hrl_curriculum.py -v
 | `configs/hrl/phase1_battalion.yaml`           | Phase 1 hyperparameters + promotion config|
 | `configs/hrl/phase2_brigade.yaml`             | Phase 2 hyperparameters + promotion config|
 | `configs/hrl/phase3_division.yaml`            | Phase 3 hyperparameters + promotion config|
-| `tests/test_hrl_curriculum.py`                | Integration test (3-phase, 10k steps/phase)|
+| `tests/test_hrl_curriculum.py`                | Integration test (3-phase, ~512 steps/phase)|
 | `docs/hrl_training_protocol.md`               | This document                             |
 | `docs/hrl_architecture.md`                    | Brigade/Division architecture details      |

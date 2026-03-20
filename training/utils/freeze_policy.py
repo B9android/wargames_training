@@ -136,14 +136,15 @@ def assert_frozen(module: nn.Module) -> None:
 
     Raises
     ------
-    AssertionError
+    RuntimeError
         If any parameter has ``requires_grad=True``.
     """
     trainable = sum(p.numel() for p in module.parameters() if p.requires_grad)
-    assert trainable == 0, (
-        f"Expected 0 trainable parameters in {type(module).__name__}, "
-        f"got {trainable}."
-    )
+    if trainable != 0:
+        raise RuntimeError(
+            f"Expected 0 trainable parameters in {type(module).__name__}, "
+            f"got {trainable}."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +189,7 @@ def load_and_freeze_mappo(
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"MAPPO checkpoint not found: {checkpoint_path}")
 
-    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     policy = MAPPOPolicy(
         obs_dim=obs_dim,
         action_dim=action_dim,

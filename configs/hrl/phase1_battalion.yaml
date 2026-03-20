@@ -3,9 +3,9 @@
 #
 # Train battalion-level MAPPO agents in a 2v2 scenario.
 # Promotion criterion: rolling win-rate >= 0.70 over 50 episodes
-# AND Elo rating >= 800 (scripted_l3 level).
+# AND Elo rating >= 1100 (above DEFAULT_RATING=1000).
 #
-# On promotion: save checkpoint to checkpoints/mappo_2v2/mappo_policy_final.pt
+# On promotion: save checkpoint to checkpoints/hrl/phase1_battalion/mappo_policy_final.pt
 # and freeze all parameters before advancing to Phase 2.
 #
 # Override any value via Hydra CLI, e.g.:
@@ -20,7 +20,7 @@ description: "Phase 1 — Train battalion MAPPO agents (2v2). Freeze and promote
 promotion:
   win_rate_threshold: 0.70          # rolling win rate to trigger promotion
   win_rate_window: 50               # episodes in the rolling window
-  elo_threshold: 800.0              # minimum Elo rating (scripted_l3 level)
+  elo_threshold: 1100.0             # above DEFAULT_RATING=1000; ensures meaningful Elo progress
   elo_opponent: "scripted_l3"       # baseline opponent for Elo evaluation
   min_episodes: 50                  # minimum episodes before promotion check
 

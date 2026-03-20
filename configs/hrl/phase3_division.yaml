@@ -3,7 +3,7 @@
 #
 # Train division-level PPO agent with frozen brigade policies from Phase 2.
 # Promotion criterion: rolling win-rate >= 0.60 over 20 episodes
-# AND Elo rating >= 800 (scripted_l3 level).
+# AND Elo rating >= 1100 (above DEFAULT_RATING=1000).
 #
 # Pre-requisite: Phase 2 must be complete and a brigade checkpoint available
 # at the path specified by env.brigade_checkpoint.
@@ -23,7 +23,7 @@ description: "Phase 3 — Train division PPO with frozen brigade policies from P
 promotion:
   win_rate_threshold: 0.60          # rolling win rate for curriculum completion
   win_rate_window: 20               # episodes in the rolling window
-  elo_threshold: 800.0              # minimum Elo rating
+  elo_threshold: 1100.0             # above DEFAULT_RATING=1000; ensures meaningful Elo progress
   elo_opponent: "scripted_l3"       # baseline opponent for Elo evaluation
   min_episodes: 20                  # minimum episodes before completion check
 

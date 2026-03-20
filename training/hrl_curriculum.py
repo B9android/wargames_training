@@ -15,8 +15,11 @@ Each phase has **dual promotion criteria**:
    :class:`~training.elo.EloRegistry`) must reach ``elo_threshold`` when
    evaluated against ``elo_opponent``.
 
-Both criteria must be satisfied simultaneously to promote.  When no Elo
-registry is provided the Elo criterion is skipped (win rate only).
+Both criteria must be satisfied simultaneously to promote when they are
+enabled. The Elo criterion is only applied when ``elo_threshold`` is not
+``None``; to disable Elo-based promotion entirely (e.g. when no Elo registry
+is available or Elo is not being tracked), set ``elo_threshold=None`` so that
+promotion depends solely on the win-rate criterion.
 
 Typical usage::
 
@@ -45,8 +48,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from enum import IntEnum
-from pathlib import Path
-from typing import Deque, Optional, Union
+from typing import Deque, Optional
 
 log = logging.getLogger(__name__)
 
