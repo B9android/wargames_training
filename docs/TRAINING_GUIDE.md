@@ -135,6 +135,10 @@ per line — that records every periodic, final, and best checkpoint with its st
 curriculum level, W&B run ID, and a stable config hash.  It is used by the resume resolution
 logic (see [Resuming a Run](#resuming-a-run) below) and by the UI artifact browser.
 
+Periodic checkpoints are registered in the manifest when the checkpoint callback writes them,
+and best-model entries are appended when evaluation produces a new best checkpoint.  The final
+checkpoint and any legacy aliases are registered during end-of-run finalization.
+
 ### Resume from checkpoint
 
 | Key | Default | Description |
@@ -294,6 +298,8 @@ python training/train.py resume.checkpoint=checkpoints/ppo_battalion_s42_c5_2000
 
 A warning is logged if the recorded config hash for the checkpoint differs from the current
 run's config hash — meaning hyperparameters may have changed since the checkpoint was saved.
+Warnings are also emitted when the manifest metadata shows a different training seed or
+curriculum level than the current run configuration.
 
 ---
 

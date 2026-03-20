@@ -79,6 +79,12 @@ self_play:
   n_eval_episodes: 20                # Episodes per win-rate evaluation
   use_latest_for_eval: false         # false = sample uniformly; true = always use latest
 
+# ── Retention / pruning policy ───────────────────────────────────────────
+retention:
+  keep_periodic: 5                   # keep N most-recent periodic checkpoints (0 = keep all)
+  keep_self_play_snapshots: 10       # keep N most-recent self-play snapshots  (0 = keep all)
+  prune_on_run_end: true             # run pruning once at normal end-of-run
+
 # ── Logging ───────────────────────────────────────────────────────────────
 logging:
   level: "INFO"

@@ -411,6 +411,55 @@ class TestSelfPlayCallback(unittest.TestCase):
             self.assertEqual(pool.size, 1)
             env.close()
 
+    def test_snapshot_registered_in_manifest(self) -> None:
+        """Snapshot should be indexed in the manifest immediately when written."""
+        from training.artifacts import CheckpointManifest
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = _make_env()
+            model = _make_dummy_model(env)
+            pool = OpponentPool(tmpdir, max_size=5)
+            manifest = CheckpointManifest(Path(tmpdir) / "manifest.jsonl")
+
+            cb = SelfPlayCallback(
+                pool=pool,
+                snapshot_freq=100,
+                vec_env=None,
+                manifest=manifest,
+                seed=7,
+                curriculum_level=3,
+                run_id="run-sp",
+                config_hash="hash-sp",
+            )
+            cb.model = model
+            cb.num_timesteps = 100
+            cb.locals = {}
+            cb._take_snapshot_and_update()
+
+            rows = manifest._read_rows()
+            self.assertEqual(len(rows), 1)
+            row = rows[0]
+            self.assertEqual(row["type"], "self_play_snapshot")
+            self.assertEqual(row["seed"], 7)
+            self.assertEqual(row["curriculum_level"], 3)
+            self.assertEqual(row["step"], 100)
+            self.assertEqual(row["run_id"], "run-sp")
+            env.close()
+
+    def test_snapshot_no_manifest_still_works(self) -> None:
+        """SelfPlayCallback with no manifest should behave identically to before."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = _make_env()
+            model = _make_dummy_model(env)
+            pool = OpponentPool(tmpdir, max_size=5)
+            cb = SelfPlayCallback(pool=pool, snapshot_freq=50, vec_env=None)
+            cb.model = model
+            cb.num_timesteps = 50
+            cb.locals = {}
+            cb._take_snapshot_and_update()
+            self.assertEqual(pool.size, 1)
+            env.close()
+
 
 # ---------------------------------------------------------------------------
 # WinRateVsPoolCallback

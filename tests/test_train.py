@@ -324,6 +324,116 @@ class TestRewardBreakdownCallback(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# training/train.py — manifest-aware callbacks
+# ---------------------------------------------------------------------------
+
+
+class TestManifestCallbacks(unittest.TestCase):
+    """Unit tests for manifest-aware checkpoint registration callbacks."""
+
+    def test_periodic_checkpoint_registered_when_created(self) -> None:
+        import tempfile
+
+        from training import train as train_mod
+        from training.artifacts import CheckpointManifest
+        from training.train import ManifestCheckpointCallback
+
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = CheckpointManifest(Path(tmp) / "manifest.jsonl")
+            callback = ManifestCheckpointCallback(
+                save_freq=1,
+                save_path=tmp,
+                name_prefix="ppo_battalion_s1_c5",
+                manifest=manifest,
+                seed=1,
+                curriculum_level=5,
+                run_id="run-1",
+                config_hash="hash-1",
+            )
+
+            def _fake_checkpoint_step(self):
+                target = Path(self._checkpoint_path(extension="zip"))
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("checkpoint", encoding="utf-8")
+                return True
+
+            callback.model = MagicMock()
+            callback.n_calls = 1
+            callback.num_timesteps = 100
+
+            with patch.object(
+                train_mod.CheckpointCallback,
+                "_on_step",
+                autospec=True,
+                side_effect=_fake_checkpoint_step,
+            ):
+                callback._on_step()
+
+            row = manifest.latest_entry_for_path(Path(tmp) / "ppo_battalion_s1_c5_100_steps.zip")
+            self.assertIsNotNone(row)
+            self.assertEqual(row["type"], "periodic")
+            self.assertEqual(row["step"], 100)
+
+    def test_best_checkpoint_registered_when_created(self) -> None:
+        import tempfile
+
+        from training import train as train_mod
+        from training.artifacts import CheckpointManifest
+        from training.train import ManifestEvalCallback
+        from envs.battalion_env import BattalionEnv
+
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = CheckpointManifest(Path(tmp) / "manifest.jsonl")
+            eval_env = BattalionEnv(randomize_terrain=False)
+            try:
+                callback = ManifestEvalCallback(
+                    eval_env,
+                    eval_freq=1,
+                    n_eval_episodes=1,
+                    best_model_save_path=tmp,
+                    log_path=tmp,
+                    deterministic=True,
+                    manifest=manifest,
+                    seed=3,
+                    curriculum_level=4,
+                    run_id="run-3",
+                    config_hash="hash-3",
+                    enable_naming_v2=True,
+                )
+
+                def _fake_eval_step(self):
+                    target = Path(self.best_model_save_path) / "best_model.zip"
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("best", encoding="utf-8")
+                    self.best_mean_reward = 1.5
+                    return True
+
+                callback.model = MagicMock()
+                callback.n_calls = 1
+                callback.num_timesteps = 250
+                callback.best_mean_reward = float("-inf")
+
+                with patch.object(
+                    train_mod.EvalCallback,
+                    "_on_step",
+                    autospec=True,
+                    side_effect=_fake_eval_step,
+                ):
+                    callback._on_step()
+
+                alias_row = manifest.latest_entry_for_path(Path(tmp) / "best_model.zip")
+                canonical_path = Path(tmp) / "ppo_battalion_s3_c4_best.zip"
+                canonical_row = manifest.latest_entry_for_path(canonical_path)
+                self.assertIsNotNone(alias_row)
+                self.assertIsNotNone(canonical_row)
+                self.assertEqual(alias_row["step"], 250)
+                self.assertEqual(canonical_row["type"], "best")
+                self.assertTrue(canonical_path.exists())
+            finally:
+                eval_env.close()
+
+
+# ---------------------------------------------------------------------------
 # training/train.py — short integration run (no W&B, no Hydra)
 # ---------------------------------------------------------------------------
 
@@ -477,8 +587,8 @@ class TestTrainWandbInit(unittest.TestCase):
                 patch.object(train_mod, "make_vec_env", return_value=fake_env),
                 patch.object(train_mod, "PPO", return_value=fake_model),
                 patch.object(train_mod, "CallbackList"),
-                patch.object(train_mod, "EvalCallback"),
-                patch.object(train_mod, "CheckpointCallback"),
+                patch.object(train_mod, "ManifestEvalCallback"),
+                patch.object(train_mod, "ManifestCheckpointCallback"),
             ):
                 mock_wandb.init.return_value = MagicMock(url="https://wandb.ai/test")
                 mock_wandb.Artifact = MagicMock()

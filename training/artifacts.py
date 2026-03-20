@@ -70,6 +70,44 @@ class CheckpointManifest:
         """Return all path strings already present in the manifest."""
         return {str(row.get("path", "")) for row in self._read_rows()}
 
+    def has_entry(
+        self,
+        artifact_path: Path | str,
+        *,
+        artifact_type: str,
+        step: Optional[int],
+    ) -> bool:
+        """Return whether an identical artifact event is already present."""
+        path_value = str(artifact_path)
+        for row in self._read_rows():
+            if str(row.get("path", "")) != path_value:
+                continue
+            if str(row.get("type", "")) != str(artifact_type):
+                continue
+            row_step = row.get("step")
+            if row_step == step:
+                return True
+        return False
+
+    def latest_entry_for_path(self, artifact_path: Path | str) -> Optional[dict]:
+        """Return the latest manifest row for a given path, if any."""
+        path_value = str(artifact_path)
+        matches = [
+            row for row in self._read_rows() if str(row.get("path", "")) == path_value
+        ]
+        if not matches:
+            return None
+
+        def _sort_key(row: dict) -> tuple[int, int]:
+            step = row.get("step")
+            timestamp = row.get("timestamp")
+            return (
+                int(step) if isinstance(step, int) else -1,
+                int(timestamp) if isinstance(timestamp, int) else -1,
+            )
+
+        return max(matches, key=_sort_key)
+
     def append(self, row: dict) -> None:
         """Append a single JSON object row to manifest storage."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,7 +127,7 @@ class CheckpointManifest:
     ) -> bool:
         """Register one artifact path if it is not already indexed."""
         path_value = str(artifact_path)
-        if path_value in self.known_paths():
+        if self.has_entry(path_value, artifact_type=artifact_type, step=step):
             return False
         self.append(
             {
@@ -104,6 +142,93 @@ class CheckpointManifest:
             }
         )
         return True
+
+    def prune_periodic(
+        self,
+        checkpoint_dir: Path,
+        prefix: str,
+        keep_last: int,
+    ) -> list[Path]:
+        """Delete old periodic checkpoints on disk, keeping the *keep_last* newest.
+
+        Only files that are both present in the manifest *and* exist on disk are
+        considered.  The ``keep_last`` most recently registered rows (by step,
+        then timestamp) are retained; all older ones are deleted.
+
+        Returns the list of paths that were deleted.
+        """
+        rows = self._read_rows()
+        # Collect unique (step, path) pairs for the given prefix & type.
+        candidates: list[tuple[int, Path]] = []
+        seen: set[str] = set()
+        for row in rows:
+            if row.get("type") != "periodic":
+                continue
+            path_str = str(row.get("path", ""))
+            if not path_str or path_str in seen:
+                continue
+            candidate = Path(path_str)
+            if not candidate.is_absolute():
+                candidate = checkpoint_dir / candidate
+            if not candidate.name.startswith(prefix + "_"):
+                continue
+            if not candidate.exists():
+                continue
+            step_value = row.get("step")
+            sort_step = int(step_value) if isinstance(step_value, int) else -1
+            candidates.append((sort_step, candidate))
+            seen.add(path_str)
+
+        # Sort descending — highest step first.
+        candidates.sort(key=lambda t: t[0], reverse=True)
+        to_delete = candidates[keep_last:]
+        deleted: list[Path] = []
+        for _, p in to_delete:
+            try:
+                p.unlink(missing_ok=True)
+                deleted.append(p)
+            except OSError:
+                pass
+        return deleted
+
+    def prune_self_play_snapshots(
+        self,
+        pool_dir: Path,
+        keep_last: int,
+    ) -> list[Path]:
+        """Delete old self-play snapshots on disk, keeping the *keep_last* newest.
+
+        Returns the list of paths that were deleted.
+        """
+        rows = self._read_rows()
+        candidates: list[tuple[int, Path]] = []
+        seen: set[str] = set()
+        for row in rows:
+            if row.get("type") != "self_play_snapshot":
+                continue
+            path_str = str(row.get("path", ""))
+            if not path_str or path_str in seen:
+                continue
+            candidate = Path(path_str)
+            if not candidate.is_absolute():
+                candidate = pool_dir / candidate
+            if not candidate.exists():
+                continue
+            step_value = row.get("step")
+            sort_step = int(step_value) if isinstance(step_value, int) else -1
+            candidates.append((sort_step, candidate))
+            seen.add(path_str)
+
+        candidates.sort(key=lambda t: t[0], reverse=True)
+        to_delete = candidates[keep_last:]
+        deleted: list[Path] = []
+        for _, p in to_delete:
+            try:
+                p.unlink(missing_ok=True)
+                deleted.append(p)
+            except OSError:
+                pass
+        return deleted
 
     def latest_periodic(self, checkpoint_dir: Path, prefix: str) -> Optional[Path]:
         """Return latest periodic checkpoint from manifest, if available."""

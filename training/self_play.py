@@ -44,6 +44,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import VecEnv
 
 from envs.battalion_env import BattalionEnv, DESTROYED_THRESHOLD
+from training.artifacts import CheckpointManifest
 
 log = logging.getLogger(__name__)
 
@@ -254,6 +255,11 @@ class SelfPlayCallback(BaseCallback):
         snapshot_freq: int = 50_000,
         vec_env: Optional[VecEnv] = None,
         verbose: int = 0,
+        manifest: Optional[CheckpointManifest] = None,
+        seed: int = 0,
+        curriculum_level: int = 5,
+        run_id: Optional[str] = None,
+        config_hash: str = "",
     ) -> None:
         super().__init__(verbose)
         if int(snapshot_freq) < 1:
@@ -264,6 +270,12 @@ class SelfPlayCallback(BaseCallback):
         # Initialize version counter from any snapshots already in the pool so
         # that a training restart doesn't overwrite existing snapshot files.
         self._version: int = _max_version_in_pool(pool)
+        # Provenance manifest — optional; when set, every snapshot is indexed.
+        self._sp_manifest = manifest
+        self._sp_seed = int(seed)
+        self._sp_curriculum_level = int(curriculum_level)
+        self._sp_run_id = run_id
+        self._sp_config_hash = str(config_hash)
 
     def _on_step(self) -> bool:
         if self.num_timesteps % self.snapshot_freq == 0 and self.num_timesteps > 0:
@@ -273,7 +285,18 @@ class SelfPlayCallback(BaseCallback):
     def _take_snapshot_and_update(self) -> None:
         """Save current model to pool and refresh all Red opponents."""
         self._version += 1
-        self.pool.add(self.model, self._version)
+        snapshot_path = self.pool.add(self.model, self._version)
+
+        if self._sp_manifest is not None:
+            self._sp_manifest.register(
+                snapshot_path,
+                artifact_type="self_play_snapshot",
+                seed=self._sp_seed,
+                curriculum_level=self._sp_curriculum_level,
+                run_id=self._sp_run_id,
+                config_hash=self._sp_config_hash,
+                step=int(self.num_timesteps),
+            )
 
         opponent = self.pool.sample()
         if opponent is None:

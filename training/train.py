@@ -94,7 +94,13 @@ def _resolve_resume_checkpoint(
             p = _PROJECT_ROOT / p
         if not p.exists():
             raise FileNotFoundError(f"resume.checkpoint not found: {p}")
-        _warn_hash_mismatch(p, current_hash, manifest)
+        _warn_hash_mismatch(
+            p,
+            current_hash,
+            manifest,
+            expected_seed=OmegaConf.select(cfg, "training.seed", default=None),
+            expected_curriculum_level=OmegaConf.select(cfg, "env.curriculum_level", default=None),
+        )
         return p
 
     auto = bool(OmegaConf.select(cfg, "resume.auto", default=False))
@@ -105,7 +111,13 @@ def _resolve_resume_checkpoint(
     if manifest is not None:
         candidate = manifest.latest_periodic(checkpoint_dir, periodic_prefix)
         if candidate is not None:
-            _warn_hash_mismatch(candidate, current_hash, manifest)
+            _warn_hash_mismatch(
+                candidate,
+                current_hash,
+                manifest,
+                expected_seed=OmegaConf.select(cfg, "training.seed", default=None),
+                expected_curriculum_level=OmegaConf.select(cfg, "env.curriculum_level", default=None),
+            )
             return candidate
 
     # 3. Filesystem fallback.
@@ -129,23 +141,154 @@ def _warn_hash_mismatch(
     checkpoint_path: Path,
     current_hash: str,
     manifest: Optional["CheckpointManifest"],
+    *,
+    expected_seed: Optional[int] = None,
+    expected_curriculum_level: Optional[int] = None,
 ) -> None:
-    """Emit a warning if the manifest records a different config hash for this checkpoint."""
+    """Emit warnings when manifest metadata does not match the current run."""
     if manifest is None:
         return
-    path_str = str(checkpoint_path)
-    for row in manifest._read_rows():  # noqa: SLF001
-        if str(row.get("path", "")) == path_str:
-            recorded = row.get("config_hash", "")
-            if recorded and recorded != current_hash:
-                log.warning(
-                    "Config hash mismatch for checkpoint %s: recorded=%s current=%s. "
-                    "Hyperparameters may differ from original run.",
-                    checkpoint_path.name,
-                    recorded[:12],
-                    current_hash[:12],
-                )
-            break
+    row = manifest.latest_entry_for_path(checkpoint_path)
+    if row is None:
+        return
+
+    recorded = str(row.get("config_hash", "") or "")
+    if recorded and recorded != current_hash:
+        log.warning(
+            "Config hash mismatch for checkpoint %s: recorded=%s current=%s. "
+            "Hyperparameters may differ from original run.",
+            checkpoint_path.name,
+            recorded[:12],
+            current_hash[:12],
+        )
+
+    if expected_seed is not None and row.get("seed") != expected_seed:
+        log.warning(
+            "Seed mismatch for checkpoint %s: recorded=%s current=%s. "
+            "Resume may continue from a different run lineage.",
+            checkpoint_path.name,
+            row.get("seed"),
+            expected_seed,
+        )
+
+    if (
+        expected_curriculum_level is not None
+        and row.get("curriculum_level") != expected_curriculum_level
+    ):
+        log.warning(
+            "Curriculum mismatch for checkpoint %s: recorded=%s current=%s. "
+            "Opponent difficulty may differ from the original run.",
+            checkpoint_path.name,
+            row.get("curriculum_level"),
+            expected_curriculum_level,
+        )
+
+
+class ManifestCheckpointCallback(CheckpointCallback):
+    """Checkpoint callback that appends periodic saves to the manifest immediately."""
+
+    def __init__(
+        self,
+        *,
+        manifest: Optional[CheckpointManifest],
+        seed: int,
+        curriculum_level: int,
+        run_id: Optional[str],
+        config_hash: str,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._manifest = manifest
+        self._seed = int(seed)
+        self._curriculum_level = int(curriculum_level)
+        self._run_id = run_id
+        self._config_hash = str(config_hash)
+
+    def _on_step(self) -> bool:
+        result = super()._on_step()
+        if self._manifest is None:
+            return result
+        if self.n_calls % self.save_freq != 0:
+            return result
+
+        checkpoint_path = Path(self._checkpoint_path(extension="zip"))
+        if checkpoint_path.exists():
+            self._manifest.register(
+                checkpoint_path,
+                artifact_type="periodic",
+                seed=self._seed,
+                curriculum_level=self._curriculum_level,
+                run_id=self._run_id,
+                config_hash=self._config_hash,
+                step=parse_step_from_checkpoint_name(checkpoint_path),
+            )
+        return result
+
+
+class ManifestEvalCallback(EvalCallback):
+    """Eval callback that materializes best-model metadata at creation time."""
+
+    def __init__(
+        self,
+        eval_env,
+        *,
+        manifest: Optional[CheckpointManifest],
+        seed: int,
+        curriculum_level: int,
+        run_id: Optional[str],
+        config_hash: str,
+        enable_naming_v2: bool,
+        **kwargs,
+    ) -> None:
+        super().__init__(eval_env, **kwargs)
+        self._manifest = manifest
+        self._seed = int(seed)
+        self._curriculum_level = int(curriculum_level)
+        self._run_id = run_id
+        self._config_hash = str(config_hash)
+        self._enable_naming_v2 = bool(enable_naming_v2)
+
+    def _on_step(self) -> bool:
+        best_before = self.best_mean_reward
+        result = super()._on_step()
+        if self._manifest is None:
+            return result
+        if self.best_mean_reward <= best_before:
+            return result
+
+        best_alias_zip = Path(self.best_model_save_path) / "best_model.zip"
+        if not best_alias_zip.exists():
+            return result
+
+        self._manifest.register(
+            best_alias_zip,
+            artifact_type="best_alias",
+            seed=self._seed,
+            curriculum_level=self._curriculum_level,
+            run_id=self._run_id,
+            config_hash=self._config_hash,
+            step=int(self.num_timesteps),
+        )
+
+        best_canonical_zip = Path(self.best_model_save_path) / checkpoint_best_filename(
+            seed=self._seed,
+            curriculum_level=self._curriculum_level,
+            enable_v2=self._enable_naming_v2,
+        )
+        if best_canonical_zip != best_alias_zip:
+            best_canonical_zip.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(best_alias_zip, best_canonical_zip)
+        if best_canonical_zip.exists():
+            self._manifest.register(
+                best_canonical_zip,
+                artifact_type="best",
+                seed=self._seed,
+                curriculum_level=self._curriculum_level,
+                run_id=self._run_id,
+                config_hash=self._config_hash,
+                step=int(self.num_timesteps),
+            )
+        return result
 
 # ---------------------------------------------------------------------------
 # W&B callback
@@ -440,6 +583,7 @@ def main(cfg: DictConfig) -> None:
         reinit=True,
     )
     log.info("W&B run: %s", run.url if run else "offline")
+    run_id = run.id if run is not None and hasattr(run, "id") and run.id else None
 
     # ------------------------------------------------------------------
     # Environments
@@ -504,20 +648,31 @@ def main(cfg: DictConfig) -> None:
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
-    checkpoint_cb = CheckpointCallback(
+    checkpoint_cb = ManifestCheckpointCallback(
         save_freq=max(1, cfg.eval.checkpoint_freq // cfg.env.num_envs),
         save_path=str(checkpoint_dir),
         name_prefix=periodic_prefix,
+        manifest=manifest,
+        seed=seed,
+        curriculum_level=curriculum_level,
+        run_id=run_id,
+        config_hash=config_hash,
         verbose=1,
     )
 
-    eval_cb = EvalCallback(
+    eval_cb = ManifestEvalCallback(
         eval_env,
         best_model_save_path=str(checkpoint_dir / "best"),
         log_path=str(log_dir),
         eval_freq=max(1, cfg.eval.eval_freq // cfg.env.num_envs),
         n_eval_episodes=cfg.eval.n_eval_episodes,
         deterministic=True,
+        manifest=manifest,
+        seed=seed,
+        curriculum_level=curriculum_level,
+        run_id=run_id,
+        config_hash=config_hash,
+        enable_naming_v2=enable_naming_v2,
         verbose=1,
     )
 
@@ -542,6 +697,11 @@ def main(cfg: DictConfig) -> None:
             snapshot_freq=sp_snapshot_freq,
             vec_env=vec_env,
             verbose=1,
+            manifest=manifest,
+            seed=seed,
+            curriculum_level=curriculum_level,
+            run_id=run_id,
+            config_hash=config_hash,
         )
         win_rate_cb = WinRateVsPoolCallback(
             pool=pool,
@@ -574,17 +734,13 @@ def main(cfg: DictConfig) -> None:
         elo_n_eval = int(
             OmegaConf.select(cfg, "eval.elo_n_eval_episodes", default=cfg.eval.n_eval_episodes)
         )
-        run_id = (
-            run.id
-            if run is not None and hasattr(run, "id") and run.id
-            else f"run_seed{seed}_{os.getpid()}"
-        )
+        elo_run_id = run_id or f"run_seed{seed}_{os.getpid()}"
         elo_registry = EloRegistry(path=elo_registry_path)
         elo_cb = EloEvalCallback(
             opponents=list(elo_opponents),
             n_eval_episodes=elo_n_eval,
             registry=elo_registry,
-            agent_name=run_id,
+            agent_name=elo_run_id,
             eval_freq=elo_eval_freq,
             env_kwargs=dict(env_kwargs),
             seed=seed,
@@ -678,7 +834,6 @@ def main(cfg: DictConfig) -> None:
         best_canonical_zip.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(best_alias_zip, best_canonical_zip)
 
-    run_id = run.id if run is not None and hasattr(run, "id") and run.id else None
     if manifest is not None:
         for periodic_zip in checkpoint_dir.glob(f"{periodic_prefix}_*_steps.zip"):
             manifest.register(
@@ -723,7 +878,7 @@ def main(cfg: DictConfig) -> None:
                 curriculum_level=curriculum_level,
                 run_id=run_id,
                 config_hash=config_hash,
-                step=None,
+                step=int(getattr(model, "num_timesteps", 0) or 0),
             )
         if best_canonical_zip.exists():
             manifest.register(
@@ -733,8 +888,31 @@ def main(cfg: DictConfig) -> None:
                 curriculum_level=curriculum_level,
                 run_id=run_id,
                 config_hash=config_hash,
-                step=None,
+                step=int(getattr(model, "num_timesteps", 0) or 0),
             )
+
+    # ── Retention / pruning ──────────────────────────────────────────────
+    retention_cfg = cfg.get("retention", {})
+    if retention_cfg.get("prune_on_run_end", True) and write_manifest:
+        keep_periodic = int(retention_cfg.get("keep_periodic", 5))
+        keep_snapshots = int(retention_cfg.get("keep_self_play_snapshots", 10))
+        prefix = checkpoint_name_prefix(
+            seed=seed,
+            curriculum_level=curriculum_level,
+            enable_v2=enable_naming_v2,
+        )
+        if keep_periodic > 0:
+            pruned = manifest.prune_periodic(checkpoint_dir, prefix, keep_last=keep_periodic)
+            if pruned:
+                log.info("Pruned %d old periodic checkpoint(s)", len(pruned))
+        sp_cfg = cfg.get("self_play", {})
+        if sp_cfg.get("enabled", False) and keep_snapshots > 0:
+            pool_dir = Path(sp_cfg.get("pool_dir", "checkpoints/pool"))
+            pruned_sp = manifest.prune_self_play_snapshots(
+                pool_dir, keep_last=keep_snapshots
+            )
+            if pruned_sp:
+                log.info("Pruned %d old self-play snapshot(s)", len(pruned_sp))
 
     if run is not None:
         artifact = wandb.Artifact(name="ppo_battalion_final", type="model")
