@@ -94,11 +94,10 @@ Flanking options cap at 15 steps.
 
 ## Option Dispatcher
 
-`BrigadeEnv._dispatch_option(battalion_idx, option_idx)` returns the `Option`
-object from the vocabulary.  The inner option execution loop in
-`BrigadeEnv.step()`:
+Option selection and dispatch are implemented inline inside `BrigadeEnv.step()`.
+At each brigade-level macro-step, `step(...)`:
 
-1. Selects one `Option` per alive Blue battalion.
+1. Maps the brigade action for each alive Blue battalion (an option index) to an `Option` object from the vocabulary.
 2. Runs the inner `MultiBattalionEnv` step-by-step until **all** selected
    options have terminated (condition fired, hard cap, or env episode ends).
 3. Aggregates rewards across primitive steps.

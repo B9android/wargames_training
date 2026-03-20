@@ -27,7 +27,6 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import (
@@ -35,8 +34,7 @@ from stable_baselines3.common.callbacks import (
     CallbackList,
     CheckpointCallback,
 )
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import VecEnvWrapper, DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(_PROJECT_ROOT) not in sys.path:
@@ -179,21 +177,16 @@ class BrigadeWinRateCallback(BaseCallback):
         for _ in range(self._n_eval_episodes):
             obs, _ = self._eval_env.reset()
             done = False
+            last_info: dict = {}
             while not done:
                 action, _ = model.predict(obs, deterministic=True)
-                obs, _reward, terminated, truncated, _info = self._eval_env.step(action)
+                obs, _reward, terminated, truncated, info = self._eval_env.step(action)
                 done = terminated or truncated
-            # Check win condition: blue alive, no red alive
-            inner = self._eval_env._inner
-            blue_alive = any(
-                a in inner.agents for a in inner.possible_agents
-                if a.startswith("blue_")
-            )
-            red_alive = any(
-                a in inner.agents for a in inner.possible_agents
-                if a.startswith("red_")
-            )
-            if blue_alive and not red_alive:
+                if done:
+                    last_info = info
+            # Use the winner signal set by BrigadeEnv when the episode ends
+            winner = last_info.get("winner")
+            if winner == "blue":
                 wins += 1
         return wins / self._n_eval_episodes
 

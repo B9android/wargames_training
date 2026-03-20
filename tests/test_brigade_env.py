@@ -16,7 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from gymnasium import spaces
 
 from envs.brigade_env import BrigadeEnv, BRIGADE_OBS_DIM, N_SECTORS
-from envs.options import MacroAction, make_default_options
+from envs.options import make_default_options
 from models.mappo_policy import MAPPOPolicy
 
 
@@ -258,6 +258,44 @@ class TestBrigadeEnvStep(unittest.TestCase):
             if env._inner.agents:
                 env.step(env.action_space.sample())
         self.assertGreaterEqual(env._macro_steps, 1)
+        env.close()
+
+    def test_step_invalid_shape_raises(self) -> None:
+        """Passing an action with the wrong shape must raise ValueError."""
+        env = make_env(n_blue=2)
+        env.reset(seed=0)
+        with self.assertRaises(ValueError):
+            env.step(np.array([0], dtype=np.int64))  # too short
+        env.close()
+
+    def test_step_invalid_index_raises(self) -> None:
+        """An out-of-range option index must raise ValueError."""
+        env = make_env(n_blue=2)
+        env.reset(seed=0)
+        bad_action = np.array([0, env.n_options], dtype=np.int64)  # index == n_options is invalid
+        with self.assertRaises(ValueError):
+            env.step(bad_action)
+        env.close()
+
+    def test_step_winner_in_info_on_episode_end(self) -> None:
+        """When the episode ends, info must contain a 'winner' key."""
+        env = make_env(n_blue=1, n_red=1, max_steps=100)
+        env.reset(seed=0)
+        done = False
+        last_info = {}
+        for _ in range(200):
+            action = env.action_space.sample()
+            _, _, terminated, truncated, info = env.step(action)
+            if terminated or truncated:
+                done = True
+                last_info = info
+                break
+        if done:
+            self.assertIn(
+                "winner", last_info,
+                "info must contain 'winner' when episode ends"
+            )
+            self.assertIn(last_info["winner"], ("blue", "red", "draw"))
         env.close()
 
 

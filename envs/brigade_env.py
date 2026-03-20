@@ -82,7 +82,6 @@ import gymnasium as gym
 
 from envs.multi_battalion_env import MultiBattalionEnv, MAP_WIDTH, MAP_HEIGHT, MAX_STEPS
 from envs.options import Option, make_default_options
-from envs.sim.engine import DESTROYED_THRESHOLD
 
 __all__ = ["BrigadeEnv", "BRIGADE_OBS_DIM"]
 
@@ -198,6 +197,7 @@ class BrigadeEnv(gym.Env):
 
         # ── Frozen battalion policy (optional) ────────────────────────────
         self._battalion_policy = None
+        self._policy_device: str = "cpu"
         if battalion_policy is not None:
             self.set_battalion_policy(battalion_policy)
 
@@ -268,6 +268,7 @@ class BrigadeEnv(gym.Env):
         """
         if policy is None:
             self._battalion_policy = None
+            self._policy_device = "cpu"
             return
 
         # Freeze all parameters
@@ -275,6 +276,11 @@ class BrigadeEnv(gym.Env):
             param.requires_grad_(False)
         policy.eval()
         self._battalion_policy = policy
+        # Store the device so _get_red_action can move obs tensors to it
+        try:
+            self._policy_device = next(policy.parameters()).device.type
+        except StopIteration:
+            self._policy_device = "cpu"
 
     # ------------------------------------------------------------------
     # Gymnasium API: reset
@@ -338,6 +344,13 @@ class BrigadeEnv(gym.Env):
         """
         brigade_action = np.asarray(brigade_action, dtype=np.int64)
 
+        # Validate action shape
+        if brigade_action.shape != (self.n_blue,):
+            raise ValueError(
+                f"brigade_action has shape {brigade_action.shape!r}, "
+                f"expected ({self.n_blue},)."
+            )
+
         # Active blue agents at the start of this macro-step
         current_blue = [
             f"blue_{i}" for i in range(self.n_blue)
@@ -357,7 +370,11 @@ class BrigadeEnv(gym.Env):
             agent_id = f"blue_{i}"
             if agent_id in current_blue:
                 idx = int(brigade_action[i])
-                idx = max(0, min(idx, self.n_options - 1))
+                if idx < 0 or idx >= self.n_options:
+                    raise ValueError(
+                        f"Invalid macro-action index {idx!r} for battalion {agent_id!r}; "
+                        f"expected integer in [0, {self.n_options - 1}]."
+                    )
                 selected_options[agent_id] = self._options[idx]
                 option_steps[agent_id] = 0
                 option_names[agent_id] = self._options[idx].name
@@ -366,6 +383,8 @@ class BrigadeEnv(gym.Env):
         agg_rewards: dict[str, float] = {a: 0.0 for a in current_blue}
         ep_terminated: dict[str, bool] = {a: False for a in current_blue}
         ep_truncated: dict[str, bool] = {a: False for a in current_blue}
+        # Track whether the inner env issued any truncation during this macro-step
+        any_inner_truncated: bool = False
 
         # ── Inner primitive-step loop ─────────────────────────────────
         while any(not option_done[a] for a in current_blue):
@@ -396,19 +415,27 @@ class BrigadeEnv(gym.Env):
             for agent, ob in obs.items():
                 self._last_obs[agent] = ob
 
-            # Update option tracking
+            # Update option tracking — always record env-level
+            # termination/truncation regardless of option_done state
             for agent in current_blue:
+                env_term = bool(terminated.get(agent, False))
+                env_trunc = bool(truncated.get(agent, False))
+
+                if env_trunc:
+                    any_inner_truncated = True
+                # Always update episode-level flags
+                if env_term:
+                    ep_terminated[agent] = True
+                if env_trunc:
+                    ep_truncated[agent] = True
+
+                # Skip option bookkeeping once the option is done
                 if option_done[agent]:
                     continue
 
                 agg_rewards[agent] += float(rewards.get(agent, 0.0))
 
-                env_term = bool(terminated.get(agent, False))
-                env_trunc = bool(truncated.get(agent, False))
-
                 if env_term or env_trunc:
-                    ep_terminated[agent] = env_term
-                    ep_truncated[agent] = env_trunc
                     option_done[agent] = True
                 else:
                     option_steps[agent] += 1
@@ -422,16 +449,25 @@ class BrigadeEnv(gym.Env):
         # ── Episode termination ───────────────────────────────────────
         blue_alive = [
             f"blue_{i}" for i in range(self.n_blue)
-            if f"blue_{i}" in self._inner.agents
+            if f"blue_{i}" in self._inner._alive
         ]
-        episode_terminated = (
-            len(blue_alive) == 0
-            or not self._inner.agents
-        )
-        episode_truncated = (
-            not episode_terminated
-            and all(ep_truncated.get(a, False) for a in current_blue)
-        )
+        red_alive = [
+            f"red_{i}" for i in range(self.n_red)
+            if f"red_{i}" in self._inner._alive
+        ]
+        blue_wiped = len(blue_alive) == 0
+        red_wiped = len(red_alive) == 0
+
+        # Decisive combat outcome → terminated; time limit without decisive outcome → truncated
+        if blue_wiped or red_wiped:
+            episode_terminated = True
+            episode_truncated = False
+        elif any_inner_truncated:
+            episode_terminated = False
+            episode_truncated = True
+        else:
+            episode_terminated = False
+            episode_truncated = False
 
         # ── Brigade reward ────────────────────────────────────────────
         reward_vals = [agg_rewards[a] for a in current_blue]
@@ -445,6 +481,13 @@ class BrigadeEnv(gym.Env):
             "option_steps": {a: option_steps.get(a, 0) for a in current_blue},
             "blue_rewards": {a: agg_rewards[a] for a in current_blue},
         }
+        if episode_terminated or episode_truncated:
+            if red_wiped and not blue_wiped:
+                info["winner"] = "blue"
+            elif blue_wiped and not red_wiped:
+                info["winner"] = "red"
+            else:
+                info["winner"] = "draw"
 
         return (
             self._get_brigade_obs(),
@@ -556,7 +599,7 @@ class BrigadeEnv(gym.Env):
             obs = self._last_obs.get(
                 agent_id, np.zeros(self._inner._obs_dim, dtype=np.float32)
             )
-            obs_t = torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0)
+            obs_t = torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0).to(self._policy_device)
             # Infer agent index from the agent_id
             try:
                 agent_idx = int(agent_id.split("_")[1]) % self._battalion_policy.n_agents
