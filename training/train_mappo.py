@@ -50,6 +50,11 @@ from omegaconf import DictConfig, OmegaConf
 
 from envs.multi_battalion_env import MultiBattalionEnv
 from models.mappo_policy import MAPPOPolicy
+from training.curriculum_scheduler import (
+    CurriculumScheduler,
+    CurriculumStage,
+    load_v1_weights_into_mappo,
+)
 
 log = logging.getLogger(__name__)
 
@@ -370,6 +375,12 @@ class MAPPOTrainer:
         self._ep_len: int = 0
         self._ep_reward_history: list[dict[str, float]] = []
 
+        # Win tracking (True = Blue won, False = Blue lost/draw)
+        self._ep_win_history: list[bool] = []
+        # Set to True at the first step where no red agents remain alive AND
+        # at least one blue agent is still alive.  Checked at episode end.
+        self._blue_won_flag: bool = False
+
     # ------------------------------------------------------------------
     # Environment helpers
     # ------------------------------------------------------------------
@@ -381,6 +392,7 @@ class MAPPOTrainer:
         self._obs_buf = obs
         self._ep_rewards = {f"blue_{i}": 0.0 for i in range(self.n_blue)}
         self._ep_len = 0
+        self._blue_won_flag = False
 
     def _get_blue_obs_array(self) -> np.ndarray:
         """Return Blue observations as a ``(n_blue, obs_dim)`` array.
@@ -490,6 +502,16 @@ class MAPPOTrainer:
 
             obs_new, rewards, terminated, truncated, _ = self.env.step(action_dict)
 
+            # Track win condition using env.agents AFTER the step.
+            # PettingZoo removes terminated/truncated agents from env.agents,
+            # so checking env.agents is robust to agents that died in prior steps.
+            red_still_alive = any(a.startswith("red_") for a in self.env.agents)
+            blue_still_alive = any(a.startswith("blue_") for a in self.env.agents)
+            if not red_still_alive and not self._blue_won_flag:
+                # Red just became fully eliminated; record win if any blue survived.
+                if blue_still_alive:
+                    self._blue_won_flag = True
+
             # Collect per-blue rewards
             rew_arr = np.array(
                 [float(rewards.get(f"blue_{i}", 0.0)) for i in range(self.n_blue)],
@@ -526,6 +548,10 @@ class MAPPOTrainer:
             if all_blue_done or not self.env.agents:
                 self._episode += 1
                 self._ep_reward_history.append(dict(self._ep_rewards))
+                # Use _blue_won_flag set at the moment red was eliminated (more
+                # accurate than per-step terminated/truncated dicts, which only
+                # include agents alive at the START of each step).
+                self._ep_win_history.append(self._blue_won_flag)
                 self._reset_env()
 
         # Bootstrap value for GAE
@@ -622,7 +648,11 @@ class MAPPOTrainer:
     # W&B logging
     # ------------------------------------------------------------------
 
-    def _log_wandb(self, losses: dict[str, float]) -> None:
+    def _log_wandb(
+        self,
+        losses: dict[str, float],
+        curriculum_scheduler: Optional[CurriculumScheduler] = None,
+    ) -> None:
         """Log per-agent reward curves and training losses to W&B."""
         log_dict: dict = {
             "time/total_steps": self._total_steps,
@@ -643,6 +673,17 @@ class MAPPOTrainer:
             log_dict["reward/team_mean"] = float(np.mean(total_rews))
             log_dict["reward/n_episodes"] = len(recent)
 
+        # Win rate from recent episodes
+        if self._ep_win_history:
+            recent_wins = self._ep_win_history
+            self._ep_win_history = []
+            log_dict["rollout/win_rate"] = float(np.mean(recent_wins))
+            log_dict["rollout/n_wins"] = int(sum(recent_wins))
+
+        # Curriculum metrics
+        if curriculum_scheduler is not None:
+            log_dict.update(curriculum_scheduler.wandb_metrics())
+
         log_dict.update({f"train/{k}": v for k, v in losses.items()})
         wandb.log(log_dict, step=self._total_steps)
 
@@ -656,6 +697,7 @@ class MAPPOTrainer:
         log_interval: int = 2000,
         checkpoint_dir: Optional[Path] = None,
         checkpoint_freq: int = 50_000,
+        curriculum_scheduler: Optional[CurriculumScheduler] = None,
     ) -> None:
         """Run the MAPPO training loop.
 
@@ -670,6 +712,11 @@ class MAPPOTrainer:
             disables checkpointing).
         checkpoint_freq:
             Save a checkpoint every this many timesteps.
+        curriculum_scheduler:
+            Optional :class:`~training.curriculum_scheduler.CurriculumScheduler`.
+            When provided, episode wins are recorded after each rollout and
+            the training environment is swapped when promotion criteria are
+            met.  Stage transitions are logged to W&B.
         """
         self._reset_env(seed=self.seed)
         last_log = 0
@@ -686,8 +733,83 @@ class MAPPOTrainer:
             self.collect_rollout()
             losses = self.update_policy()
 
+            # Feed episode outcomes to the curriculum scheduler.
+            # Copy-and-clear immediately to avoid re-recording the same outcomes
+            # on the next iteration (which would inflate win rate and trigger
+            # premature promotions).
+            if curriculum_scheduler is not None and self._ep_win_history:
+                ep_results = list(self._ep_win_history)
+                self._ep_win_history.clear()
+                for win in ep_results:
+                    curriculum_scheduler.record_episode(win=win)
+                if curriculum_scheduler.should_promote():
+                    curriculum_scheduler.promote()
+                    curriculum_scheduler.log_promotion_event(
+                        total_steps=self._total_steps,
+                        wandb_run=wandb.run,  # None when W&B is not initialised
+                    )
+                    # Attempt to swap the environment for the new stage.
+                    # The policy and buffer dimensions are fixed at construction;
+                    # swapping is only safe when the new stage uses the same
+                    # obs_dim and state_dim.  If they differ, log a warning and
+                    # continue training on the current environment (the scheduler
+                    # still advances for tracking/logging purposes).
+                    new_kwargs = curriculum_scheduler.env_kwargs()
+                    new_env = MultiBattalionEnv(
+                        n_blue=new_kwargs["n_blue"],
+                        n_red=new_kwargs["n_red"],
+                        map_width=self.env.map_width,
+                        map_height=self.env.map_height,
+                        max_steps=self.env.max_steps,
+                        randomize_terrain=self.env.randomize_terrain,
+                        hill_speed_factor=self.env.hill_speed_factor,
+                        visibility_radius=self.env.visibility_radius,
+                    )
+                    if (
+                        new_env._obs_dim == self.obs_dim
+                        and new_env._state_dim == self.state_dim
+                    ):
+                        self.env.close()
+                        self.env = new_env
+                        self.n_blue = new_env.n_blue
+                        self.n_red = new_env.n_red
+                        # Rebuild buffer for potentially different n_blue
+                        self.buffer = MAPPORolloutBuffer(
+                            n_steps=self.n_steps,
+                            n_agents=self.n_blue,
+                            obs_dim=self.obs_dim,
+                            action_dim=self.action_dim,
+                            state_dim=self.state_dim,
+                            gamma=self.buffer.gamma,
+                            gae_lambda=self.buffer.gae_lambda,
+                        )
+                        log.info(
+                            "Environment swapped for stage %s: n_blue=%d n_red=%d",
+                            curriculum_scheduler.stage_label,
+                            self.n_blue,
+                            self.n_red,
+                        )
+                        self._reset_env()
+                    else:
+                        new_obs_dim = new_env._obs_dim
+                        new_state_dim = new_env._state_dim
+                        new_env.close()
+                        log.warning(
+                            "Curriculum promotion to %s skipped environment swap: "
+                            "obs_dim %d→%d or state_dim %d→%d would change, which "
+                            "is incompatible with the fixed policy network. "
+                            "Training continues on the current environment. "
+                            "To train in separate stages, restart with a new config "
+                            "and load the checkpoint.",
+                            curriculum_scheduler.stage_label,
+                            self.obs_dim,
+                            new_obs_dim,
+                            self.state_dim,
+                            new_state_dim,
+                        )
+
             if self._total_steps - last_log >= log_interval:
-                self._log_wandb(losses)
+                self._log_wandb(losses, curriculum_scheduler=curriculum_scheduler)
                 log.info(
                     "[%d/%d steps] policy_loss=%.4f value_loss=%.4f entropy=%.4f",
                     self._total_steps,
@@ -834,11 +956,99 @@ def main(cfg: DictConfig) -> None:
         seed=int(cfg.training.seed),
     )
 
+    # ------------------------------------------------------------------
+    # Curriculum scheduler (optional)
+    # ------------------------------------------------------------------
+    curriculum_scheduler: Optional[CurriculumScheduler] = None
+    curriculum_cfg = OmegaConf.select(cfg, "curriculum", default=None)
+    if curriculum_cfg is not None and bool(OmegaConf.select(curriculum_cfg, "enabled", default=False)):
+        curriculum_scheduler = CurriculumScheduler(
+            promote_threshold=float(
+                OmegaConf.select(curriculum_cfg, "promote_threshold", default=0.70)
+            ),
+            win_rate_window=int(
+                OmegaConf.select(curriculum_cfg, "win_rate_window", default=50)
+            ),
+            initial_stage=CurriculumStage.STAGE_1V1,
+        )
+        log.info(
+            "Curriculum enabled | promote_threshold=%.2f | win_rate_window=%d",
+            curriculum_scheduler.promote_threshold,
+            curriculum_scheduler.win_rate_window,
+        )
+
+        # Optional: warm-start actor from a v1 SB3 checkpoint
+        v1_ckpt = OmegaConf.select(curriculum_cfg, "v1_checkpoint", default=None)
+        if v1_ckpt is not None:
+            v1_path = Path(v1_ckpt)
+            if not v1_path.is_absolute():
+                v1_path = _PROJECT_ROOT / v1_path
+            result = load_v1_weights_into_mappo(v1_path, policy)
+            log.info(
+                "Loaded v1 checkpoint: %d layers transferred, %d skipped",
+                len(result["loaded"]),
+                len(result["skipped"]),
+            )
+
+        # Attempt to start training in the first curriculum stage (e.g. 1v1).
+        # This is only safe when the initial stage uses the same observation and
+        # state dimensions as the policy/trainer that were just built.  If the
+        # dimensions differ (e.g. cfg.env specifies 2v2 but the first stage is
+        # 1v1), swapping would cause immediate shape mismatches inside the policy
+        # network.  In that case we keep the existing environment and log a
+        # warning — the scheduler still tracks win rates and logs stage metrics.
+        stage_kwargs = curriculum_scheduler.env_kwargs()
+        initial_stage_env = MultiBattalionEnv(
+            n_blue=stage_kwargs["n_blue"],
+            n_red=stage_kwargs["n_red"],
+            map_width=float(cfg.env.map_width),
+            map_height=float(cfg.env.map_height),
+            max_steps=int(cfg.env.max_steps),
+            randomize_terrain=bool(cfg.env.randomize_terrain),
+            hill_speed_factor=float(cfg.env.hill_speed_factor),
+            visibility_radius=float(cfg.env.visibility_radius),
+        )
+        if (
+            initial_stage_env._obs_dim == obs_dim
+            and initial_stage_env._state_dim == state_dim
+        ):
+            env.close()
+            env = initial_stage_env
+            trainer.env = env
+            trainer.n_blue = env.n_blue
+            trainer.n_red = env.n_red
+            log.info(
+                "Curriculum start: stage=%s n_blue=%d n_red=%d",
+                curriculum_scheduler.stage_label,
+                env.n_blue,
+                env.n_red,
+            )
+        else:
+            initial_stage_env.close()
+            log.warning(
+                "Curriculum initial stage (%s) requests n_blue=%d, n_red=%d "
+                "(obs_dim=%d, state_dim=%d) but the training environment was "
+                "built with n_blue=%d, n_red=%d (obs_dim=%d, state_dim=%d). "
+                "Keeping the existing environment to avoid policy/trainer shape "
+                "mismatches. To train separate stages with different team sizes, "
+                "run each stage independently with its own config.",
+                curriculum_scheduler.stage_label,
+                stage_kwargs["n_blue"],
+                stage_kwargs["n_red"],
+                initial_stage_env._obs_dim,
+                initial_stage_env._state_dim,
+                env.n_blue,
+                env.n_red,
+                obs_dim,
+                state_dim,
+            )
+
     trainer.learn(
         total_timesteps=int(cfg.training.total_timesteps),
         log_interval=int(cfg.wandb.log_freq),
         checkpoint_dir=checkpoint_dir,
         checkpoint_freq=int(cfg.eval.checkpoint_freq),
+        curriculum_scheduler=curriculum_scheduler,
     )
 
     env.close()
