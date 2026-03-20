@@ -110,6 +110,7 @@ from envs.sim.combat import (
     compute_fire_damage,
     morale_check,
 )
+from envs.metrics.coordination import compute_all as _compute_coordination
 from envs.sim.engine import DESTROYED_THRESHOLD
 from envs.sim.terrain import TerrainMap
 
@@ -613,6 +614,40 @@ class MultiBattalionEnv(ParallelEnv):
                 parts.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         parts.append(min(self._step_count / self.max_steps, 1.0))
         return np.array(parts, dtype=np.float32)
+
+    def get_coordination_metrics(
+        self,
+        support_radius: float = 300.0,
+    ) -> dict[str, float]:
+        """Compute per-step coordination metrics for the current environment state.
+
+        Calls :func:`~envs.metrics.coordination.compute_all` on the currently
+        alive and non-routed Blue and Red battalions.
+
+        Parameters
+        ----------
+        support_radius:
+            Distance threshold (metres) for
+            :func:`~envs.metrics.coordination.mutual_support_score`.
+
+        Returns
+        -------
+        dict[str, float]
+            Keys: ``"coordination/flanking_ratio"``,
+            ``"coordination/fire_concentration"``,
+            ``"coordination/mutual_support_score"``.
+        """
+        blue = [
+            b
+            for agent_id, b in self._battalions.items()
+            if agent_id.startswith("blue_") and not b.routed and b.strength > 0
+        ]
+        red = [
+            b
+            for agent_id, b in self._battalions.items()
+            if agent_id.startswith("red_") and not b.routed and b.strength > 0
+        ]
+        return _compute_coordination(blue, red, support_radius=support_radius)
 
     # ------------------------------------------------------------------
     # PettingZoo API: close / render (stubs)
