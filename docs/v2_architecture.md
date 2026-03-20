@@ -106,21 +106,23 @@ sequenceDiagram
 ```
 Per-Agent Local Observation (obs_dim = 6 + 5*(n_total-1) + 1)
 ┌──────────────────────────────────────────────────────────────┐
-│ Self state (6)   │ x/W │ y/H │ cos θ │ sin θ │ hp │ morale  │
+│ Self state (6)   │ x/W │ y/H │ cos θ │ sin θ │ strength │   │
+│                  │ morale                                    │
 ├──────────────────────────────────────────────────────────────┤
 │ Other units      │ For each of (n_total - 1) other units:   │
-│ (5 per unit)     │ Δx/W │ Δy/H │ cos θ │ sin θ │ hp         │
-│                  │ (zeroed if outside visibility_radius)     │
+│ (5 per unit)     │ dist/map_diagonal │ cos(bearing) │        │
+│                  │ sin(bearing) │ strength │ morale          │
+│                  │ (hidden: [1.0, 0, 0, 0, 0])              │
 ├──────────────────────────────────────────────────────────────┤
-│ Terrain (1)      │ cover value at agent position [0, 1]     │
+│ Step (1)         │ normalized step t/max_steps ∈ [0, 1]     │
 └──────────────────────────────────────────────────────────────┘
 
 Global State for Centralized Critic (state_dim = 6*n_total + 1)
 ┌──────────────────────────────────────────────────────────────┐
 │ All units (6 per unit, unobscured, ordered Blue then Red)   │
-│  x/W │ y/H │ cos θ │ sin θ │ hp │ morale                   │
+│  x/W │ y/H │ cos θ │ sin θ │ strength │ morale             │
 ├──────────────────────────────────────────────────────────────┤
-│ Step (1)  │ normalized step count [0, 1]                    │
+│ Step (1)  │ normalized step count t/max_steps ∈ [0, 1]      │
 └──────────────────────────────────────────────────────────────┘
 ```
 

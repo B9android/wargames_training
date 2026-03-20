@@ -51,9 +51,8 @@ env = MultiBattalionEnv(
     max_steps=500,
     visibility_radius=600.0,  # fog-of-war radius (metres)
     randomize_terrain=True,
-    seed=42,
 )
-env.reset()
+obs, infos = env.reset(seed=42)
 ```
 
 ### Agent IDs
@@ -97,16 +96,16 @@ where `n_total = n_blue + n_red`.
 
 | Component | Dimensions | Description |
 |---|---|---|
-| Self state | 6 | `(x/W, y/H, cos θ, sin θ, hp, morale)` |
-| Other units | 5 × (n_total−1) | Per other unit: `(Δx/W, Δy/H, cos θ, sin θ, hp)`; set to zero if outside `visibility_radius` |
-| Terrain | 1 | Terrain cover at agent position `[0, 1]` |
+| Self state | 6 | `(x/W, y/H, cos θ, sin θ, strength, morale)` |
+| Other units | 5 × (n_total−1) | Per other unit: `(dist/map_diagonal, cos(bearing), sin(bearing), strength, morale)`; hidden units use sentinel `[1.0, 0, 0, 0, 0]` |
+| Step | 1 | Normalized step count `t/max_steps ∈ [0, 1]` |
 
 **Key conventions:**
-- All positions normalized by map dimensions (`W`, `H`) → `[-1, 1]`.
+- Positions normalized by map dimensions (`W`, `H`) → `[0, 1]`.
 - Angles encoded as `(cos θ, sin θ)` — never raw radians.
-- HP and morale normalized to `[0, 1]`.
-- Units outside `visibility_radius` have their directional features zeroed
-  but distance is still encoded (one-sided partial observability).
+- Strength and morale normalized to `[0, 1]`.
+- Units outside `visibility_radius` use a sentinel block:
+  `dist = 1.0`, all other fields `0` (known-far, unknown state).
 
 ### Dimensionality by Scenario
 
@@ -187,8 +186,15 @@ Checkpoints are saved to `checkpoints/mappo_2v2/` (configurable via
 opponent without restarting training:
 
 ```python
+import torch
 from models.mappo_policy import MAPPOPolicy
-opponent = MAPPOPolicy.load("checkpoints/snapshot_500k.pt")
+
+checkpoint_path = "checkpoints/mappo_2v2/snapshot_500k.pt"
+snapshot = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+
+# Reconstruct the MAPPOPolicy from saved kwargs and state_dict
+opponent = MAPPOPolicy(**snapshot["kwargs"])
+opponent.load_state_dict(snapshot["state_dict"])
 trainer.set_red_policy(opponent)
 ```
 
@@ -273,16 +279,30 @@ self_play:
 ### Evaluating Against the Pool
 
 ```python
-from training.self_play import evaluate_team_vs_pool
+from training.self_play import (
+    TeamOpponentPool,
+    evaluate_team_vs_pool,
+    nash_exploitability_proxy,
+)
 
-results = evaluate_team_vs_pool(
+# Sample a random opponent from the pool
+opponent = opponent_pool.sample()
+
+win_rate = evaluate_team_vs_pool(
     policy=current_policy,
-    pool=opponent_pool,
-    env_fn=lambda: MultiBattalionEnv(n_blue=2, n_red=2),
+    opponent=opponent,
+    n_blue=2,
+    n_red=2,
     n_episodes=20,
 )
-print(f"Win rate vs pool: {results.win_rate:.2%}")
-print(f"Nash exploitability proxy: {results.nash_proxy:.4f}")
+print(f"Win rate vs sampled pool opponent: {win_rate:.2%}")
+
+# Compute Nash exploitability proxy against the full pool
+nash_proxy = nash_exploitability_proxy(
+    policy=current_policy,
+    pool=opponent_pool,
+)
+print(f"Nash exploitability proxy: {nash_proxy:.4f}")
 ```
 
 ---
@@ -298,8 +318,9 @@ to W&B under the `metrics/` namespace:
 | `fire_concentration` | `[0, 1]` | Degree to which Blue agents focus fire on a single Red target. 1.0 = perfect concentration. |
 | `mutual_support_score` | `[0, 1]` | Average fraction of Blue agents within support range of each other. Higher = tighter coordination. |
 
-These are computed by `MAPPOTrainer` at the end of each rollout and written
-to W&B via the standard `wandb.log()` call.
+`MAPPOTrainer` accumulates these metrics every environment step and computes
+episode-averaged values, which are then logged to W&B at the usual logging
+interval.
 
 ---
 
