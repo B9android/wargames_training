@@ -1,0 +1,69 @@
+# configs/hrl/phase1_battalion.yaml
+# E3.4 — Hierarchical Curriculum: Phase 1 (Battalion Training)
+#
+# Train battalion-level MAPPO agents in a 2v2 scenario.
+# Promotion criterion: rolling win-rate >= 0.70 over 50 episodes
+# AND Elo rating >= 1100 (above DEFAULT_RATING=1000).
+#
+# On promotion: save checkpoint to checkpoints/hrl/phase1_battalion/mappo_policy_final.pt
+# and freeze all parameters before advancing to Phase 2.
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/train_mappo.py --config-name=hrl/phase1_battalion \
+#       training.total_timesteps=500000
+
+phase: 1
+phase_name: "battalion"
+description: "Phase 1 — Train battalion MAPPO agents (2v2). Freeze and promote to Phase 2 on criterion."
+
+# ── Promotion criteria ────────────────────────────────────────────────────
+promotion:
+  win_rate_threshold: 0.70          # rolling win rate to trigger promotion
+  win_rate_window: 50               # episodes in the rolling window
+  elo_threshold: 1100.0             # above DEFAULT_RATING=1000; ensures meaningful Elo progress
+  elo_opponent: "scripted_l3"       # baseline opponent for Elo evaluation
+  min_episodes: 50                  # minimum episodes before promotion check
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null
+  tags: ["v3", "hrl", "curriculum", "phase1", "battalion"]
+  log_freq: 4
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 2
+  n_red: 2
+  map_width: 500.0                  # smaller map for faster training
+  map_height: 500.0
+  max_steps: 200                    # shorter episodes for curriculum
+  randomize_terrain: true
+  visibility_radius: 400.0
+
+# ── MAPPO training ────────────────────────────────────────────────────────
+training:
+  total_timesteps: 200000           # full training budget; override for CI (e.g. 10000)
+  n_steps: 128
+  n_epochs: 4
+  batch_size: 32
+  lr: 3.0e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  device: "cpu"
+  seed: 42
+
+# ── Evaluation / checkpointing ────────────────────────────────────────────
+eval:
+  checkpoint_dir: "checkpoints/hrl/phase1_battalion/"
+  checkpoint_freq: 20000
+  eval_freq: 5000
+  n_eval_episodes: 20
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
