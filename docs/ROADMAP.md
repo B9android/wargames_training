@@ -10,7 +10,7 @@
 | Version | Theme | Status | Target |
 |---|---|---|---|
 | **v1** | Foundation — 1v1 battalion | ✅ Complete | M4 |
-| **v2** | Multi-Agent — MARL 2v2+ | 📋 Planned | M6 |
+| **v2** | Multi-Agent — MARL 2v2+ | ✅ Complete | M6 |
 | **v3** | Hierarchy — Brigade/Division HRL | 📋 Planned | M8 |
 | **v4** | League — AlphaStar-style training | 📋 Planned | M10 |
 | **v5** | Real-World Interface & Analysis | 🔮 Future | TBD |
@@ -44,23 +44,23 @@ and has a working self-play loop.
 
 ---
 
-## v2: Multi-Agent (Next — Planning)
+## v2: Multi-Agent (Complete ✅)
 
 **Goal:** Multiple battalions per side coordinate using MAPPO.
 Emergent flanking, fire concentration, and mutual support.
 
 ### Epics
-- [ ] **E2.1** — PettingZoo Multi-Agent Environment
-- [ ] **E2.2** — MAPPO Implementation (Centralized Critic)
-- [ ] **E2.3** — 2v2 Curriculum
-- [ ] **E2.4** — Coordination Metrics & Analysis
-- [ ] **E2.5** — Scale to NvN (up to 6v6)
-- [ ] **E2.6** — Multi-Agent Self-Play
-- [ ] **E2.7** — v2 Documentation & Release
+- [x] **E2.1** — PettingZoo Multi-Agent Environment
+- [x] **E2.2** — MAPPO Implementation (Centralized Critic)
+- [x] **E2.3** — 2v2 Curriculum
+- [x] **E2.4** — Coordination Metrics & Analysis
+- [x] **E2.5** — Scale to NvN (up to 6v6)
+- [x] **E2.6** — Multi-Agent Self-Play
+- [x] **E2.7** — v2 Documentation & Release
 
 ### Milestones
-- M5: 2v2 MARL (target 2027-03-31)
-- M6: v2 Complete (target 2027-06-30)
+- M5: 2v2 MARL ✅
+- M6: v2 Complete ✅
 
 ### Key Research Questions
 - Does parameter sharing (shared policy across all battalions) outperform
