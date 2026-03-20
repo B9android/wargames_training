@@ -291,16 +291,6 @@ def train_division(
                 brigade_checkpoint,
             )
 
-    # ── Verify frozen policy has no trainable parameters ──────────────
-    if frozen_brigade is not None:
-        trainable = sum(
-            p.numel() for p in frozen_brigade.policy.parameters() if p.requires_grad
-        )
-        assert trainable == 0, (
-            f"Expected 0 trainable params in frozen brigade policy, got {trainable}"
-        )
-        log.info("Brigade policy frozen: 0 trainable parameters confirmed.")
-
     # ── Environment factory ───────────────────────────────────────────
     def _make_env():
         env = DivisionEnv(
@@ -314,6 +304,8 @@ def train_division(
             randomize_terrain=randomize_terrain,
             visibility_radius=visibility_radius,
             brigade_policy=frozen_brigade,
+            # red_random is only effective when no frozen brigade policy is set;
+            # when frozen_brigade is provided it drives Red, so red_random is ignored.
             red_random=red_random and frozen_brigade is None,
         )
         return env

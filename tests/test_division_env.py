@@ -322,9 +322,9 @@ class TestDivisionEnvStep(unittest.TestCase):
                 done = True
                 last_info = info
                 break
-        if done:
-            self.assertIn("winner", last_info)
-            self.assertIn(last_info["winner"], ("blue", "red", "draw"))
+        self.assertTrue(done, "Episode should terminate within 300 division macro-steps")
+        self.assertIn("winner", last_info)
+        self.assertIn(last_info["winner"], ("blue", "red", "draw"))
         env.close()
 
 

@@ -318,6 +318,8 @@ class BrigadeEnv(gym.Env):
         self._last_obs = dict(inner_obs)
         self._prim_steps = 0
         self._macro_steps = 0
+        # Cleared here (between episodes) and also after each step by DivisionEnv
+        # to prevent stale commands leaking into subsequent macro-steps.
         self._forced_red_options = {}
         return self._get_brigade_obs(), {}
 

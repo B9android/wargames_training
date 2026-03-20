@@ -459,7 +459,7 @@ class DivisionEnv(gym.Env):
 
         forced: dict[str, int] = {}
         for i in range(self.n_red_brigades):
-            cmd = int(red_action[i]) % self.n_div_options
+            cmd = int(np.clip(red_action[i], 0, self.n_div_options - 1))
             for j in range(self.n_red_per_brigade):
                 idx = i * self.n_red_per_brigade + j
                 forced[f"red_{idx}"] = cmd
@@ -469,26 +469,39 @@ class DivisionEnv(gym.Env):
     # Division observation construction
     # ------------------------------------------------------------------
 
+    def _battalion_in_sector(self, b, s: int, sector_width: float) -> bool:
+        """Return True if battalion *b* occupies theatre sector *s*."""
+        x_lo = s * sector_width
+        x_hi = (s + 1) * sector_width
+        return b.x >= x_lo and (
+            b.x < x_hi or (s == N_THEATRE_SECTORS - 1 and b.x == self.map_width)
+        )
+
+    def _get_theatre_sector_strengths(self, inner) -> list[tuple[float, float]]:
+        """Return ``[(blue_str, red_str), ...]`` for each theatre sector."""
+        sector_width = self.map_width / N_THEATRE_SECTORS
+        result: list[tuple[float, float]] = []
+        for s in range(N_THEATRE_SECTORS):
+            blue_str = 0.0
+            red_str = 0.0
+            for agent_id, b in inner._battalions.items():
+                if agent_id not in inner._alive:
+                    continue
+                if self._battalion_in_sector(b, s, sector_width):
+                    if agent_id.startswith("blue_"):
+                        blue_str += float(b.strength)
+                    else:
+                        red_str += float(b.strength)
+            result.append((blue_str, red_str))
+        return result
+
     def _get_division_obs(self) -> np.ndarray:
         """Build and return the normalised division observation vector."""
         parts: list[float] = []
         inner = self._brigade._inner
 
         # ── 1. Theatre sector control (5 vertical strips) ─────────────
-        sector_width = self.map_width / N_THEATRE_SECTORS
-        for s in range(N_THEATRE_SECTORS):
-            x_lo = s * sector_width
-            x_hi = (s + 1) * sector_width
-            blue_str = 0.0
-            red_str = 0.0
-            for agent_id, b in inner._battalions.items():
-                if agent_id not in inner._alive:
-                    continue
-                if x_lo <= b.x < x_hi or (s == N_THEATRE_SECTORS - 1 and b.x == self.map_width):
-                    if agent_id.startswith("blue_"):
-                        blue_str += float(b.strength)
-                    else:
-                        red_str += float(b.strength)
+        for blue_str, red_str in self._get_theatre_sector_strengths(inner):
             total = blue_str + red_str
             parts.append(blue_str / total if total > 0.0 else 0.5)
 
@@ -602,23 +615,9 @@ class DivisionEnv(gym.Env):
         parts: list[float] = []
         inner = self._brigade._inner
 
-        # Theatre sector control from Red's perspective (1 - blue_ratio)
-        sector_width = self.map_width / N_THEATRE_SECTORS
-        for s in range(N_THEATRE_SECTORS):
-            x_lo = s * sector_width
-            x_hi = (s + 1) * sector_width
-            blue_str = 0.0
-            red_str = 0.0
-            for agent_id, b in inner._battalions.items():
-                if agent_id not in inner._alive:
-                    continue
-                if x_lo <= b.x < x_hi or (s == N_THEATRE_SECTORS - 1 and b.x == self.map_width):
-                    if agent_id.startswith("blue_"):
-                        blue_str += float(b.strength)
-                    else:
-                        red_str += float(b.strength)
+        # Theatre sector control from Red's perspective (Red's share per sector)
+        for blue_str, red_str in self._get_theatre_sector_strengths(inner):
             total = blue_str + red_str
-            # Red's share
             parts.append(red_str / total if total > 0.0 else 0.5)
 
         # Per-Red-brigade status
