@@ -23,6 +23,8 @@ env:
   red_random: false                  # false = stationary Red; true = random
   battalion_checkpoint: null         # path to frozen v2 MAPPO checkpoint for Red
                                      # e.g. checkpoints/mappo_2v2/mappo_policy_final.pt
+  temporal_ratio: 10                 # primitive steps per brigade macro-step (option cap)
+                                     # sweep values: 5, 10, 20, 50 (see configs/sweeps/temporal_ratio_sweep.yaml)
 
 # ── Brigade PPO training ──────────────────────────────────────────────────
 training:

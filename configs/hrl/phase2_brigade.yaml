@@ -46,6 +46,10 @@ env:
   red_random: false
   # Path to the frozen Phase 1 battalion checkpoint (set after Phase 1 completes)
   battalion_checkpoint: null        # e.g. checkpoints/hrl/phase1_battalion/mappo_policy_final.pt
+  # Temporal abstraction ratio: primitive battalion steps per brigade macro-step.
+  # Optimal value (ratio=10) identified in E3.5 sweep — balances commander
+  # responsiveness against hierarchy benefit.
+  temporal_ratio: 10
 
 # ── Brigade PPO training ──────────────────────────────────────────────────
 training:

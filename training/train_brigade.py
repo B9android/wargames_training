@@ -224,6 +224,7 @@ def train_brigade(
     randomize_terrain: bool = True,
     visibility_radius: float = 600.0,
     log_interval: int = 4,
+    temporal_ratio: int = 10,
 ) -> PPO:
     """Train a brigade PPO agent.
 
@@ -283,6 +284,13 @@ def train_brigade(
         Fog-of-war visibility radius in metres.
     log_interval:
         SB3 logging interval (rollouts).
+    temporal_ratio:
+        Number of primitive battalion steps per brigade macro-step (option
+        duration cap).  Passed to :class:`~envs.brigade_env.BrigadeEnv`.
+        When training is launched via the Hydra entry point that initializes
+        W&B with the full config, this value is included in the W&B run config.
+        Use the sweep config ``configs/sweeps/temporal_ratio_sweep.yaml`` to
+        search over values ``[5, 10, 20, 50]``.
 
     Returns
     -------
@@ -347,6 +355,7 @@ def train_brigade(
             visibility_radius=visibility_radius,
             battalion_policy=frozen_policy,
             red_random=red_random and frozen_policy is None,
+            temporal_ratio=temporal_ratio,
         )
         return env
 
@@ -376,11 +385,12 @@ def train_brigade(
     )
 
     log.info(
-        "BrigadeEnv: n_blue=%d n_red=%d obs_dim=%d n_options=%d",
+        "BrigadeEnv: n_blue=%d n_red=%d obs_dim=%d n_options=%d temporal_ratio=%d",
         n_blue,
         n_red,
         eval_env._obs_dim,
         eval_env.n_options,
+        temporal_ratio,
     )
 
     # ── Callbacks ─────────────────────────────────────────────────────────
@@ -457,6 +467,7 @@ def main(cfg: DictConfig) -> None:
         battalion_ckpt = p if p.is_absolute() else _PROJECT_ROOT / p
 
     # ── Train ─────────────────────────────────────────────────────────────
+    temporal_ratio = int(OmegaConf.select(cfg, "env.temporal_ratio", default=10))
     train_brigade(
         n_blue=int(cfg.env.n_blue),
         n_red=int(cfg.env.n_red),
@@ -485,6 +496,7 @@ def main(cfg: DictConfig) -> None:
         randomize_terrain=bool(cfg.env.randomize_terrain),
         visibility_radius=float(cfg.env.visibility_radius),
         log_interval=int(cfg.wandb.log_freq),
+        temporal_ratio=temporal_ratio,
     )
 
     if run:
