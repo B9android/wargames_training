@@ -1,0 +1,18 @@
+# configs/scenarios/6v6.yaml
+# 6v6 symmetric scenario: 6 Blue agents vs 6 Red agents.
+#
+# Maximum-scale NvN scenario for the E2.5 scaling epic.
+# Stress-tests MAPPO's centralized critic under high global-state
+# dimensionality (state_dim = 6*12 + 1 = 73).
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 6                          # Blue (MAPPO-controlled) agents
+  n_red: 6                           # Red (scripted/stationary) agents — symmetric
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 500.0           # reduced radius to limit obs complexity at scale
+  red_random: false                  # false = stationary Red; true = random Red actions

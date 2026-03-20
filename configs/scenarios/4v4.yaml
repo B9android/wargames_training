@@ -1,0 +1,18 @@
+# configs/scenarios/4v4.yaml
+# 4v4 symmetric scenario: 4 Blue agents vs 4 Red agents.
+#
+# Mid-scale NvN scenario for the E2.5 scaling epic.
+# Used as the primary benchmark scenario for observation-radius ablation
+# (sweep: 100m, 250m, 500m, full) and wall-clock training benchmarks.
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 4                          # Blue (MAPPO-controlled) agents
+  n_red: 4                           # Red (scripted/stationary) agents — symmetric
+  map_width: 1000.0                  # metres
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 500.0           # mid-range default; sweep 100/250/500/full
+  red_random: false                  # false = stationary Red; true = random Red actions
