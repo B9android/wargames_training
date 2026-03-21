@@ -1,0 +1,99 @@
+# Battle of Borodino (1812-09-07)
+# French Grande Armée (Blue) vs Russian Imperial Army (Red)
+#
+# The bloodiest single day of the Napoleonic Wars: Napoleon's direct assault
+# on the fortified Russian line at the Raevsky Redoubt (Great Redoubt) and
+# the Bagration Fleches earthworks.  The Russians traded space for time but
+# retained a coherent army; Napoleon withheld his Guard, leaving the result
+# strategically indecisive despite tactical French gains.
+#
+# Simulation scale: each battalion represents one corps / large division of
+# ~10 000 men.  The 1 000 m × 1 000 m map represents the frontage from the
+# Shevardino Redoubt (west) to the Raevsky Redoubt (east).
+
+scenario:
+  name: "Battle of Borodino (1812)"
+  date: "1812-09-07"
+  description: >
+    Napoleon's Grande Armée launched frontal assaults on heavily fortified
+    Russian positions along the Borodino–Utitsa line. Fierce fighting saw
+    the Bagration Fleches change hands seven times. Napoleon declined to
+    commit the Imperial Guard; the Russians fell back in good order. Both
+    sides suffered enormous casualties without a decisive result.
+
+factions:
+  blue: "French Grande Armée (Napoleon)"
+  red: "Russian Imperial Army (Kutuzov)"
+
+terrain:
+  type: "generated"
+  width: 1000.0
+  height: 1000.0
+  rows: 20
+  cols: 20
+  seed: 1812
+  n_hills: 3      # Raevsky Redoubt ridge, Gorky heights, Utitsa mound
+  n_forests: 4    # Utitsa forest, Psaryovo wood, river Kolocha banks
+
+units:
+  # ── French corps ─────────────────────────────────────────────────────────
+  blue:
+    - id: "davout_i_corps"
+      x: 200.0
+      y: 350.0
+      theta: "east"    # attacking Bagration Fleches (south)
+      strength: 1.0
+    - id: "ney_iii_corps"
+      x: 280.0
+      y: 480.0
+      theta: "east"    # centre assault
+      strength: 1.0
+    - id: "eugene_iv_corps"
+      x: 340.0
+      y: 580.0
+      theta: "east"    # Raevsky Redoubt sector
+      strength: 0.95
+    - id: "poniatowski_v_corps"
+      x: 180.0
+      y: 250.0
+      theta: "east"    # southern flanking manoeuvre via Utitsa
+      strength: 0.85
+
+  # ── Russian corps ────────────────────────────────────────────────────────
+  red:
+    - id: "bagration_2nd_army"
+      x: 680.0
+      y: 350.0
+      theta: "west"    # defending Fleches earthworks
+      strength: 0.90
+    - id: "raevsky_vii_corps"
+      x: 750.0
+      y: 550.0
+      theta: "west"    # manning the Great Redoubt
+      strength: 0.95
+    - id: "tuchkov_iii_corps"
+      x: 670.0
+      y: 250.0
+      theta: "west"    # Utitsa defence
+      strength: 0.85
+    - id: "guards_reserve"
+      x: 800.0
+      y: 500.0
+      theta: "west"    # Kutuzov's uncommitted reserve
+      strength: 1.0
+    - id: "platov_cossacks"
+      x: 820.0
+      y: 650.0
+      theta: "north"   # cavalry raid on French left (disrupted Eugene's assault)
+      strength: 0.70
+
+historical_outcome:
+  winner: null     # Tactical draw; Napoleon held the field but army intact on both sides
+  blue_casualties: 0.35  # ~46 000 French casualties / ~130 000 engaged ≈ 35 %
+  red_casualties: 0.40   # ~48 000 Russian casualties / ~120 000 engaged ≈ 40 %
+  duration_steps: 490
+  description: >
+    Napoleon captured the Russian field fortifications but failed to
+    destroy the Russian army. Kutuzov withdrew, Moscow fell to the
+    French, yet Russia refused to sue for peace. Napoleon's strategic
+    position in Russia collapsed as winter set in.

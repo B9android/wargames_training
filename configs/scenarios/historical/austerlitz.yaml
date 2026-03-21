@@ -1,0 +1,97 @@
+# Battle of Austerlitz (1805-12-02)
+# French Grande Armée (Blue) vs Russo-Austrian Coalition (Red)
+#
+# The "Battle of the Three Emperors" — widely regarded as Napoleon's
+# tactical masterpiece.  Napoleon feigned weakness on his right to draw
+# the Allied left wing down from the Pratzen Heights, then struck the
+# weakened centre with Soult's corps, splitting the Coalition army.
+#
+# Simulation scale: each battalion represents one infantry division of
+# ~7 000 men.  The 1 000 m × 1 000 m map represents the central Pratzen
+# plateau (y 400–700) flanked by the Goldbach stream valley (south).
+
+scenario:
+  name: "Battle of Austerlitz (1805)"
+  date: "1805-12-02"
+  description: >
+    Napoleon lured the Russo-Austrian Coalition into attacking his
+    deliberately weakened right wing. Soult's corps then stormed the
+    abandoned Pratzen Heights, cutting the Allied army in two. The
+    flanking manoeuvre around the Satschan ponds completed the encirclement
+    of the Allied left, producing one of history's most decisive victories.
+
+factions:
+  blue: "French Grande Armée (Napoleon)"
+  red: "Russo-Austrian Coalition (Kutuzov / Alexander I)"
+
+terrain:
+  type: "generated"
+  width: 1000.0
+  height: 1000.0
+  rows: 20
+  cols: 20
+  seed: 1805
+  n_hills: 5      # Pratzen Heights, Zuran Hill, Santon Hill, Staré Vinohrady
+  n_forests: 2    # Telnitz village area, Sokolnitz castle
+
+units:
+  # ── French divisions ─────────────────────────────────────────────────────
+  blue:
+    - id: "soult_iv_corps_1"
+      x: 450.0
+      y: 500.0
+      theta: "east"    # poised to storm the Pratzen Heights
+      strength: 1.0
+    - id: "soult_iv_corps_2"
+      x: 520.0
+      y: 480.0
+      theta: "east"
+      strength: 1.0
+    - id: "bernadotte_i_corps"
+      x: 400.0
+      y: 550.0
+      theta: "east"    # centre reserve
+      strength: 0.95
+    - id: "davout_iii_corps"
+      x: 280.0
+      y: 300.0
+      theta: "north"   # thin right flank — the deliberate lure
+      strength: 0.75
+
+  # ── Russo-Austrian divisions ─────────────────────────────────────────────
+  red:
+    - id: "weyrother_left_wing_1"
+      x: 600.0
+      y: 300.0
+      theta: "south"   # marching south off the Heights — the bait taken
+      strength: 0.90
+    - id: "weyrother_left_wing_2"
+      x: 680.0
+      y: 280.0
+      theta: "south"
+      strength: 0.90
+    - id: "kollowrath_centre"
+      x: 650.0
+      y: 500.0
+      theta: "west"    # holding the Pratzen — to be routed by Soult
+      strength: 0.85
+    - id: "miloradovich_advance_guard"
+      x: 700.0
+      y: 550.0
+      theta: "west"
+      strength: 0.80
+    - id: "guards_reserve"
+      x: 720.0
+      y: 620.0
+      theta: "west"    # Russian Imperial Guard — counter-attack element
+      strength: 1.0
+
+historical_outcome:
+  winner: 0        # Blue (French) won decisively
+  blue_casualties: 0.12  # ~9 000 French casualties / ~73 000 engaged ≈ 12 %
+  red_casualties: 0.47   # ~40 000 Allied casualties & captured / ~85 000 ≈ 47 %
+  duration_steps: 380
+  description: >
+    Soult's storm of the Pratzen Heights took under 90 minutes. By noon
+    the Allied army was split; the left wing was driven into the Satschan
+    ponds. Austria sued for peace within weeks (Peace of Pressburg).

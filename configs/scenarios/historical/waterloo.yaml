@@ -1,0 +1,97 @@
+# Battle of Waterloo (1815-06-18)
+# Anglo-Allied forces (Blue) vs French Grande Armée (Red)
+#
+# Scenario represents the climactic engagement around 7 pm: Wellington's
+# exhausted centre holds the ridge of Mont-Saint-Jean while the French
+# launch their final assault with the Imperial Guard.  The arrival of
+# Blücher's Prussians on the French right flank seals the French defeat.
+#
+# Simulation scale: each battalion represents roughly one brigade of ~3,000
+# men.  Positions are mapped onto a 1 000 m × 1 000 m field with the
+# Anglo-Allied line defending the ridge (y ≈ 600) and the French advancing
+# from the south (y ≈ 200–350).
+
+scenario:
+  name: "Battle of Waterloo (1815)"
+  date: "1815-06-18"
+  description: >
+    The final phase of the Hundred Days campaign. Wellington's Anglo-Allied
+    army defended the ridge of Mont-Saint-Jean against Napoleon's last major
+    offensive effort, ultimately routing the French when Prussian
+    reinforcements struck the French right.
+
+factions:
+  blue: "Anglo-Allied (Wellington)"
+  red: "French Grande Armée (Napoleon)"
+
+terrain:
+  type: "generated"
+  width: 1000.0
+  height: 1000.0
+  rows: 20
+  cols: 20
+  seed: 1815
+  n_hills: 4      # Ridge of Mont-Saint-Jean + La Belle Alliance ridge
+  n_forests: 3    # Hougoumont orchard, La Haye Sainte environs, Bois de Paris
+
+units:
+  # ── Anglo-Allied brigades ────────────────────────────────────────────────
+  blue:
+    - id: "1st_division_guard"
+      x: 400.0
+      y: 650.0
+      theta: "south"   # facing south, defending ridge
+      strength: 0.75   # battered by earlier French attacks
+    - id: "best_division"
+      x: 550.0
+      y: 640.0
+      theta: "south"
+      strength: 0.80
+    - id: "3rd_division_picton"
+      x: 300.0
+      y: 630.0
+      theta: "south"
+      strength: 0.65   # heavily engaged at La Haye Sainte
+    - id: "prussian_iv_corps"
+      x: 750.0
+      y: 600.0
+      theta: "west"    # Prussians arriving from the east, pressing right flank
+      strength: 0.90
+
+  # ── French brigades ──────────────────────────────────────────────────────
+  red:
+    - id: "old_guard_1st"
+      x: 380.0
+      y: 300.0
+      theta: "north"   # advancing on the centre
+      strength: 0.95
+    - id: "old_guard_2nd"
+      x: 480.0
+      y: 280.0
+      theta: "north"
+      strength: 0.95
+    - id: "middle_guard"
+      x: 550.0
+      y: 320.0
+      theta: "north"
+      strength: 0.85
+    - id: "d_erlon_i_corps"
+      x: 300.0
+      y: 350.0
+      theta: "north"
+      strength: 0.55   # already repulsed once, heavily worn
+    - id: "reille_ii_corps"
+      x: 200.0
+      y: 400.0
+      theta: "north"
+      strength: 0.60
+
+historical_outcome:
+  winner: 0        # Blue (Anglo-Allied) won
+  blue_casualties: 0.36  # ~24 500 Allied casualties / ~68 000 engaged ≈ 36 %
+  red_casualties: 0.68   # ~49 000 French casualties / ~72 000 engaged ≈ 68 %
+  duration_steps: 420
+  description: >
+    Wellington's infantry repulsed the Imperial Guard assault, triggering
+    a general French collapse. Allied and Prussian forces pursued through
+    the night. Napoleon abdicated four days later.
