@@ -693,6 +693,12 @@ jobs:
           REPO_NAME: ${{ github.repository }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python scripts/project_agent/seed_v2_v3_vfuture_issues.py
+      - name: Seed v6–v12 roadmap issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/project_agent/seed_v6_v12_issues.py
       - name: Upload agent report
         if: always()
         uses: actions/upload-artifact@v4

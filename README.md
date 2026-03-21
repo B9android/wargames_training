@@ -173,10 +173,17 @@ The project uses GitHub Actions for automated orchestration of experiments, mile
 - Every training run **must** be logged to W&B with a config dict
 - Every significant training run should have a corresponding GitHub issue using the `[EXP]` template
 
-## Current Version: v1
+## Current Version: v5
 
-Focus is on 1v1 battalion training against scripted opponents, then self-play.
-Multi-agent complexity will be added after v1 milestones are met.
+All five planned versions (v1–v5) are code-complete. The project now covers
+single-battalion PPO, MAPPO multi-agent, hierarchical RL (brigade/division),
+AlphaStar-style league training with Nash equilibrium sampling, and a full
+analysis and deployment layer (COA generator, SHAP explainability, historical
+scenario validation, ONNX policy export).
+
+See [`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md) for a comprehensive
+state-of-the-project report, known gaps, and the recommended next steps toward
+**v6: Combined Arms & Expanded Realism**.
 
 ## License
 
