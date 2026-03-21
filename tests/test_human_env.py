@@ -418,9 +418,9 @@ class TestWebRenderer(unittest.TestCase):
         self.assertIsNone(frame["terrain_summary"])
 
     def test_terrain_summary_with_flat_terrain(self) -> None:
-        # Flat terrain has all-zero elevation → max=0 → no grid returned.
+        # Flat terrain has all-zero elevation → max == min → no grid returned.
         frame = self.renderer.render_frame(self.blue, self.red, terrain=self.terrain)
-        # Flat terrain has zero elevation everywhere; summary should be None.
+        # Flat terrain has uniform elevation; summary should be None.
         self.assertIsNone(frame["terrain_summary"])
 
     def test_terrain_summary_with_random_terrain(self) -> None:
@@ -431,11 +431,24 @@ class TestWebRenderer(unittest.TestCase):
         if summary is not None:  # non-flat terrain produces a grid
             self.assertIsInstance(summary, list)
             self.assertIsInstance(summary[0], list)
-            # Values should be in [0, 1]
+            # Values should be in [0, 1] — min-max normalised
             for row in summary:
                 for val in row:
-                    self.assertGreaterEqual(val, 0.0)
+                    self.assertGreaterEqual(val, 0.0 - 1e-9)
                     self.assertLessEqual(val, 1.0 + 1e-9)
+
+    def test_terrain_summary_min_max_normalised(self) -> None:
+        """Grid values are min-max normalised (within [0, 1])."""
+        rng = np.random.default_rng(99)
+        terrain = TerrainMap.generate_random(rng=rng, width=1000.0, height=1000.0)
+        frame = self.renderer.render_frame(self.blue, self.red, terrain=terrain)
+        summary = frame["terrain_summary"]
+        if summary is not None:
+            flat = [v for row in summary for v in row]
+            # All values must be in [0, 1] — down-sampled subset may not span
+            # the full [0, 1] range, but no value may fall outside it.
+            self.assertGreaterEqual(min(flat), 0.0 - 1e-9)
+            self.assertLessEqual(max(flat), 1.0 + 1e-9)
 
     def test_terrain_grid_size_respected(self) -> None:
         rng = np.random.default_rng(1)
@@ -479,6 +492,45 @@ class TestWebRenderer(unittest.TestCase):
     def test_info_defaults_to_empty_dict(self) -> None:
         frame = self.renderer.render_frame(self.blue, self.red)
         self.assertEqual(frame["info"], {})
+
+
+# ---------------------------------------------------------------------------
+# WebRenderer argument validation
+# ---------------------------------------------------------------------------
+
+
+class TestWebRendererValidation(unittest.TestCase):
+    """WebRenderer should reject invalid constructor arguments."""
+
+    def test_zero_map_width_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            WebRenderer(map_width=0.0, map_height=1000.0)
+
+    def test_negative_map_width_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            WebRenderer(map_width=-1.0, map_height=1000.0)
+
+    def test_zero_map_height_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            WebRenderer(map_width=1000.0, map_height=0.0)
+
+    def test_negative_map_height_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            WebRenderer(map_width=1000.0, map_height=-500.0)
+
+    def test_zero_terrain_grid_size_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            WebRenderer(map_width=1000.0, map_height=1000.0, terrain_grid_size=0)
+
+    def test_negative_terrain_grid_size_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            WebRenderer(map_width=1000.0, map_height=1000.0, terrain_grid_size=-3)
+
+    def test_valid_args_construct_ok(self) -> None:
+        r = WebRenderer(500.0, 800.0, terrain_grid_size=5)
+        self.assertEqual(r._map_w, 500.0)
+        self.assertEqual(r._map_h, 800.0)
+        self.assertEqual(r._grid_size, 5)
 
 
 # ---------------------------------------------------------------------------

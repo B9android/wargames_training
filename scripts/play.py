@@ -26,7 +26,6 @@ Controls during play::
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -149,7 +148,7 @@ def _load_policy(policy_path: str):
 
 def run_game(
     scenario: str,
-    difficulty: int = 5,
+    difficulty: Optional[int] = None,
     red_policy=None,
     seed: Optional[int] = None,
 ) -> dict:
@@ -160,7 +159,8 @@ def run_game(
     scenario:
         Name of the scenario (key in :data:`~envs.human_env.SCENARIOS`).
     difficulty:
-        AI curriculum level (1–5).
+        AI curriculum level (1–5).  When ``None``, the scenario's own
+        ``curriculum_level`` is used unchanged.
     red_policy:
         Optional loaded SB3 model to use as the AI opponent.
     seed:
@@ -290,9 +290,19 @@ def main(argv: Optional[list[str]] = None) -> None:
         _list_scenarios()
         return
 
-    # Resolve scenario and difficulty (interactive prompts if not given).
+    # Resolve scenario and difficulty.
     scenario = args.scenario if args.scenario is not None else _prompt_scenario()
-    difficulty = args.difficulty if args.difficulty is not None else _prompt_difficulty()
+
+    if args.difficulty is not None:
+        # Explicit CLI flag always wins.
+        difficulty: Optional[int] = args.difficulty
+    elif args.scenario is not None:
+        # Scenario given on CLI without --difficulty: use the scenario's own
+        # curriculum_level so the user is not prompted unnecessarily.
+        difficulty = SCENARIOS[scenario].get("curriculum_level", 5)
+    else:
+        # Fully interactive lobby: ask the player.
+        difficulty = _prompt_difficulty()
     red_policy = _load_policy(args.policy) if args.policy else None
 
     result = run_game(

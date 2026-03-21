@@ -58,9 +58,22 @@ class WebRenderer:
         map_height: float,
         terrain_grid_size: int = _TERRAIN_GRID_SIZE,
     ) -> None:
-        self._map_w = float(map_width)
-        self._map_h = float(map_height)
-        self._grid_size = int(terrain_grid_size)
+        map_w = float(map_width)
+        map_h = float(map_height)
+        grid_size = int(terrain_grid_size)
+
+        if map_w <= 0.0:
+            raise ValueError(f"map_width must be positive, got {map_width!r}")
+        if map_h <= 0.0:
+            raise ValueError(f"map_height must be positive, got {map_height!r}")
+        if grid_size < 1:
+            raise ValueError(
+                f"terrain_grid_size must be an integer >= 1, got {terrain_grid_size!r}"
+            )
+
+        self._map_w = map_w
+        self._map_h = map_h
+        self._grid_size = grid_size
 
     # ------------------------------------------------------------------
     # Public API
@@ -152,19 +165,20 @@ class WebRenderer:
         """Return a down-sampled normalised elevation grid, or ``None``.
 
         The returned grid has shape ``(terrain_grid_size, terrain_grid_size)``
-        with values in ``[0, 1]`` (0 = lowest point, 1 = highest point).
+        with values in ``[0, 1]`` where ``0`` maps to the minimum elevation
+        and ``1`` maps to the maximum elevation on the map
+        (i.e. ``(elev - min) / (max - min)``).
         """
         if terrain is None:
             return None
         if terrain.elevation is None or terrain.elevation.size == 0:
             return None
 
-        import numpy as np  # noqa: PLC0415
-
         elev = terrain.elevation
         rows, cols = elev.shape
+        min_e = float(elev.min())
         max_e = float(elev.max())
-        if max_e <= 0.0:
+        if max_e <= min_e:
             return None
 
         # Down-sample to (grid_size × grid_size).
@@ -172,4 +186,4 @@ class WebRenderer:
         row_step = max(1, rows // n)
         col_step = max(1, cols // n)
         sampled = elev[::row_step, ::col_step][:n, :n]
-        return (sampled / max_e).tolist()
+        return ((sampled - min_e) / (max_e - min_e)).tolist()

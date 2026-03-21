@@ -104,9 +104,6 @@ SCENARIOS: dict[str, dict] = {
     },
 }
 
-# Keys in SCENARIOS entries that are *not* valid BattalionEnv __init__ kwargs.
-_SCENARIO_META_KEYS: frozenset[str] = frozenset({"description", "initial_blue_strength"})
-
 
 # ---------------------------------------------------------------------------
 # HumanEnv
@@ -214,11 +211,7 @@ class HumanEnv(gym.Env):
         """Render the current frame.
 
         Uses ``skip_events=True`` on the underlying renderer because
-        :meth:`poll_action` already drains the pygame event queue each
-        step.  Any QUIT event that arrives *during* rendering (between
-        two :meth:`poll_action` calls) is detected here and recorded in
-        :attr:`_quit_requested` so that the next :meth:`poll_action` call
-        can signal it to the game loop.
+        :meth:`poll_action` already drains the pygame event queue each step.
         """
         env = self._env
         if env.blue is None or env.red is None:
@@ -229,15 +222,13 @@ class HumanEnv(gym.Env):
 
             env._renderer = BattalionRenderer(env.map_width, env.map_height)
 
-        alive = env._renderer.render_frame(
+        env._renderer.render_frame(
             env.blue,
             env.red,
             terrain=env.terrain,
             step=env._step_count,
             skip_events=True,
         )
-        if not alive:
-            self._quit_requested = True
 
     def close(self) -> None:
         """Clean up resources (delegates to the inner env)."""
@@ -282,7 +273,7 @@ class HumanEnv(gym.Env):
 
         # Pygame must be initialised before event/key calls are meaningful.
         if not pygame.get_init():
-            return np.zeros(3, dtype=np.float32), False
+            pygame.init()
 
         # Drain the event queue; detect quit events.
         for event in pygame.event.get():
