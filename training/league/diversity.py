@@ -285,7 +285,7 @@ def embed_trajectory(
         embedding = embedding / norm
     else:
         # All-zero trajectory — return uniform unit vector.
-        embedding = np.ones_like(embedding) / max(len(embedding) ** 0.5, epsilon)
+        embedding = np.ones_like(embedding) / np.sqrt(max(len(embedding), 1))
 
     return embedding
 

@@ -516,7 +516,6 @@ class MainAgentTrainer:
                     axis=0,
                 )  # (n_blue, obs_dim)
 
-                import torch
                 obs_t = torch.tensor(obs_arr, dtype=torch.float32).unsqueeze(0)  # (1, n_blue, obs_dim)
                 state_t = obs_t.view(1, -1)  # flat global state proxy
 
@@ -525,6 +524,8 @@ class MainAgentTrainer:
                 actions_np = actions_t.squeeze(0).cpu().numpy()  # (n_blue, action_dim)
 
                 # Aggregate all Blue agents' actions into one row per step.
+                # Mean aggregation captures the team's overall action tendency
+                # while keeping the embedding dimension independent of team size.
                 mean_action = actions_np.mean(axis=0)  # (action_dim,)
 
                 # Extract (x, y) position from the first Blue agent's obs.
