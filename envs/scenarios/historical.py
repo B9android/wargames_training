@@ -77,13 +77,16 @@ class ScenarioUnit:
 
     def to_battalion(self) -> Battalion:
         """Construct a :class:`~envs.sim.battalion.Battalion` from this descriptor."""
-        return Battalion(
+        battalion = Battalion(
             x=self.x,
             y=self.y,
             theta=self.theta,
             strength=float(np.clip(self.strength, 0.0, 1.0)),
             team=self.team,
         )
+        # Preserve the scenario unit identifier on the created battalion for tracing.
+        setattr(battalion, "unit_id", self.unit_id)
+        return battalion
 
 
 @dataclass
@@ -130,8 +133,8 @@ class TerrainConfig:
         ``terrain_type == "generated"``).
     n_hills:
         Number of elevation blobs for generated terrain.
-    n_cover:
-        Number of cover blobs for generated terrain.
+    n_forests:
+        Number of forest/cover blobs for generated terrain.
     """
 
     terrain_type: str = "flat"
@@ -276,6 +279,15 @@ class ScenarioLoader:
         with self.path.open("r", encoding="utf-8") as fh:
             raw = yaml.safe_load(fh)
 
+        # yaml.safe_load() returns None for empty files or files with only comments.
+        # Normalise to a dict and validate the top-level structure so callers
+        # consistently see ValueError for invalid content, as documented.
+        raw = raw or {}
+        if not isinstance(raw, dict):
+            raise ValueError(
+                f"Invalid scenario YAML structure in {self.path}: "
+                "expected a mapping at the top level."
+            )
         return self._parse(raw)
 
     # ------------------------------------------------------------------
@@ -351,8 +363,16 @@ class ScenarioLoader:
             "north": math.pi / 2,
             "south": -math.pi / 2,
         }
+        _ALLOWED_DIRECTIONS = ", ".join(sorted(_NAMED.keys()))
         if isinstance(theta_raw, str):
-            theta = _NAMED.get(theta_raw.lower(), 0.0)
+            key = theta_raw.lower()
+            if key in _NAMED:
+                theta = _NAMED[key]
+            else:
+                raise ValueError(
+                    f"Unknown theta direction name {theta_raw!r}; "
+                    f"expected one of: {_ALLOWED_DIRECTIONS}"
+                )
         else:
             theta = float(theta_raw)
 
@@ -465,7 +485,8 @@ class OutcomeComparator:
             )
         )
 
-        # Duration accuracy: 1 if within 10 %, linearly decaying to 0 at 100 % off
+        # Duration accuracy: linear score — 1.0 at zero error, 0.0 when the
+        # simulated duration differs by 100 % of the historical duration.
         if ho.duration_steps > 0:
             rel_dur_err = abs(duration_delta) / ho.duration_steps
         else:

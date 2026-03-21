@@ -31,8 +31,8 @@ Each scenario is a single YAML file stored under
 | `scenario`           | Yes      | Battle metadata (name, date, description) |
 | `factions`           | No       | Display names for blue and red sides |
 | `terrain`            | No       | Terrain configuration (defaults to flat) |
-| `units`              | Yes      | Initial-condition lists for `blue` and `red` |
-| `historical_outcome` | Yes      | Documented result used as validation baseline |
+| `units`              | No       | Initial-condition lists for `blue` and `red` (defaults to empty lists if omitted) |
+| `historical_outcome` | No       | Documented result used as validation baseline (defaults applied if omitted) |
 
 ### `scenario` Block
 

@@ -77,6 +77,11 @@ class TestScenarioUnit(unittest.TestCase):
         b2 = unit.to_battalion()
         self.assertIsNot(b1, b2)
 
+    def test_to_battalion_preserves_unit_id(self) -> None:
+        unit = self._make_unit(unit_id="my_brigade")
+        bat = unit.to_battalion()
+        self.assertEqual(getattr(bat, "unit_id", None), "my_brigade")
+
 
 # ---------------------------------------------------------------------------
 # ScenarioLoader — unit-level parsing
@@ -150,6 +155,49 @@ class TestScenarioLoaderParsing(unittest.TestCase):
         self.assertIsNone(scenario.historical_outcome.winner)
         self.assertEqual(scenario.blue_units, [])
         self.assertEqual(scenario.red_units, [])
+
+    def test_unknown_theta_string_raises_value_error(self) -> None:
+        raw = {
+            "units": {"blue": [{"id": "u", "x": 0, "y": 0, "theta": "nort", "strength": 1.0}]}
+        }
+        loader = ScenarioLoader.__new__(ScenarioLoader)
+        loader.path = Path("/fake/path.yaml")
+        with self.assertRaises(ValueError) as ctx:
+            loader._parse(raw)
+        msg = str(ctx.exception)
+        self.assertIn("nort", msg)
+        for direction in ("east", "north", "south", "west"):
+            self.assertIn(direction, msg, f"Expected '{direction}' in error message")
+
+
+class TestScenarioLoaderEmptyYAML(unittest.TestCase):
+    """Verify that ScenarioLoader handles empty/comment-only YAML files gracefully."""
+
+    def test_empty_yaml_uses_defaults(self) -> None:
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as f:
+            f.write("# only a comment, no data\n")
+            tmp_path = f.name
+        try:
+            # Should not raise — returns a scenario with default values
+            scenario = ScenarioLoader(tmp_path).load()
+            self.assertEqual(scenario.blue_units, [])
+            self.assertEqual(scenario.red_units, [])
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+
+    def test_non_mapping_yaml_raises_value_error(self) -> None:
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as f:
+            f.write("- item1\n- item2\n")
+            tmp_path = f.name
+        try:
+            with self.assertRaises(ValueError):
+                ScenarioLoader(tmp_path).load()
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
