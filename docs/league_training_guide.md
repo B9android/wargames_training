@@ -13,10 +13,11 @@ single policy iterating against itself, a *league* of specialised agents
 co-evolves so that each role applies selection pressure on the others, driving
 the main agent toward a robust Nash equilibrium strategy.
 
-The league runs on top of the v3 HRL architecture.  At the battalion level,
-individual agents are controlled by MAPPO policies.  The league infrastructure
-sits above that, managing which agent checkpoint plays against which during
-training rollouts.
+The league is built on the v2 MAPPO foundation, using `MultiBattalionEnv`
+with MAPPO policies directly at the battalion level.  It is compatible with
+the v3 HRL stack as a source of frozen battalion sub-policies.  The league
+infrastructure sits above that, managing which agent checkpoint plays against
+which during training rollouts.
 
 ---
 
@@ -34,16 +35,17 @@ that exploiters can target its past strategies.
 
 Training entry-point: `training/league/train_main_agent.py`  
 Config: `configs/league/main_agent.yaml`  
-W&B project key prefix: `main_agent/`
+W&B metric namespaces: `elo/main_agent`, `matchup/win_rate/*`, `train/*`, `league/*`
 
 ### MAIN_EXPLOITER
 
 A specialist agent that trains **exclusively against the latest main agent
 snapshot**.  Its goal is to expose weaknesses in the current main agent
-strategy.  When it consistently beats the main agent (rolling win rate rises
-above a threshold) it is reset via orthogonal re-initialisation, forcing it
-to find a different exploit.  This cycling pressure prevents the main agent
-from converging to a strategy that is merely robust to a fixed set of exploits.
+strategy.  When its performance against the main agent deteriorates (rolling
+win rate drops below a reset threshold) it is reset via orthogonal
+re-initialisation, forcing it to search for a different exploit.  This cycling
+pressure prevents the main agent from converging to a strategy that is merely
+robust to a fixed set of stale or underperforming exploiters.
 
 Training entry-point: `training/league/train_exploiter.py`  
 Config: `configs/league/main_exploiter.yaml`  
@@ -73,8 +75,9 @@ by default).  Each entry is an `AgentRecord` with the following fields:
 |---|---|---|
 | `agent_id` | `str` | Unique identifier (UUID4 by default) |
 | `agent_type` | `AgentType` | `main_agent`, `main_exploiter`, or `league_exploiter` |
-| `checkpoint_path` | `str` | Path to the `.pt` / `.zip` policy checkpoint |
-| `elo` | `float` | Current Elo rating |
+| `snapshot_path` | `str` | Path to the saved agent snapshot (e.g., `.pt` / `.zip` or directory) |
+| `version` | `int` | Monotonically increasing version number within the pool |
+| `created_at` | `float` | Unix timestamp when this snapshot was added to the pool |
 | `metadata` | `dict` | Arbitrary extra metadata (e.g., training step, W&B run ID) |
 
 Pool mutations (`add`, `update`, `remove`) rewrite the manifest atomically
@@ -88,10 +91,12 @@ writes without external locking.
 `training/league/match_database.py` — `MatchDatabase`
 
 Stores match outcomes as JSONL (one JSON object per line) so the file can be
-appended without rewriting.  Each record contains `agent_a`, `agent_b`, and
-`winner` fields.  The `win_rates_for(agent_id)` method returns a mapping of
-`{opponent_id: win_rate}` computed in a single pass over the match history,
-avoiding repeated O(n) scans.
+appended without rewriting.  Each line is a `MatchResult` record with fields:
+`match_id`, `agent_id`, `opponent_id`, `outcome`, `timestamp`, and `metadata`,
+where `outcome` is from the perspective of `agent_id` (a float in `[0, 1]`:
+`1.0` = win, `0.5` = draw, `0.0` = loss).  The `win_rates_for(agent_id)`
+method returns a mapping of `{opponent_id: win_rate}` computed in a single
+pass over the match history, avoiding repeated O(n) scans.
 
 ---
 
@@ -170,24 +175,29 @@ from training.league.nash import compute_nash_distribution, build_payoff_matrix
 payoff = build_payoff_matrix(agent_ids, win_rate_callable)
 
 # Solve for the Nash distribution (LP + regret matching)
-nash_dist = compute_nash_distribution(payoff)  # {agent_id: probability}
+# Returns a 1-D NumPy probability array of shape (N,)
+nash_probs = compute_nash_distribution(payoff)
+
+# Convert to {agent_id: probability} mapping for use with the matchmaker
+nash_dist = dict(zip(agent_ids, nash_probs.tolist()))
 ```
 
 `build_payoff_matrix` accepts a callable `win_rate(agent_a, agent_b) → float`
 (typically `match_database.win_rate`) and returns a square NumPy array indexed
-by agent ID.
+by position in `agent_ids`.
 
 `compute_nash_distribution` uses linear programming (via SciPy) followed by
 regret-matching to find the mixed Nash equilibrium of the symmetric two-player
-zero-sum game defined by the payoff matrix.  It returns a normalised
-`{agent_id: probability}` dictionary.
+zero-sum game defined by the payoff matrix.  It returns a normalised 1-D
+NumPy array of shape `(N,)`.  Zip with `agent_ids` to form an
+`{agent_id: probability}` mapping.
 
 ### Nash Entropy
 
 ```python
 from training.league.nash import nash_entropy
 
-entropy = nash_entropy(nash_dist)  # nats
+entropy = nash_entropy(nash_probs)  # nats
 ```
 
 A high Nash entropy means the league has a diverse equilibrium — no single
@@ -196,6 +206,7 @@ strategy dominates.  This value is logged to W&B as `league/nash_entropy`.
 ### Activating Nash Sampling in the Matchmaker
 
 ```python
+# nash_dist is {agent_id: probability} — see "Computing the Nash Distribution" above
 matchmaker.set_nash_weights(nash_dist)
 # Revert to PFSP:
 matchmaker.set_nash_weights(None)
@@ -281,7 +292,7 @@ All league training configs live in `configs/league/`.
 | `total_timesteps` | `5_000_000` | Total training steps |
 | `pfsp_temperature` | `1.0` | Temperature for PFSP weight function |
 | `pool_max_size` | `200` | Maximum snapshots retained in pool |
-| `snapshot_interval` | `50_000` | Steps between pool snapshots |
+| `league.snapshot_freq` | `100_000` | Steps between pool snapshots |
 
 ### `main_exploiter.yaml` (key fields)
 
@@ -306,8 +317,8 @@ All league training configs live in `configs/league/`.
 
 | Metric | Source |
 |---|---|
-| `main_agent/elo` | Elo rating updated after each evaluation episode |
-| `exploiter/rolling_win_rate` | Rolling win rate of main exploiter vs. main agent |
+| `elo/main_agent` | Elo rating updated after each evaluation episode |
+| `exploiter/rolling_win_rate_vs_main` | Rolling win rate of main exploiter vs. main agent |
 | `league_exploiter/exploitability` | Nash exploitability score |
 | `league/nash_entropy` | Shannon entropy (nats) of the Nash distribution |
 | `league/diversity_score` | Mean cosine distance between agent trajectory embeddings |

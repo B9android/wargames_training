@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   config `configs/league/league_exploiter.yaml`.
 - **Nash distribution sampling** (`training/league/nash.py`) —
   `build_payoff_matrix` (win-rate callable → NumPy array);
-  `compute_nash_distribution` (LP + regret matching → `{agent_id: prob}`);
+  `compute_nash_distribution` (LP + regret matching → NumPy probability array; zip with `agent_ids` to form `{agent_id: prob}`);
   `nash_entropy` (Shannon entropy in nats); W&B key `league/nash_entropy`.
 - **Strategy diversity metrics** (`training/league/diversity.py`) —
   `TrajectoryBatch`; `embed_trajectory` (action histogram + position heatmap

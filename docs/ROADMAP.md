@@ -126,7 +126,7 @@ league exploiters. Nash equilibrium sampling. Strategy diversity metrics.
 - [x] **E4.4** — League Exploiter Agents
 - [x] **E4.5** — Nash Distribution Sampling
 - [x] **E4.6** — Strategy Diversity Metrics
-- [x] **E4.7** — Distributed Training (Ray/RLlib)
+- [x] **E4.7** — Distributed Training (Ray)
 - [x] **E4.8** — v4 Documentation & Release
 
 ### Milestones

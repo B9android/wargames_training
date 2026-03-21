@@ -31,7 +31,7 @@
 │  ┌─────────────────┐                   ┌──────────────────────┐    │
 │  │  MATCH DATABASE │                   │  NASH SOLVER         │    │
 │  │  (JSONL log of  │──── win_rates ───▶│  build_payoff_matrix │    │
-│  │  match results) │                   │  compute_nash_dist() │    │
+│  │  match results) │                   │  compute_nash_distribution() │    │
 │  └─────────────────┘                   └──────────┬───────────┘    │
 │                                                    │ nash_weights   │
 │                                                    ▼               │
@@ -121,8 +121,8 @@ training/league/
                       W&B Logging
                   league/nash_entropy
                   league/diversity_score
-                  main_agent/elo
-                  exploiter/rolling_win_rate
+                  elo/main_agent
+                  exploiter/rolling_win_rate_vs_main
 ```
 
 ---
