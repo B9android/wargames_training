@@ -24,6 +24,9 @@ concurrency:
   group: ray-smoke-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   ray_smoke_test:
     name: "Ray 2-worker smoke test"
