@@ -43,6 +43,7 @@ from training.elo import EloRegistry
 from training.league.agent_pool import AgentPool, AgentType
 from training.league.match_database import MatchDatabase
 from training.league.matchmaker import LeagueMatchmaker
+from training.league.nash import build_payoff_matrix, compute_nash_distribution, nash_entropy
 from training.train_mappo import MAPPOTrainer
 
 log = logging.getLogger(__name__)
@@ -526,6 +527,21 @@ class MainAgentTrainer:
                 metrics[f"matchup/mean_win_rate/{mid}"] = float(
                     sum(outcomes) / len(outcomes)
                 )
+        # Nash distribution entropy over the current league pool.
+        # Build the payoff matrix from pre-cached per-agent win-rate dicts
+        # (one O(num_matches) pass per agent) to avoid the O(N^2 * num_matches)
+        # cost of calling win_rate() separately for each matrix cell.
+        all_records = self._agent_pool.list()
+        if len(all_records) >= 2:
+            agent_ids = [r.agent_id for r in all_records]
+            win_rates_cache = {aid: self._match_db.win_rates_for(aid) for aid in agent_ids}
+            payoff = build_payoff_matrix(
+                agent_ids,
+                lambda ai, aj: win_rates_cache.get(ai, {}).get(aj),
+                self._matchmaker.unknown_win_rate,
+            )
+            nash_dist = compute_nash_distribution(payoff)
+            metrics["league/nash_entropy"] = nash_entropy(nash_dist)
         metrics["eval/step"] = total_steps
         if wandb.run is not None:
             wandb.log(metrics, step=total_steps)
