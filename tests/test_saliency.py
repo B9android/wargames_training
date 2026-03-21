@@ -19,8 +19,6 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
-from typing import Tuple
-from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -213,6 +211,10 @@ class TestComputeIntegratedGradients(unittest.TestCase):
         ig = compute_integrated_gradients(self.net, self.obs, n_steps=5)
         self.assertEqual(ig.shape, (OBS_DIM,))
 
+    def test_zero_steps_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            compute_integrated_gradients(self.net, self.obs, n_steps=0)
+
     def test_batch_obs_mean_reduction(self) -> None:
         obs_batch = _random_obs(4)
         ig = compute_integrated_gradients(self.net, obs_batch)
@@ -275,6 +277,11 @@ class TestPermutationImportance(unittest.TestCase):
     def test_non_negative(self) -> None:
         imp = _permutation_importance(self.net, self.obs, self.bg)
         self.assertTrue((imp >= 0).all())
+
+    def test_n_samples_accepted(self) -> None:
+        """n_samples parameter is accepted and produces correct output shape."""
+        imp = _permutation_importance(self.net, self.obs, self.bg, n_samples=5)
+        self.assertEqual(imp.shape, (OBS_DIM,))
 
     def test_sensitive_feature_has_high_importance(self) -> None:
         """A network that only uses feature 0 should rank feature 0 highest."""

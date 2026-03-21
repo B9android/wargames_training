@@ -37,9 +37,12 @@ Typical usage::
     fig = analyzer.plot_saliency(saliency, title="Gradient saliency")
     fig.savefig("saliency.png")
 
-All public functions also accept a **batch** of observations (shape
-``(N, obs_dim)``), returning a result of the same batch shape so they can be
-used on entire episode trajectories.
+:func:`compute_gradient_saliency` accepts a batch of observations (shape
+``(N, obs_dim)``).  With the default reduction it returns a single importance
+vector of shape ``(obs_dim,)``; pass ``reduce="none"`` to get per-sample
+saliency of shape ``(N, obs_dim)``.  :func:`compute_integrated_gradients` and
+:func:`compute_shap_importance` always aggregate over the batch and return a
+single vector of shape ``(obs_dim,)``.
 """
 
 from __future__ import annotations
@@ -106,17 +109,31 @@ def _extract_mlp_network(policy: Any) -> nn.Module:
     # SB3 ActorCriticPolicy
     if hasattr(policy, "mlp_extractor") and hasattr(policy, "action_net"):
         class _SB3MeanExtractor(nn.Module):
-            def __init__(self, mlp_extractor: nn.Module, action_net: nn.Module) -> None:
+            def __init__(self, policy_module: Any) -> None:
                 super().__init__()
-                self._mlp = mlp_extractor
-                self._action = action_net
+                # Keep a reference to the full policy so we can mirror its
+                # actual forward path, including feature extraction.
+                self._policy = policy_module
 
             def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
-                # mlp_extractor returns (latent_pi, latent_vf)
-                latent_pi, _ = self._mlp(x)
-                return self._action(latent_pi)
+                # Mirror SB3 ActorCriticPolicy forward:
+                #   features = extract_features(obs)
+                #   latent_pi, latent_vf = mlp_extractor(features)
+                #   action_mean = action_net(latent_pi)
+                if hasattr(self._policy, "extract_features"):
+                    features = self._policy.extract_features(x)
+                elif hasattr(self._policy, "features_extractor"):
+                    # Fallback in case only the features_extractor module is exposed.
+                    features = self._policy.features_extractor(x)
+                else:
+                    # If no explicit feature extractor is present, assume x is
+                    # already in the correct feature space.
+                    features = x
 
-        return _SB3MeanExtractor(policy.mlp_extractor, policy.action_net)
+                latent_pi, _ = self._policy.mlp_extractor(features)
+                return self._policy.action_net(latent_pi)
+
+        return _SB3MeanExtractor(policy)
 
     # MAPPOPolicy / plain nn.Module
     if isinstance(policy, nn.Module):
@@ -128,15 +145,33 @@ def _extract_mlp_network(policy: Any) -> nn.Module:
     )
 
 
-def _to_tensor(obs: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
-    """Convert observation to a float32 torch tensor with batch dimension."""
+def _to_tensor(
+    obs: Union[np.ndarray, torch.Tensor],
+    device: Optional[torch.device] = None,
+) -> torch.Tensor:
+    """Convert observation to a float32 torch tensor with batch dimension.
+
+    Parameters
+    ----------
+    obs:
+        Observation as a NumPy array or torch tensor.  A missing batch
+        dimension (1-D input) will be added automatically.
+    device:
+        Optional device to move the resulting tensor to.  If ``None``,
+        NumPy inputs are converted on CPU and existing tensors keep their
+        current device.
+    """
     if isinstance(obs, np.ndarray):
-        obs = torch.from_numpy(obs.astype(np.float32))
+        tensor = torch.from_numpy(obs.astype(np.float32))
+        if device is not None:
+            tensor = tensor.to(device)
     else:
-        obs = obs.float()
-    if obs.ndim == 1:
-        obs = obs.unsqueeze(0)
-    return obs
+        tensor = obs.float()
+        if device is not None and tensor.device != device:
+            tensor = tensor.to(device)
+    if tensor.ndim == 1:
+        tensor = tensor.unsqueeze(0)
+    return tensor
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +212,8 @@ def compute_gradient_saliency(
     net = _extract_mlp_network(policy)
     net.eval()
 
-    x = _to_tensor(obs)
+    device = next(net.parameters(), torch.tensor(0)).device
+    x = _to_tensor(obs, device=device)
     x = x.requires_grad_(True)
 
     output = net(x)
@@ -185,7 +221,7 @@ def compute_gradient_saliency(
     target = output.sum()
     target.backward()
 
-    grad = x.grad.detach().numpy()  # (N, obs_dim)
+    grad = x.grad.detach().cpu().numpy()  # (N, obs_dim)
 
     if reduce == "none":
         return np.abs(grad)
@@ -227,36 +263,43 @@ def compute_integrated_gradients(
         Reference point.  Defaults to the all-zeros observation.
     n_steps:
         Number of interpolation steps along the path (higher → more accurate).
+        Must be >= 1.
 
     Returns
     -------
     np.ndarray
         Attribution scores of shape ``(obs_dim,)`` (mean over batch if N>1).
     """
+    if n_steps < 1:
+        raise ValueError(f"n_steps must be >= 1, got {n_steps}")
+
     net = _extract_mlp_network(policy)
     net.eval()
 
-    x = _to_tensor(obs)  # (N, obs_dim)
+    device = next(net.parameters(), torch.tensor(0)).device
+    x = _to_tensor(obs, device=device)  # (N, obs_dim)
     N, obs_dim = x.shape
 
     if baseline is None:
         base = torch.zeros_like(x)
     else:
-        base = _to_tensor(baseline)
+        base = _to_tensor(baseline, device=device)
         if base.shape != x.shape:
             base = base.expand_as(x)
 
-    # Accumulate gradients along the interpolation path
+    # Accumulate gradients along the interpolation path.
+    # Use torch.autograd.grad so that model parameter .grad buffers are never
+    # touched — this is safe to call during/after training without side effects.
     accumulated_grads = torch.zeros_like(x)
 
     for alpha in np.linspace(0.0, 1.0, n_steps):
         x_interp = (base + alpha * (x - base)).detach().requires_grad_(True)
         output = net(x_interp).sum()
-        output.backward()
-        accumulated_grads += x_interp.grad.detach()
+        (grad,) = torch.autograd.grad(output, x_interp)
+        accumulated_grads = accumulated_grads + grad.detach()
 
     # IG formula: (obs - baseline) * mean_gradient
-    ig = ((x - base) * accumulated_grads / n_steps).detach().numpy()  # (N, obs_dim)
+    ig = ((x - base) * accumulated_grads / n_steps).detach().cpu().numpy()  # (N, obs_dim)
     return ig.mean(axis=0)  # (obs_dim,)
 
 
@@ -299,29 +342,40 @@ def compute_shap_importance(
     net = _extract_mlp_network(policy)
     net.eval()
 
-    x_np = _to_tensor(obs).detach().numpy()  # (N, obs_dim)
+    device = next(net.parameters(), torch.tensor(0)).device
+    x_np = _to_tensor(obs, device=device).detach().cpu().numpy()  # (N, obs_dim)
 
     if background is None:
         bg_np = np.zeros((1, x_np.shape[1]), dtype=np.float32)
     else:
-        bg_np = _to_tensor(background).detach().numpy()
+        bg_np = _to_tensor(background, device=device).detach().cpu().numpy()
 
     # ── Try shap library ──────────────────────────────────────────────────
+    shap = None
     try:
-        import shap  # type: ignore
+        import shap as _shap  # type: ignore
+        shap = _shap
+    except ImportError:
+        pass  # fall through to permutation fallback without a warning
 
-        bg_tensor = torch.from_numpy(bg_np)
-        explainer = shap.GradientExplainer(net, bg_tensor)
-        shap_values = explainer.shap_values(torch.from_numpy(x_np))
-        # shap_values may be a list (one per output) or an array
-        if isinstance(shap_values, list):
-            shap_arr = np.mean([np.abs(sv) for sv in shap_values], axis=0)
-        else:
-            shap_arr = np.abs(np.array(shap_values))
-        return shap_arr.mean(axis=0)  # (obs_dim,)
-
-    except Exception:  # noqa: BLE001
-        pass  # fall through to permutation fallback
+    if shap is not None:
+        try:
+            bg_tensor = _to_tensor(bg_np, device=device)
+            explainer = shap.GradientExplainer(net, bg_tensor)
+            shap_values = explainer.shap_values(_to_tensor(x_np, device=device))
+            # shap_values may be a list (one per output) or an array
+            if isinstance(shap_values, list):
+                shap_arr = np.mean([np.abs(sv) for sv in shap_values], axis=0)
+            else:
+                shap_arr = np.abs(np.array(shap_values))
+            return shap_arr.mean(axis=0)  # (obs_dim,)
+        except Exception as exc:  # noqa: BLE001
+            warnings.warn(
+                f"Falling back to permutation importance because SHAP computation "
+                f"failed with: {exc!r}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     # ── Permutation-based fallback ────────────────────────────────────────
     return _permutation_importance(net, x_np, bg_np, n_samples=n_samples)
@@ -335,11 +389,35 @@ def _permutation_importance(
 ) -> np.ndarray:
     """Lightweight permutation importance fallback.
 
-    For each feature, replaces it with the background mean and measures the
-    absolute change in the summed output.  Higher change → more important.
+    For each feature, replaces it with values drawn from the background
+    distribution (up to ``n_samples`` background rows, sampled with
+    replacement) and measures the absolute change in the summed output.
+    Higher change → more important feature.
+
+    Parameters
+    ----------
+    net:
+        Forward-callable network.
+    x_np:
+        Observations of shape ``(N, obs_dim)``.
+    bg_np:
+        Background dataset of shape ``(M, obs_dim)`` used as the replacement
+        distribution.  When ``M < n_samples``, all background rows are used.
+    n_samples:
+        Maximum number of background samples to use for the permutation.
+        Higher values give a more stable estimate at the cost of extra
+        forward passes.
     """
     obs_dim = x_np.shape[1]
-    bg_mean = bg_np.mean(axis=0)  # (obs_dim,)
+    rng = np.random.default_rng()
+
+    # Sub-sample background rows (with replacement) if needed
+    n_bg = bg_np.shape[0]
+    if n_bg >= n_samples:
+        bg_idx = rng.choice(n_bg, size=n_samples, replace=False)
+    else:
+        bg_idx = rng.choice(n_bg, size=n_samples, replace=True)
+    bg_samples = bg_np[bg_idx]  # (n_samples, obs_dim)
 
     def _forward(arr: np.ndarray) -> float:
         with torch.no_grad():
@@ -350,8 +428,10 @@ def _permutation_importance(
     importances = np.zeros(obs_dim, dtype=np.float32)
 
     for feat_idx in range(obs_dim):
+        # Replace the feature with the mean of the sampled background values
+        replacement = float(bg_samples[:, feat_idx].mean())
         x_masked = x_np.copy()
-        x_masked[:, feat_idx] = bg_mean[feat_idx]
+        x_masked[:, feat_idx] = replacement
         masked_score = _forward(x_masked)
         importances[feat_idx] = abs(base_score - masked_score)
 
