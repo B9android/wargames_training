@@ -1,5 +1,5 @@
 # training/league/__init__.py
-"""League training infrastructure (E4.1, E4.2).
+"""League training infrastructure (E4.1, E4.2, E4.3, E4.4).
 
 Provides an AlphaStar-style league with:
 
@@ -11,16 +11,23 @@ Provides an AlphaStar-style league with:
   matchmaking that samples opponents proportional to win-rate weights.
 * :class:`~training.league.train_main_agent.MainAgentTrainer` — MAPPO
   training loop for main agents using PFSP against the full league pool.
+* :class:`~training.league.train_exploiter.MainExploiterTrainer` — MAPPO
+  training loop for main exploiter agents targeting the latest main agent.
+* :class:`~training.league.train_league_exploiter.LeagueExploiterTrainer` —
+  MAPPO training loop for league exploiter agents using PFSP against the
+  full historical pool.
 
 Notes
 -----
-``MainAgentTrainer`` and ``make_pfsp_weight_fn`` are imported lazily so that
-the lightweight infrastructure classes (``AgentPool``, ``MatchDatabase``,
-``LeagueMatchmaker``) can be imported without pulling in the heavy training
-dependencies (torch, wandb, hydra, envs).  Use the qualified import path
-``from training.league.train_main_agent import MainAgentTrainer`` when you
-need those directly, or access them via this package and they will be loaded
-on first use.
+``MainAgentTrainer``, ``MainExploiterTrainer``, ``LeagueExploiterTrainer``,
+``make_pfsp_weight_fn``, and ``compute_league_exploitability`` are imported
+lazily so that the lightweight infrastructure classes (``AgentPool``,
+``MatchDatabase``, ``LeagueMatchmaker``) can be imported without pulling in
+the heavy training dependencies (torch, wandb, hydra, envs).  Use the
+qualified import path (e.g.
+``from training.league.train_league_exploiter import LeagueExploiterTrainer``)
+when you need those directly, or access them via this package and they will
+be loaded on first use.
 """
 
 from training.league.agent_pool import AgentPool, AgentRecord, AgentType
@@ -36,6 +43,9 @@ __all__ = [
     "LeagueMatchmaker",
     "MainAgentTrainer",
     "make_pfsp_weight_fn",
+    "MainExploiterTrainer",
+    "LeagueExploiterTrainer",
+    "compute_league_exploitability",
 ]
 
 # ---------------------------------------------------------------------------
@@ -45,6 +55,9 @@ __all__ = [
 _LAZY = {
     "MainAgentTrainer": "training.league.train_main_agent",
     "make_pfsp_weight_fn": "training.league.train_main_agent",
+    "MainExploiterTrainer": "training.league.train_exploiter",
+    "LeagueExploiterTrainer": "training.league.train_league_exploiter",
+    "compute_league_exploitability": "training.league.train_league_exploiter",
 }
 
 
