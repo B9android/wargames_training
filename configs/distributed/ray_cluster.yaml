@@ -1,0 +1,69 @@
+# configs/distributed/ray_cluster.yaml
+# Ray cluster configuration for distributed league training (E4.7)
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/league/distributed_runner.py \
+#       distributed.num_workers=8 distributed.num_cpus_per_worker=2
+
+# ── Ray cluster ───────────────────────────────────────────────────────────
+ray:
+  # Set to "auto" to connect to an existing Ray cluster started with
+  # `ray start --head`.  Leave null to spin up a local Ray instance.
+  address: null
+
+  # Total CPUs to request when starting a local Ray instance (null = auto).
+  num_cpus: null
+
+  # Total GPUs to request.  Set to 0 on CPU-only machines.
+  num_gpus: 0
+
+  # Extra keyword arguments forwarded to ray.init().
+  # e.g. include_dashboard: false, log_to_driver: false
+  init_kwargs: {}
+
+# ── Worker pool ───────────────────────────────────────────────────────────
+distributed:
+  # Number of parallel rollout worker actors.
+  # Recommended: match physical CPU count for simulation-bound workloads.
+  num_workers: 4
+
+  # Fractional CPU allocation per remote environment actor.
+  # Use 0.5 to over-subscribe CPUs on developer machines.
+  num_cpus_per_worker: 1.0
+
+  # Fractional GPU allocation per worker (0.0 = CPU only).
+  num_gpus_per_worker: 0.0
+
+  # Number of episodes per collect_rollouts() call.
+  n_episodes_per_batch: 16
+
+  # Base RNG seed for episode reproducibility.
+  base_seed: 42
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 2
+  n_red: 2
+  map_width: 1000.0
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 600.0
+
+# ── Benchmark ─────────────────────────────────────────────────────────────
+benchmark:
+  # Number of episodes to use when running throughput benchmarks.
+  n_episodes: 32
+  # Acceptance threshold: Ray cluster must achieve this multiple of
+  # single-process throughput to pass the benchmark acceptance criterion.
+  min_speedup_factor: 3.0
+
+# ── CI smoke test ─────────────────────────────────────────────────────────
+ci:
+  # Number of workers to use in CI smoke tests.
+  num_workers: 2
+  # Number of episodes for the smoke test (kept small for speed).
+  n_episodes: 4
+  # Maximum wall-clock seconds allowed for the smoke test.
+  timeout_seconds: 300
