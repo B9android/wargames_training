@@ -13,7 +13,7 @@
 | **v2** | Multi-Agent — MARL 2v2+ | ✅ Complete | M6 |
 | **v3** | Hierarchy — Brigade/Division HRL | ✅ Complete | M8 |
 | **v4** | League — AlphaStar-style training | ✅ Complete | M10 |
-| **v5** | Real-World Interface & Analysis | 🔮 Future | TBD |
+| **v5** | Real-World Interface & Analysis | ✅ Complete | M12 |
 
 ---
 
@@ -148,20 +148,21 @@ league exploiters. Nash equilibrium sampling. Strategy diversity metrics.
 
 ---
 
-## v5: Analysis & Interface (Future)
+## v5: Analysis & Interface (Complete ✅)
 
 **Goal:** Turn the trained system into a useful wargaming tool.
 Human-vs-AI play, COA analysis, strategy visualization.
 
-### Potential Epics
-- [ ] **E5.1** — Human-playable interface (web or desktop)
-- [ ] **E5.2** — Course of Action (COA) generator
-- [ ] **E5.3** — Strategy explainability (attention visualization)
-- [ ] **E5.4** — Historical scenario validation
-- [ ] **E5.5** — Export trained policies for deployment
+### Epics
+- [x] **E5.1** — Human-playable interface (`envs/human_env.py`, `scripts/play.py`)
+- [x] **E5.2** — Course of Action (COA) generator (`analysis/coa_generator.py`, `api/coa_endpoint.py`)
+- [x] **E5.3** — Strategy explainability (`analysis/saliency.py`, `notebooks/explainability_demo.ipynb`)
+- [x] **E5.4** — Historical scenario validation (`envs/scenarios/historical.py`, `configs/scenarios/historical/`)
+- [x] **E5.5** — Export trained policies for deployment (`scripts/export_policy.py`, `docker/policy_server/`)
 
-### Target Milestones
-- TBD (all post-v4, likely 2029+)
+### Milestones
+- M11: Interface & Analysis ✅
+- M12: v5 Complete ✅
 
 ### Key Research Questions
 - Do trained policies reproduce historically documented tactics?
