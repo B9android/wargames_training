@@ -125,7 +125,10 @@ def coas() -> Any:
 
     See module docstring for the full request/response schema.
     """
-    body: dict = request.get_json(force=True, silent=True) or {}
+    body_raw = request.get_json(force=True, silent=True)
+    if not isinstance(body_raw, dict):
+        return jsonify({"error": "Request body must be a JSON object."}), 400
+    body: dict = body_raw
 
     # ── Parse parameters ────────────────────────────────────────────────────
     try:
@@ -134,9 +137,13 @@ def coas() -> Any:
         seed_raw        = body.get("seed", None)
         seed: int | None = int(seed_raw) if seed_raw is not None else None
         strategies_raw  = body.get("strategies", None)
-        env_kwargs: dict = body.get("env_kwargs") or {}
+        env_kwargs_raw  = body.get("env_kwargs", {})
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
+
+    if not isinstance(env_kwargs_raw, dict):
+        return jsonify({"error": "'env_kwargs' must be a JSON object."}), 400
+    env_kwargs: dict = env_kwargs_raw
 
     # Validate n_coas against the number of available archetypes
     if n_coas > len(STRATEGY_LABELS):
@@ -191,7 +198,13 @@ def coas() -> Any:
             strategies=strategies_raw,
             env_kwargs=env_kwargs,
         )
-    except (ValueError, RuntimeError, TypeError) as exc:
+    except (ValueError, TypeError) as exc:
+        # Input-related issues raised during COA generation (e.g., invalid
+        # env_kwargs values such as negative map_width or bad curriculum_level)
+        # are treated as client errors.
+        return jsonify({"error": f"Invalid request parameters: {exc}"}), 400
+    except RuntimeError as exc:
+        # Unexpected internal failures remain 500 errors.
         return jsonify({"error": f"COA generation failed: {exc}"}), 500
 
     return jsonify({

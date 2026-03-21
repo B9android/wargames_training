@@ -29,7 +29,6 @@ archetypes, not merely different random seeds).
 
 from __future__ import annotations
 
-import copy
 import dataclasses
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -228,8 +227,20 @@ def _run_single_rollout(
     env: BattalionEnv,
     policy: _BiasedPolicy,
     seed: int,
+    deterministic: bool = False,
 ) -> dict:
     """Run one episode and return per-step action and outcome statistics.
+
+    Parameters
+    ----------
+    env:
+        The battalion environment to roll out in.
+    policy:
+        Biased policy to use for action selection.
+    seed:
+        Random seed for the environment reset.
+    deterministic:
+        Passed through to the policy's ``predict`` call.
 
     Returns
     -------
@@ -248,7 +259,7 @@ def _run_single_rollout(
     step = 0
 
     while not done:
-        action, _ = policy.predict(obs, deterministic=False)
+        action, _ = policy.predict(obs, deterministic=deterministic)
         obs, _reward, terminated, truncated, info = env.step(action)
         actions.append(action.copy())
         done = terminated or truncated
@@ -427,7 +438,15 @@ class COAGenerator:
                     f"Unknown strategy labels: {invalid}. "
                     f"Valid: {sorted(_STRATEGY_BIASES)}"
                 )
-            self._strategies: List[str] = list(strategies)[: self.n_coas]
+            # Deduplicate while preserving order to ensure distinct COAs.
+            unique_strategies = list(dict.fromkeys(strategies))
+            if len(unique_strategies) < self.n_coas:
+                raise ValueError(
+                    "Insufficient distinct strategy labels provided: "
+                    f"expected at least {self.n_coas}, "
+                    f"got {len(unique_strategies)} from {list(strategies)!r}"
+                )
+            self._strategies: List[str] = unique_strategies[: self.n_coas]
         else:
             self._strategies = list(STRATEGY_LABELS[: self.n_coas])
 
@@ -472,7 +491,8 @@ class COAGenerator:
             rollout_results: List[dict] = []
             for rollout_i in range(self.n_rollouts):
                 ep_seed = coa_seed + rollout_i
-                result = _run_single_rollout(self.env, biased, seed=ep_seed)
+                result = _run_single_rollout(self.env, biased, seed=ep_seed,
+                                            deterministic=deterministic)
                 rollout_results.append(result)
 
             score, action_summary = _aggregate_rollouts(rollout_results)

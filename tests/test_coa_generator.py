@@ -310,6 +310,19 @@ class TestCOAGenerator(unittest.TestCase):
         with self.assertRaises(ValueError):
             COAGenerator(self.env, strategies=["does_not_exist"])
 
+    def test_duplicate_strategies_raises(self) -> None:
+        """Duplicate strategies that reduce distinct count below n_coas must raise ValueError."""
+        with self.assertRaises(ValueError):
+            COAGenerator(self.env, n_coas=2, strategies=["aggressive", "aggressive"])
+
+    def test_strategies_deduplication_preserves_order(self) -> None:
+        """Duplicate entries in strategies are removed but order is preserved."""
+        gen = COAGenerator(
+            self.env, n_rollouts=_N_ROLLOUTS, n_coas=2,
+            strategies=["standoff", "aggressive", "standoff"],
+        )
+        self.assertEqual(gen._strategies, ["standoff", "aggressive"])
+
     def test_generate_returns_n_coas(self) -> None:
         gen = COAGenerator(self.env, n_rollouts=_N_ROLLOUTS, n_coas=_N_COAS, seed=0)
         coas = gen.generate()
@@ -479,11 +492,36 @@ class TestCOAEndpoint(unittest.TestCase):
         self.assertEqual(labels, {"aggressive", "defensive"})
 
     def test_coas_empty_body_uses_defaults(self) -> None:
-        """Empty JSON body should use all defaults and return 200."""
-        resp = self.client.post("/coas", json={})
-        # Default n_rollouts=20 with n_coas=5 takes a while; just check it is not a 4xx.
-        # In practice CI will accept this — we only check the status code here.
-        self.assertIn(resp.status_code, (200, 500))   # 500 means env error, not input error
+        """Empty JSON body with small overrides should return 200."""
+        resp = self.client.post(
+            "/coas",
+            json={"n_rollouts": _N_ROLLOUTS, "n_coas": 2,
+                  "env_kwargs": {"randomize_terrain": False, "max_steps": 15}},
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_coas_non_object_body_returns_400(self) -> None:
+        """A JSON array (not object) as body must return 400."""
+        resp = self.client.post("/coas", data=b"[1,2,3]",
+                                content_type="application/json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.get_json())
+
+    def test_coas_env_kwargs_non_dict_returns_400(self) -> None:
+        """env_kwargs as a non-dict (e.g. list) must return 400."""
+        resp = self.client.post("/coas", json={"env_kwargs": ["bad"]})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.get_json())
+
+    def test_coas_duplicate_strategies_deduplicated(self) -> None:
+        """Duplicate strategies resulting in fewer distinct labels than n_coas must return 400."""
+        resp = self.client.post(
+            "/coas",
+            json={"n_coas": 2, "strategies": ["aggressive", "aggressive"],
+                  "n_rollouts": _N_ROLLOUTS,
+                  "env_kwargs": {"randomize_terrain": False, "max_steps": 15}},
+        )
+        self.assertEqual(resp.status_code, 400)
 
     def test_coas_invalid_n_rollouts_returns_400(self) -> None:
         resp = self.client.post("/coas", json={"n_rollouts": 0})
