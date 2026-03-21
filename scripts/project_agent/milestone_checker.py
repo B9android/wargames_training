@@ -170,6 +170,80 @@ def triage_unlabeled_issues(repo, unlabeled: list[object], dry_run: bool) -> lis
     return triaged
 
 
+STALE_REPORT_MARKER = "<!-- agent:stale-report -->"
+STALE_APPROACHING_DAYS = 7
+
+
+def generate_stale_report(repo, now: datetime, dry_run: bool) -> int | None:
+    """Create (or skip if one exists) a GitHub issue listing stale and approaching-stale issues.
+
+    Returns the issue number of the created report, or None if nothing was created.
+    This is idempotent: if an open stale-report issue already exists it is skipped.
+    """
+    stale_cutoff = now - timedelta(days=14)
+    approaching_cutoff = now - timedelta(days=STALE_APPROACHING_DAYS)
+
+    stale: list[object] = []
+    approaching: list[object] = []
+
+    for issue in repo.get_issues(state="open"):
+        label_names = [label.name for label in issue.labels]
+        if "status: in-progress" in label_names:
+            continue
+        if "status: stale" in label_names:
+            stale.append(issue)
+        elif issue.updated_at < approaching_cutoff:
+            approaching.append(issue)
+
+    if not stale and not approaching:
+        return None
+
+    # Skip if an open stale-report issue already exists
+    existing = list(repo.get_issues(state="open", labels=[AGENT_CREATED_LABEL]))
+    if any(STALE_REPORT_MARKER in (e.body or "") for e in existing):
+        return None
+
+    stale_lines = "\n".join(
+        f"- #{i.number} **{i.title}** — last updated {i.updated_at.strftime('%Y-%m-%d')}"
+        for i in stale[:30]
+    ) or "- None"
+    approaching_lines = "\n".join(
+        f"- #{i.number} **{i.title}** — last updated {i.updated_at.strftime('%Y-%m-%d')}"
+        for i in approaching[:30]
+    ) or "- None"
+
+    title = f"📋 Stale Issue Report ({now.strftime('%Y-%m-%d')}): {len(stale)} stale, {len(approaching)} approaching"
+    body = f"""\
+## Stale Issue Report
+
+Generated on {now.strftime('%Y-%m-%d')} by the milestone health-check agent.
+
+**Standard practice:** Issues are automatically labelled `status: stale` after 14 days
+of inactivity (excluding `status: in-progress`). Close or update them to remove the label.
+Filter by [`status: stale`]({{}}) in the Issues tab for a live view.
+
+### Already Stale (14+ days, {len(stale)} issues)
+
+{stale_lines}
+
+### Approaching Stale (7–13 days inactive, {len(approaching)} issues)
+
+{approaching_lines}
+
+{agent_signature("milestone_checker", context="stale issue report")}
+
+{STALE_REPORT_MARKER}
+"""
+    if dry_run:
+        return None
+    created = repo.create_issue(
+        title=title,
+        body=body,
+        labels=["type: chore", AGENT_CREATED_LABEL],
+    )
+    return created.number
+
+
 def report_unlabeled_issues(repo, now: datetime, dry_run: bool) -> list[int]:
     unlabeled = [issue for issue in repo.get_issues(state="open") if not issue.labels]
     if len(unlabeled) < 5:
@@ -223,8 +297,17 @@ def _run(
     auto_labeled = len(triage_unlabeled_issues(repo, unlabeled, ctx.dry_run))
     results.append(ActionResult("auto_label_unlabeled", "open issues", ActionStatus.DRY_RUN if ctx.dry_run else ActionStatus.SUCCESS, metadata={"count": auto_labeled}))
 
-    summary.decision(f"Milestone check complete: created={created_count}, stale_marked={stale_marked}, auto_labeled={auto_labeled}")
-    log_event("milestone_check_complete", created=created_count, stale_marked=stale_marked, auto_labeled=auto_labeled, dry_run=ctx.dry_run)
+    # 4) Generate stale issue report
+    report_number = generate_stale_report(repo, now, ctx.dry_run)
+    results.append(ActionResult(
+        "stale_report",
+        "open issues",
+        ActionStatus.DRY_RUN if ctx.dry_run else ActionStatus.SUCCESS,
+        metadata={"number": report_number},
+    ))
+
+    summary.decision(f"Milestone check complete: created={created_count}, stale_marked={stale_marked}, auto_labeled={auto_labeled}, stale_report={report_number}")
+    log_event("milestone_check_complete", created=created_count, stale_marked=stale_marked, auto_labeled=auto_labeled, stale_report=report_number, dry_run=ctx.dry_run)
     return RunResult(agent="milestone_checker", dry_run=ctx.dry_run, actions=results)
 
 

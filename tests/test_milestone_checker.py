@@ -264,5 +264,84 @@ class TriageUnlabeledIssuesTests(unittest.TestCase):
         self.assertEqual(sorted(result), [20, 21, 22])
 
 
+class GenerateStaleReportTests(unittest.TestCase):
+    def _make_repo(
+        self,
+        open_issues: list[_Issue],
+        agent_issues: list[_Issue] | None = None,
+    ) -> _Repo:
+        return _Repo(
+            open_issues=open_issues,
+            agent_issues=agent_issues or [],
+            milestone_issues=[],
+        )
+
+    def test_no_issues_returns_none(self) -> None:
+        now = datetime(2026, 3, 17, tzinfo=timezone.utc)
+        repo = self._make_repo([])
+        result = mc.generate_stale_report(repo, now, dry_run=False)
+        self.assertIsNone(result)
+
+    def test_creates_report_with_stale_issues(self) -> None:
+        now = datetime(2026, 3, 17, tzinfo=timezone.utc)
+        stale = _Issue(1, "Stale issue", "", labels=["status: stale"], updated_at=now - timedelta(days=20))
+        repo = self._make_repo([stale])
+        result = mc.generate_stale_report(repo, now, dry_run=False)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(repo.created), 1)
+        self.assertIn("Stale Issue Report", repo.created[0]["title"])
+        self.assertIn("1 stale", repo.created[0]["title"])
+        self.assertIn("#1", repo.created[0]["body"])
+        self.assertIn(mc.STALE_REPORT_MARKER, repo.created[0]["body"])
+
+    def test_creates_report_with_approaching_stale_issues(self) -> None:
+        now = datetime(2026, 3, 17, tzinfo=timezone.utc)
+        approaching = _Issue(2, "Approaching issue", "", labels=[], updated_at=now - timedelta(days=10))
+        repo = self._make_repo([approaching])
+        result = mc.generate_stale_report(repo, now, dry_run=False)
+        self.assertIsNotNone(result)
+        self.assertIn("approaching", repo.created[0]["title"])
+        self.assertIn("#2", repo.created[0]["body"])
+
+    def test_skips_in_progress_issues(self) -> None:
+        now = datetime(2026, 3, 17, tzinfo=timezone.utc)
+        in_progress = _Issue(3, "In progress", "", labels=["status: in-progress"], updated_at=now - timedelta(days=20))
+        repo = self._make_repo([in_progress])
+        result = mc.generate_stale_report(repo, now, dry_run=False)
+        self.assertIsNone(result)
+        self.assertEqual(len(repo.created), 0)
+
+    def test_dry_run_does_not_create_issue(self) -> None:
+        now = datetime(2026, 3, 17, tzinfo=timezone.utc)
+        stale = _Issue(4, "Stale", "", labels=["status: stale"], updated_at=now - timedelta(days=20))
+        repo = self._make_repo([stale])
+        result = mc.generate_stale_report(repo, now, dry_run=True)
+        self.assertIsNone(result)
+        self.assertEqual(len(repo.created), 0)
+
+    def test_skips_if_report_already_exists(self) -> None:
+        now = datetime(2026, 3, 17, tzinfo=timezone.utc)
+        stale = _Issue(5, "Stale", "", labels=["status: stale"], updated_at=now - timedelta(days=20))
+        existing_report = _Issue(
+            6,
+            "📋 Stale Issue Report",
+            f"body {mc.STALE_REPORT_MARKER}",
+            labels=["status: agent-created"],
+        )
+        repo = self._make_repo(open_issues=[stale], agent_issues=[existing_report])
+        result = mc.generate_stale_report(repo, now, dry_run=False)
+        self.assertIsNone(result)
+        self.assertEqual(len(repo.created), 0)
+
+    def test_report_body_includes_standard_practice_guidance(self) -> None:
+        now = datetime(2026, 3, 17, tzinfo=timezone.utc)
+        stale = _Issue(7, "Old issue", "", labels=["status: stale"], updated_at=now - timedelta(days=30))
+        repo = self._make_repo([stale])
+        mc.generate_stale_report(repo, now, dry_run=False)
+        body = repo.created[0]["body"]
+        self.assertIn("status: stale", body)
+        self.assertIn("14 days", body)
+
+
 if __name__ == "__main__":
     unittest.main()
