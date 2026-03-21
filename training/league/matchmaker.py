@@ -92,6 +92,10 @@ class LeagueMatchmaker:
         self.match_database = match_database
         self.unknown_win_rate = float(unknown_win_rate)
         self._pfsp_weight_fn = pfsp_weight_fn
+        # Shared RNG instance — avoids creating a new generator on every call
+        # to select_opponent(), which would add overhead and make global
+        # randomness harder to control.
+        self._rng: np.random.Generator = np.random.default_rng()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -136,7 +140,7 @@ class LeagueMatchmaker:
             )
             return None
 
-        _rng = rng if rng is not None else np.random.default_rng()
+        _rng = rng if rng is not None else self._rng
         idx = int(_rng.choice(len(candidates), p=probs))
         chosen = candidates[idx]
 

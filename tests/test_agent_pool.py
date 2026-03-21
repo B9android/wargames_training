@@ -259,6 +259,24 @@ class TestAgentPoolCapacity(unittest.TestCase):
         self.assertIn("new", pool)
         self.assertEqual(pool.size, 3)
 
+    def test_force_evicts_multiple_when_oversized(self) -> None:
+        """Reloading a manifest created with a larger max_size and then force-adding
+        must evict as many records as needed to stay at max_size."""
+        # Write a 5-entry manifest, then re-open with max_size=3 and force-add.
+        manifest = Path(self._tmpdir.name) / "ovr_manifest.json"
+        path = _dummy_path(self._tmpdir.name)
+        pool_large = AgentPool(manifest, max_size=5)
+        for i in range(5):
+            pool_large.add(path, agent_id=f"old-{i}")
+
+        # Re-open with smaller max_size (simulates config change).
+        pool_small = AgentPool(manifest, max_size=3)
+        # Pool loaded 5 records; adding with force=True must evict until < 3 and
+        # then insert, leaving exactly 3.
+        pool_small.add(path, agent_id="new-entry", force=True)
+        self.assertEqual(pool_small.size, 3)
+        self.assertIn("new-entry", pool_small)
+
     def test_pool_supports_50_concurrent_snapshots(self) -> None:
         """Pool must handle ≥ 50 agents without errors."""
         pool = self._pool(max_size=50)

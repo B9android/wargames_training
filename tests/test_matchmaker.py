@@ -170,6 +170,20 @@ class TestMatchDatabase(unittest.TestCase):
         self.assertEqual(dropped, 5)
         self.assertEqual(db.size, 5)
 
+    def test_prune_keep_last_zero(self) -> None:
+        db = _make_db(self._tmpdir.name)
+        for i in range(5):
+            db.record("a", "b", 1.0)
+        dropped = db.prune(keep_last=0)
+        self.assertEqual(dropped, 5)
+        self.assertEqual(db.size, 0)
+
+    def test_prune_negative_raises(self) -> None:
+        db = _make_db(self._tmpdir.name)
+        db.record("a", "b", 1.0)
+        with self.assertRaises(ValueError):
+            db.prune(keep_last=-1)
+
     def test_rewrite_after_prune(self) -> None:
         db = _make_db(self._tmpdir.name)
         for i in range(10):

@@ -221,15 +221,25 @@ class MatchDatabase:
         Parameters
         ----------
         keep_last:
-            Number of most-recent records to retain.
+            Number of most-recent records to retain.  Must be non-negative.
 
         Returns
         -------
         int
             Number of records discarded.
+
+        Raises
+        ------
+        ValueError
+            If *keep_last* is negative.
         """
+        if keep_last < 0:
+            raise ValueError(f"keep_last must be non-negative, got {keep_last}")
         n_before = len(self._results)
-        self._results = self._results[-keep_last:]
+        if keep_last == 0:
+            self._results = []
+        else:
+            self._results = self._results[-keep_last:]
         discarded = n_before - len(self._results)
         log.debug("MatchDatabase: pruned %d records (kept %d)", discarded, len(self._results))
         return discarded
@@ -260,14 +270,19 @@ class MatchDatabase:
         agent_id: str,
         opponent_id: Optional[str] = None,
     ) -> List[MatchResult]:
-        """Return all results involving *agent_id*.
+        """Return results where *agent_id* is the focal agent (``result.agent_id``).
+
+        Note: only results recorded from *agent_id*'s perspective are returned
+        (i.e. where ``result.agent_id == agent_id``).  Results where *agent_id*
+        appears as the opponent are not included.
 
         Parameters
         ----------
         agent_id:
             Filter to results where ``result.agent_id == agent_id``.
         opponent_id:
-            When provided, additionally filter by opponent.
+            When provided, additionally filter to results against this
+            specific opponent.
 
         Returns
         -------
@@ -306,6 +321,8 @@ class MatchDatabase:
     def win_rates_for(self, agent_id: str) -> Dict[str, float]:
         """Return win rates of *agent_id* against every recorded opponent.
 
+        Computed in a single pass to avoid O(N×M) rescanning.
+
         Parameters
         ----------
         agent_id:
@@ -316,15 +333,15 @@ class MatchDatabase:
         dict[str, float]
             Mapping of ``opponent_id → mean outcome``.
         """
-        opponent_ids = {
-            r.opponent_id
-            for r in self._results
-            if r.agent_id == agent_id
-        }
-        return {
-            opp: self.win_rate(agent_id, opp)  # type: ignore[misc]
-            for opp in opponent_ids
-        }
+        totals: Dict[str, float] = {}
+        counts: Dict[str, int] = {}
+        for r in self._results:
+            if r.agent_id != agent_id:
+                continue
+            opp_id = r.opponent_id
+            totals[opp_id] = totals.get(opp_id, 0.0) + r.outcome
+            counts[opp_id] = counts.get(opp_id, 0) + 1
+        return {opp_id: totals[opp_id] / counts[opp_id] for opp_id in totals}
 
     def all_results(self) -> List[MatchResult]:
         """Return a shallow copy of all results in chronological order."""
@@ -335,7 +352,14 @@ class MatchDatabase:
     # ------------------------------------------------------------------
 
     def _append(self, result: MatchResult) -> None:
-        """Atomically append a single result to the JSONL file."""
+        """Append a single result to the JSONL file.
+
+        .. note::
+            This class is designed for single-writer use.  No file locking
+            is applied; concurrent writers from separate processes may
+            interleave writes and corrupt JSONL lines.  Ensure only one
+            process writes to the database at a time.
+        """
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(result.to_dict()) + "\n"
         with self.db_path.open("a", encoding="utf-8") as fh:
@@ -347,17 +371,18 @@ class MatchDatabase:
             return
         loaded = 0
         errors = 0
-        for raw_line in self.db_path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            try:
-                data = json.loads(line)
-                self._results.append(MatchResult.from_dict(data))
-                loaded += 1
-            except (json.JSONDecodeError, KeyError, ValueError) as exc:
-                errors += 1
-                log.warning("MatchDatabase: skipped malformed line: %s", exc)
+        with self.db_path.open("r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    self._results.append(MatchResult.from_dict(data))
+                    loaded += 1
+                except (json.JSONDecodeError, KeyError, ValueError) as exc:
+                    errors += 1
+                    log.warning("MatchDatabase: skipped malformed line: %s", exc)
         log.info(
             "MatchDatabase: loaded %d results from %s (%d errors)",
             loaded,

@@ -12,8 +12,9 @@ AgentType
 AgentRecord
     Immutable metadata for a single agent snapshot.
 AgentPool
-    Thread-safe pool with PFSP-weighted opponent sampling; state is
-    persisted to a JSON manifest on disk so that it survives restarts.
+    Pool (not thread-safe; external locking required) with PFSP-weighted
+    opponent sampling; state is persisted to a JSON manifest on disk so
+    that it survives restarts.
 
 PFSP weighting
 --------------
@@ -23,8 +24,9 @@ biases sampling towards harder opponents (low win rate).  Callers may
 supply any callable ``f: float -> float`` via the *pfsp_weight_fn*
 argument to :meth:`AgentPool.sample_pfsp`.
 
-When no win-rate information is available for a candidate opponent the
-weight defaults to ``1.0`` (uniform treatment alongside known opponents).
+When no win-rate information is available for a candidate opponent an
+effective win rate of ``0.5`` (a neutral matchup) is assumed; under the
+default weighting this yields a weight of ``0.5``.
 """
 
 from __future__ import annotations
@@ -293,10 +295,13 @@ class AgentPool:
                     f"AgentPool is at capacity ({self.max_size}). "
                     "Set force=True to evict the oldest entry."
                 )
-            # Evict the oldest entry (first insertion).
-            oldest_id = next(iter(self._records))
-            self._records.pop(oldest_id)
-            log.debug("AgentPool: evicted oldest record %s", oldest_id)
+            # Evict oldest entries (first insertion) until under capacity.
+            # This also handles the case where a manifest was created with a
+            # larger max_size and the pool is already over the new limit.
+            while len(self._records) >= self.max_size:
+                oldest_id = next(iter(self._records))
+                self._records.pop(oldest_id)
+                log.debug("AgentPool: evicted oldest record %s", oldest_id)
 
         record = AgentRecord(
             agent_id=agent_id,
