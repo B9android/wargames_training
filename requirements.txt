@@ -30,6 +30,10 @@ openai>=1.30.0
 # Distributed training
 ray[rllib]>=2.9.0
 
+# Policy export (optional — required for scripts/export_policy.py and docker/policy_server)
+onnx>=1.16.0
+onnxruntime>=1.18.0
+
 # Dev tools
 ipykernel>=6.29.0
 jupyter>=1.0.0
