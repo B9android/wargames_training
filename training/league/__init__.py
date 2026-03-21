@@ -1,5 +1,5 @@
 # training/league/__init__.py
-"""League training infrastructure (E4.1, E4.2, E4.3, E4.4).
+"""League training infrastructure (E4.1, E4.2, E4.3, E4.4, E4.5).
 
 Provides an AlphaStar-style league with:
 
@@ -9,6 +9,10 @@ Provides an AlphaStar-style league with:
   store of historical match outcomes (JSON-backed).
 * :class:`~training.league.matchmaker.LeagueMatchmaker` — PFSP-based
   matchmaking that samples opponents proportional to win-rate weights.
+  Supports Nash distribution sampling via
+  :meth:`~training.league.matchmaker.LeagueMatchmaker.set_nash_weights`.
+* :mod:`~training.league.nash` — Nash equilibrium approximation via
+  regret matching / LP; entropy metric for W&B logging.
 * :class:`~training.league.train_main_agent.MainAgentTrainer` — MAPPO
   training loop for main agents using PFSP against the full league pool.
 * :class:`~training.league.train_exploiter.MainExploiterTrainer` — MAPPO
@@ -28,11 +32,19 @@ qualified import path (e.g.
 ``from training.league.train_league_exploiter import LeagueExploiterTrainer``)
 when you need those directly, or access them via this package and they will
 be loaded on first use.
+
+The Nash module (:mod:`~training.league.nash`) is lightweight (NumPy-only,
+SciPy optional) and is imported directly.
 """
 
 from training.league.agent_pool import AgentPool, AgentRecord, AgentType
 from training.league.match_database import MatchDatabase, MatchResult
-from training.league.matchmaker import LeagueMatchmaker
+from training.league.matchmaker import LeagueMatchmaker, make_nash_weight_fn
+from training.league.nash import (
+    build_payoff_matrix,
+    compute_nash_distribution,
+    nash_entropy,
+)
 
 __all__ = [
     "AgentPool",
@@ -41,6 +53,10 @@ __all__ = [
     "MatchDatabase",
     "MatchResult",
     "LeagueMatchmaker",
+    "make_nash_weight_fn",
+    "build_payoff_matrix",
+    "compute_nash_distribution",
+    "nash_entropy",
     "MainAgentTrainer",
     "make_pfsp_weight_fn",
     "MainExploiterTrainer",

@@ -38,7 +38,7 @@ from training.league.match_database import MatchDatabase
 
 log = logging.getLogger(__name__)
 
-__all__ = ["LeagueMatchmaker"]
+__all__ = ["LeagueMatchmaker", "make_nash_weight_fn"]
 
 # ---------------------------------------------------------------------------
 # Default matchup rules
@@ -92,6 +92,9 @@ class LeagueMatchmaker:
         self.match_database = match_database
         self.unknown_win_rate = float(unknown_win_rate)
         self._pfsp_weight_fn = pfsp_weight_fn
+        # Nash distribution weights: {agent_id: probability}.  When set,
+        # overrides PFSP for opponent sampling.
+        self._nash_weights: Optional[Dict[str, float]] = None
         # Shared RNG instance — avoids creating a new generator on every call
         # to select_opponent(), which would add overhead and make global
         # randomness harder to control.
@@ -199,6 +202,30 @@ class LeagueMatchmaker:
         """
         self._pfsp_weight_fn = pfsp_weight_fn
 
+    def set_nash_weights(
+        self, nash_weights: Optional[Dict[str, float]]
+    ) -> None:
+        """Set a pre-computed Nash distribution as opponent sampling weights.
+
+        When *nash_weights* is set, opponent sampling is driven by the Nash
+        distribution rather than per-focal-agent PFSP win-rate weights.
+        The Nash distribution is a global probability assignment over all
+        agents, independent of the focal agent's win history.
+
+        Parameters
+        ----------
+        nash_weights:
+            Mapping of ``agent_id → probability``.  Need not be normalised;
+            probabilities are re-normalised after filtering to eligible
+            candidates.  Pass ``None`` to revert to PFSP sampling.
+        """
+        self._nash_weights = dict(nash_weights) if nash_weights is not None else None
+        log.debug(
+            "LeagueMatchmaker: Nash weights %s (%d agents)",
+            "set" if self._nash_weights is not None else "cleared",
+            len(self._nash_weights) if self._nash_weights is not None else 0,
+        )
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -241,20 +268,27 @@ class LeagueMatchmaker:
         if not candidates:
             return None, None
 
-        # Compute PFSP weights.
-        weight_fn = self._pfsp_weight_fn if self._pfsp_weight_fn is not None else _hard_first
-        weights = np.array(
-            [
-                max(
-                    weight_fn(
-                        recorded_wr.get(c.agent_id, self.unknown_win_rate)
-                    ),
-                    0.0,
-                )
-                for c in candidates
-            ],
-            dtype=np.float64,
-        )
+        # Compute sampling weights: Nash distribution (if set) or PFSP.
+        if self._nash_weights is not None:
+            weights = np.array(
+                [max(self._nash_weights.get(c.agent_id, 0.0), 0.0) for c in candidates],
+                dtype=np.float64,
+            )
+        else:
+            # Compute PFSP weights.
+            weight_fn = self._pfsp_weight_fn if self._pfsp_weight_fn is not None else _hard_first
+            weights = np.array(
+                [
+                    max(
+                        weight_fn(
+                            recorded_wr.get(c.agent_id, self.unknown_win_rate)
+                        ),
+                        0.0,
+                    )
+                    for c in candidates
+                ],
+                dtype=np.float64,
+            )
 
         total = weights.sum()
         if total <= 0.0:
@@ -276,3 +310,37 @@ def _hard_first(win_rate: float) -> float:
     Biases sampling towards opponents the focal agent struggles against.
     """
     return max(1.0 - float(win_rate), 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Public helper: Nash-derived weight function
+# ---------------------------------------------------------------------------
+
+
+def make_nash_weight_fn(
+    nash_weights: Dict[str, float],
+) -> Callable[[str], float]:
+    """Return a function that maps *agent_id* → Nash probability.
+
+    Convenience factory for converting a Nash distribution
+    (``{agent_id: probability}``) into a simple callable suitable for use
+    wherever a per-agent weight function is needed.
+
+    Parameters
+    ----------
+    nash_weights:
+        Mapping of ``agent_id → probability`` as returned by
+        :func:`~training.league.nash.compute_nash_distribution` combined
+        with :func:`~training.league.nash.build_payoff_matrix`.
+
+    Returns
+    -------
+    Callable[[str], float]
+        Function ``f(agent_id) → weight``.  Returns ``0.0`` for unknown IDs.
+    """
+    _weights = dict(nash_weights)
+
+    def _fn(agent_id: str) -> float:
+        return max(_weights.get(agent_id, 0.0), 0.0)
+
+    return _fn
