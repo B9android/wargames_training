@@ -1,9 +1,13 @@
 # configs/distributed/ray_cluster.yaml
 # Ray cluster configuration for distributed league training (E4.7)
 #
-# Override any value via Hydra CLI, e.g.:
-#   python training/league/distributed_runner.py \
-#       distributed.num_workers=8 distributed.num_cpus_per_worker=2
+# This file is a Hydra-compatible configuration. Any value can be overridden
+# via a Hydra-enabled entrypoint, for example by appending:
+#   distributed.num_workers=8 distributed.num_cpus_per_worker=2
+#
+# To run the built-in argparse CLI benchmark directly, use:
+#   python -m training.league.distributed_runner benchmark \
+#       --workers 8 --episodes 32
 
 # ── Ray cluster ───────────────────────────────────────────────────────────
 ray:

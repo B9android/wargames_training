@@ -285,6 +285,14 @@ class TestCollectRolloutsAsync(unittest.TestCase):
         for r in results:
             self.assertIsInstance(r, RolloutResult)
 
+    def test_zero_episodes_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            self.runner.collect_rollouts_async(n_episodes=0)
+
+    def test_negative_episodes_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            self.runner.collect_rollouts_async(n_episodes=-1)
+
 
 # ---------------------------------------------------------------------------
 # 7. Statistics helpers
@@ -328,6 +336,26 @@ class TestStatisticsHelpers(unittest.TestCase):
         r = RolloutResult(0, 10, 0.0, {}, True, {}, 0.0)
         sps = DistributedRolloutRunner.steps_per_second([r])
         self.assertEqual(sps, float("inf"))
+
+    def test_steps_per_second_with_total_elapsed(self) -> None:
+        # Two results each 100 steps, elapsed_sec=1.0 each (max=1.0)
+        # but actual collection wall time was 2.0 s (two sequential waves)
+        results = [_fake_result(steps=100), _fake_result(steps=100)]
+        # Without total_elapsed_sec: uses max(elapsed_sec) = 1.0 → 200 steps/s
+        sps_approx = DistributedRolloutRunner.steps_per_second(results)
+        self.assertAlmostEqual(sps_approx, 200.0)
+        # With accurate total wall time: 200 steps / 2.0 s = 100 steps/s
+        sps_accurate = DistributedRolloutRunner.steps_per_second(results, total_elapsed_sec=2.0)
+        self.assertAlmostEqual(sps_accurate, 100.0)
+
+    def test_collect_rollouts_stores_last_elapsed(self) -> None:
+        runner = _make_runner(num_workers=2)
+        try:
+            runner.collect_rollouts(n_episodes=2, base_seed=0)
+            self.assertTrue(hasattr(runner, "_last_collect_elapsed_sec"))
+            self.assertGreater(runner._last_collect_elapsed_sec, 0.0)
+        finally:
+            runner.shutdown()
 
 
 # ---------------------------------------------------------------------------

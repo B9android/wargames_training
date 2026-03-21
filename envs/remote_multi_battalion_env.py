@@ -12,8 +12,7 @@ Typical usage::
 
     ray.init()
     env = RemoteMultiBattalionEnv.remote(n_blue=2, n_red=2)
-    obs_ref, info_ref = ray.get(env.reset.remote(seed=0))
-    obs, info = ray.get(obs_ref), ray.get(info_ref)
+    obs, info = ray.get(env.reset.remote(seed=0))
 
 Or use the convenience factory :func:`make_remote_envs` to spin up a
 pool of workers::

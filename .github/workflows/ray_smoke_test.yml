@@ -63,7 +63,8 @@ jobs:
             "scipy>=1.12.0" \
             "pygame>=2.5.0" \
             "pyyaml>=6.0" \
-            "pytest>=8.0.0"
+            "pytest>=8.0.0" \
+            "pytest-timeout>=2.1.0"
 
       - name: Run Ray smoke test (2 workers, 4 episodes)
         timeout-minutes: 4

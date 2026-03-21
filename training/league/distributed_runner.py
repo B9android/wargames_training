@@ -135,7 +135,7 @@ class RolloutResult:
 # ---------------------------------------------------------------------------
 
 
-@ray.remote
+@ray.remote(num_cpus=0)
 def _run_episode_on_worker(
     worker_id: int,
     env_handle: ray.actor.ActorHandle,
@@ -282,6 +282,7 @@ class DistributedRolloutRunner:
 
         results: List[RolloutResult] = []
         remaining = list(range(n_episodes))
+        t0 = time.perf_counter()
 
         while remaining:
             batch = remaining[: self.num_workers]
@@ -300,6 +301,7 @@ class DistributedRolloutRunner:
             batch_results: List[RolloutResult] = ray.get(refs)
             results.extend(batch_results)
 
+        self._last_collect_elapsed_sec: float = time.perf_counter() - t0
         return results
 
     def collect_rollouts_async(
@@ -323,6 +325,8 @@ class DistributedRolloutRunner:
         -------
         list of :class:`ray.ObjectRef`
         """
+        if n_episodes < 1:
+            raise ValueError(f"n_episodes must be >= 1, got {n_episodes!r}")
         refs = []
         for ep_idx in range(n_episodes):
             worker_id = ep_idx % self.num_workers
@@ -338,29 +342,36 @@ class DistributedRolloutRunner:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def steps_per_second(results: Sequence[RolloutResult]) -> float:
+    def steps_per_second(
+        results: Sequence[RolloutResult],
+        total_elapsed_sec: Optional[float] = None,
+    ) -> float:
         """Compute aggregate steps/sec across a collection of results.
-
-        Uses total wall-clock time from first dispatch to last completion,
-        approximated as the maximum elapsed time among all results.
 
         Parameters
         ----------
         results:
             Collection of :class:`RolloutResult` objects.
+        total_elapsed_sec:
+            Actual wall-clock time for the entire collection in seconds.
+            Pass the value of :attr:`_last_collect_elapsed_sec` (set by
+            :meth:`collect_rollouts`) for accurate multi-wave throughput.
+            When ``None``, falls back to ``max(r.elapsed_sec)`` across
+            results, which underestimates total time when more than one
+            wave was needed (``n_episodes > num_workers``).
 
         Returns
         -------
         float
-            Steps per second (``total_steps / max_elapsed``).
+            Steps per second (``total_steps / elapsed``).
         """
         if not results:
             return 0.0
         total_steps = sum(r.episode_steps for r in results)
-        max_elapsed = max(r.elapsed_sec for r in results)
-        if max_elapsed <= 0.0:
+        elapsed = total_elapsed_sec if total_elapsed_sec is not None else max(r.elapsed_sec for r in results)
+        if elapsed <= 0.0:
             return float("inf")
-        return total_steps / max_elapsed
+        return total_steps / elapsed
 
     @staticmethod
     def win_rate(results: Sequence[RolloutResult]) -> float:
@@ -401,13 +412,19 @@ class DistributedRolloutRunner:
     # ------------------------------------------------------------------
 
     def shutdown(self, kill_actors: bool = True) -> None:
-        """Shut down all worker actors and optionally stop Ray.
+        """Shut down all worker actors.
 
         Parameters
         ----------
         kill_actors:
             If ``True`` (default), explicitly call :func:`ray.kill` on
             each actor before returning.
+
+        Notes
+        -----
+        This method does **not** call :func:`ray.shutdown`.  To stop Ray
+        entirely (e.g. at the end of a training script), call
+        ``ray.shutdown()`` separately after invoking this method.
         """
         if kill_actors:
             for env in self._envs:
