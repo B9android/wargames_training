@@ -470,10 +470,12 @@ class MainAgentTrainer:
     ) -> Optional[TrajectoryBatch]:
         """Run a single episode with a frozen snapshot and collect a trajectory.
 
-        The episode is run using the trainer's environment.  The policy from
-        *snapshot_path* controls the Blue team; a scripted (default) Red
-        policy is used.  Observations, actions, and normalised (x, y)
-        positions are collected for the first Blue agent on each step.
+        A **separate** environment instance (same parameters as the trainer's)
+        is created for each collection run so that the trainer's internal state
+        (``_obs_buf``, episode counters, etc.) is never disturbed.  The policy
+        from *snapshot_path* controls the Blue team.  Red agents always take
+        idle (zero-valued) actions.  Observations, actions, and normalised
+        (x, y) positions are collected from the first Blue agent on each step.
 
         Parameters
         ----------
@@ -498,7 +500,21 @@ class MainAgentTrainer:
             else:
                 policy = self._trainer.policy
 
-            env = self._trainer.env  # type: ignore[attr-defined]
+            # Create a fresh environment with the same parameters so that we
+            # do not desync the trainer's internal episode state (_obs_buf,
+            # _ep_rewards, etc.) which assumes exclusive control of env.reset/step.
+            from envs.multi_battalion_env import MultiBattalionEnv
+            src = self._trainer.env  # type: ignore[attr-defined]
+            env = MultiBattalionEnv(
+                n_blue=src.n_blue,
+                n_red=src.n_red,
+                map_width=src.map_width,
+                map_height=src.map_height,
+                max_steps=src.max_steps,
+                randomize_terrain=src.randomize_terrain,
+                hill_speed_factor=src.hill_speed_factor,
+                visibility_radius=src.visibility_radius,
+            )
             obs_dict, _ = env.reset()
 
             action_list: List[np.ndarray] = []
@@ -506,7 +522,7 @@ class MainAgentTrainer:
 
             # Collect up to n_steps transitions.
             for _ in range(n_steps):
-                # Build observation tensor for the Blue team.
+                # Build per-agent local observation arrays.
                 blue_ids = [a for a in env.possible_agents if a.startswith("blue_")]
                 if not blue_ids:
                     break
@@ -516,12 +532,21 @@ class MainAgentTrainer:
                     axis=0,
                 )  # (n_blue, obs_dim)
 
-                obs_t = torch.tensor(obs_arr, dtype=torch.float32).unsqueeze(0)  # (1, n_blue, obs_dim)
-                state_t = obs_t.view(1, -1)  # flat global state proxy
-
+                # Compute one action per Blue agent using the correct MAPPOPolicy
+                # signature: act(obs, agent_idx, deterministic).
+                # obs shape for each call: (1, obs_dim) → actions: (1, action_dim).
                 with torch.no_grad():
-                    actions_t, _ = policy.act(obs_t, state_t, deterministic=True)
-                actions_np = actions_t.squeeze(0).cpu().numpy()  # (n_blue, action_dim)
+                    action_t_list = []
+                    for agent_idx, _ in enumerate(blue_ids):
+                        local_obs = torch.tensor(
+                            obs_arr[agent_idx], dtype=torch.float32
+                        ).unsqueeze(0)  # (1, obs_dim)
+                        action_agent_t, _ = policy.act(
+                            local_obs, agent_idx=agent_idx, deterministic=True
+                        )
+                        action_t_list.append(action_agent_t.squeeze(0))  # (action_dim,)
+                    actions_t = torch.stack(action_t_list, dim=0)  # (n_blue, action_dim)
+                actions_np = actions_t.cpu().numpy()  # (n_blue, action_dim)
 
                 # Aggregate all Blue agents' actions into one row per step.
                 # Mean aggregation captures the team's overall action tendency
@@ -539,10 +564,10 @@ class MainAgentTrainer:
                 action_dict = {
                     a: actions_np[i] for i, a in enumerate(blue_ids)
                 }
-                # Default action for Red agents.
+                # Red agents take idle (zero-valued) actions.
                 red_ids = [a for a in env.possible_agents if a.startswith("red_")]
                 for r in red_ids:
-                    action_dict[r] = env.action_space(r).sample() * 0.0  # idle
+                    action_dict[r] = np.zeros(env.action_space(r).shape, dtype=np.float32)
 
                 obs_dict, _, terminated, truncated, _ = env.step(action_dict)
                 done = all(terminated.values()) or all(truncated.values())

@@ -413,7 +413,6 @@ class TestDiversityTracker(unittest.TestCase):
         """Adding more diverse agents should not decrease diversity."""
         tracker = self._make_tracker()
         # Two identical agents — zero diversity.
-        base_traj = _make_trajectory(seed=0)
         tracker.update_embedding("a", np.array([1.0, 0.0, 0.0]))
         tracker.update_embedding("b", np.array([1.0, 0.0, 0.0]))
         score_low = tracker.diversity_score()
