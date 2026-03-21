@@ -242,6 +242,7 @@ class BattalionRenderer:
         terrain: Optional["TerrainMap"] = None,
         step: int = 0,
         info: Optional[dict] = None,
+        skip_events: bool = False,
     ) -> bool:
         """Render a single frame.
 
@@ -258,19 +259,26 @@ class BattalionRenderer:
         info:
             Optional info dict from the last :meth:`BattalionEnv.step` call.
             Currently unused but available for future HUD extensions.
+        skip_events:
+            When ``True``, the pygame event queue is **not** drained and
+            the method always returns ``True``.  Pass ``True`` when the
+            caller (e.g. :class:`~envs.human_env.HumanEnv`) handles event
+            processing itself to avoid double-draining the queue.
 
         Returns
         -------
         bool
             ``False`` if the user closed the window (quit event received),
-            ``True`` otherwise.
+            ``True`` otherwise.  Always ``True`` when *skip_events* is
+            ``True``.
         """
         pygame = self._pygame
 
-        # Process window events
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
+        # Process window events (unless the caller manages events itself).
+        if not skip_events:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
 
         # Background / terrain
         if terrain is not None and id(terrain) != self._cached_terrain_id:

@@ -1,0 +1,54 @@
+# configs/human_play.yaml
+# Configuration for the human-playable interface (E5.1).
+#
+# Three built-in scenarios are available; launch with:
+#   python scripts/play.py --scenario <name> [--difficulty <1-5>]
+#
+# Difficulty levels map to Red opponent behaviour:
+#   1 — Stationary   (no movement, no fire)
+#   2 — Turning only (faces player, no advance, no fire)
+#   3 — Advancing    (moves to fire range, no fire)
+#   4 — Soft combat  (moves and fires at 50% intensity)
+#   5 — Full combat  (moves and fires at 100% intensity)
+
+human_play:
+  default_scenario: open_field
+  default_difficulty: 5
+
+  # Pygame window settings
+  fps: 30
+  window_width: 800
+  window_height: 800
+
+  # ── Scenarios ──────────────────────────────────────────────────────────
+  scenarios:
+
+    open_field:
+      description: "Open plains — classic 1v1 engagement on flat terrain."
+      map_width: 1000.0
+      map_height: 1000.0
+      max_steps: 500
+      randomize_terrain: false
+      hill_speed_factor: 0.5
+      curriculum_level: 5
+      initial_blue_strength: 1.0
+
+    mountain_pass:
+      description: "Hilly terrain — navigate the hills to outflank the enemy."
+      map_width: 1000.0
+      map_height: 1000.0
+      max_steps: 500
+      randomize_terrain: true
+      hill_speed_factor: 0.3
+      curriculum_level: 5
+      initial_blue_strength: 1.0
+
+    last_stand:
+      description: "Last Stand — Blue starts at 60% strength. Survive!"
+      map_width: 1000.0
+      map_height: 1000.0
+      max_steps: 500
+      randomize_terrain: false
+      hill_speed_factor: 0.5
+      curriculum_level: 3
+      initial_blue_strength: 0.6
