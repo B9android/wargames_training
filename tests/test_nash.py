@@ -291,13 +291,33 @@ class TestBuildPayoffMatrix(unittest.TestCase):
 
         M = build_payoff_matrix(agent_ids, _wr, unknown_win_rate=0.5)
         # Check known entries.
-        self.assertAlmostEqual(M[0, 1], 0.8)  # a vs b
-        self.assertAlmostEqual(M[1, 2], 0.6)  # b vs c
-        self.assertAlmostEqual(M[2, 0], 0.4)  # c vs a
-        # Unknown entries use default.
-        self.assertAlmostEqual(M[1, 0], 0.5)  # b vs a (unknown)
-        self.assertAlmostEqual(M[2, 1], 0.5)  # c vs b (unknown)
-        self.assertAlmostEqual(M[0, 2], 0.5)  # a vs c (unknown)
+        self.assertAlmostEqual(M[0, 1], 0.8)  # a vs b (known)
+        self.assertAlmostEqual(M[1, 2], 0.6)  # b vs c (known)
+        self.assertAlmostEqual(M[2, 0], 0.4)  # c vs a (known)
+        # Reverse entries inferred via constant-sum: M[j, i] = 1 - M[i, j].
+        self.assertAlmostEqual(M[1, 0], 0.2)  # b vs a = 1 - 0.8
+        self.assertAlmostEqual(M[2, 1], 0.4)  # c vs b = 1 - 0.6
+        self.assertAlmostEqual(M[0, 2], 0.6)  # a vs c = 1 - 0.4
+
+    def test_constant_sum_inference_only_when_reverse_known(self) -> None:
+        """Constant-sum inference is only applied when the reverse is known."""
+        agent_ids = ["a", "b", "c"]
+        # Only a→b is known; b→c and c→a are not.
+        win_rates = {("a", "b"): 0.7}
+
+        def _wr(ai, aj):
+            return win_rates.get((ai, aj))
+
+        M = build_payoff_matrix(agent_ids, _wr, unknown_win_rate=0.5)
+        # a→b known directly.
+        self.assertAlmostEqual(M[0, 1], 0.7)
+        # b→a inferred from constant-sum.
+        self.assertAlmostEqual(M[1, 0], 0.3)
+        # Others are truly unknown → fall back to unknown_win_rate.
+        self.assertAlmostEqual(M[1, 2], 0.5)
+        self.assertAlmostEqual(M[2, 1], 0.5)
+        self.assertAlmostEqual(M[0, 2], 0.5)
+        self.assertAlmostEqual(M[2, 0], 0.5)
 
     def test_output_shape(self) -> None:
         for n in [1, 2, 3, 5]:

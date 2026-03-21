@@ -183,58 +183,76 @@ def _nash_regret_matching(
     n_iterations: int,
     epsilon: float,
 ) -> np.ndarray:
-    """Approximate Nash equilibrium via regret matching.
+    """Approximate Nash equilibrium via two-player external regret matching.
 
-    The average strategy accumulated over *n_iterations* rounds converges
-    to the Nash equilibrium in a finite two-player zero-sum game.
+    Implements external regret minimization for both the row player
+    (maximiser) and the column player (minimiser) simultaneously.  The
+    average strategies of both players are guaranteed to converge to a
+    Nash equilibrium in any finite two-player zero-sum game (by the
+    minimax theorem and the regret-matching convergence theorem).
 
     Algorithm
     ---------
     For each iteration *t*:
 
-    1. Compute current mixed strategy from accumulated positive regrets::
+    1. Derive current mixed strategies from accumulated positive regrets::
 
-           σ_i = max(0, R_i) / sum_j max(0, R_j)   if any R_j > 0
-                 1/N                                  otherwise
+           σ_row ∝ max(0, R_row)   (uniform if all regrets ≤ 0)
+           σ_col ∝ max(0, R_col)   (uniform if all regrets ≤ 0)
 
-    2. Compute value of each pure strategy against current mix::
+    2. Compute the expected payoff under the joint strategy::
 
-           v_i = (M @ σ)[i]
+           ev = σ_row · M · σ_col
 
-    3. Compute current expected value::
+    3. Update row-player regrets (maximiser)::
 
-           v = σ · v
+           R_row[i] += (M @ σ_col)[i] − ev
 
-    4. Accumulate regret: ``R_i += v_i - v``
-    5. Accumulate strategy: ``S += σ``
+    4. Update column-player regrets (minimiser)::
 
-    The Nash distribution is the normalised average strategy ``S / ‖S‖₁``.
+           R_col[j] += ev − (M.T @ σ_row)[j]
+
+    5. Accumulate row player's average strategy: ``S_row += σ_row``
+
+    The Nash distribution is the normalised average row strategy
+    ``S_row / ‖S_row‖₁``.  For a symmetric game both players converge to
+    the same equilibrium; only the row player's average is returned.
     """
     n = payoff_matrix.shape[0]
-    cum_regrets = np.zeros(n, dtype=np.float64)
-    cum_strategy = np.zeros(n, dtype=np.float64)
+    cum_regrets_row = np.zeros(n, dtype=np.float64)
+    cum_regrets_col = np.zeros(n, dtype=np.float64)
+    cum_strategy_row = np.zeros(n, dtype=np.float64)
 
     for _ in range(n_iterations):
-        # Step 1: current strategy.
-        pos_regrets = np.maximum(cum_regrets, 0.0)
-        total = pos_regrets.sum()
-        if total > epsilon:
-            strategy = pos_regrets / total
-        else:
-            strategy = np.ones(n, dtype=np.float64) / n
+        # Step 1: current strategies from positive regrets.
+        pos_row = np.maximum(cum_regrets_row, 0.0)
+        total_row = pos_row.sum()
+        strategy_row = pos_row / total_row if total_row > epsilon else np.ones(n, dtype=np.float64) / n
 
-        # Step 2–4: regret update.
-        values = payoff_matrix @ strategy        # v_i for each pure strategy
-        current_value = float(strategy @ values)  # expected value of current mix
-        cum_regrets += values - current_value
+        pos_col = np.maximum(cum_regrets_col, 0.0)
+        total_col = pos_col.sum()
+        strategy_col = pos_col / total_col if total_col > epsilon else np.ones(n, dtype=np.float64) / n
 
-        # Step 5: accumulate strategy.
-        cum_strategy += strategy
+        # Step 2: expected payoff under joint strategy.
+        ev = float(strategy_row @ payoff_matrix @ strategy_col)
 
-    total = cum_strategy.sum()
+        # Step 3: row-player (maximiser) regret update.
+        #   R_row[i] += (M @ σ_col)[i] - ev
+        row_action_values = payoff_matrix @ strategy_col
+        cum_regrets_row += row_action_values - ev
+
+        # Step 4: column-player (minimiser) regret update.
+        #   R_col[j] += ev - (M.T @ σ_row)[j]
+        col_action_values = payoff_matrix.T @ strategy_row
+        cum_regrets_col += ev - col_action_values
+
+        # Step 5: accumulate row player's average strategy.
+        cum_strategy_row += strategy_row
+
+    total = cum_strategy_row.sum()
     if total < epsilon:
         return np.ones(n, dtype=np.float64) / n
-    return cum_strategy / total
+    return cum_strategy_row / total
 
 
 # ---------------------------------------------------------------------------
@@ -317,4 +335,11 @@ def build_payoff_matrix(
             wr = win_rate_fn(ai, aj)
             if wr is not None:
                 matrix[i, j] = float(wr)
+            else:
+                # If only the reverse direction is recorded (from aj's
+                # perspective), infer this entry under the constant-sum
+                # assumption: M[i, j] = 1 - M[j, i].
+                wr_reverse = win_rate_fn(aj, ai)
+                if wr_reverse is not None:
+                    matrix[i, j] = 1.0 - float(wr_reverse)
     return matrix

@@ -242,7 +242,6 @@ class LeagueMatchmaker:
         logic.
         """
         focal = self.agent_pool.get(focal_agent_id)
-        recorded_wr = self.match_database.win_rates_for(focal_agent_id)
 
         # Resolve candidate set.
         if candidate_types is not None:
@@ -270,12 +269,16 @@ class LeagueMatchmaker:
 
         # Compute sampling weights: Nash distribution (if set) or PFSP.
         if self._nash_weights is not None:
+            # Nash sampling: use precomputed Nash weights and avoid querying
+            # per-opponent win rates, which require scanning the match history.
             weights = np.array(
                 [max(self._nash_weights.get(c.agent_id, 0.0), 0.0) for c in candidates],
                 dtype=np.float64,
             )
         else:
-            # Compute PFSP weights.
+            # Compute PFSP weights.  Only query win rates when PFSP is active
+            # to avoid an unnecessary O(num_matches) scan in Nash mode.
+            recorded_wr = self.match_database.win_rates_for(focal_agent_id)
             weight_fn = self._pfsp_weight_fn if self._pfsp_weight_fn is not None else _hard_first
             weights = np.array(
                 [

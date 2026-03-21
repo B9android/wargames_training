@@ -528,12 +528,16 @@ class MainAgentTrainer:
                     sum(outcomes) / len(outcomes)
                 )
         # Nash distribution entropy over the current league pool.
+        # Build the payoff matrix from pre-cached per-agent win-rate dicts
+        # (one O(num_matches) pass per agent) to avoid the O(N^2 * num_matches)
+        # cost of calling win_rate() separately for each matrix cell.
         all_records = self._agent_pool.list()
         if len(all_records) >= 2:
             agent_ids = [r.agent_id for r in all_records]
+            win_rates_cache = {aid: self._match_db.win_rates_for(aid) for aid in agent_ids}
             payoff = build_payoff_matrix(
                 agent_ids,
-                self._match_db.win_rate,
+                lambda ai, aj: win_rates_cache.get(ai, {}).get(aj),
                 self._matchmaker.unknown_win_rate,
             )
             nash_dist = compute_nash_distribution(payoff)
