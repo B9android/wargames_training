@@ -1,5 +1,5 @@
 # training/league/__init__.py
-"""League training infrastructure (E4.1, E4.2, E4.3, E4.4, E4.5).
+"""League training infrastructure (E4.1, E4.2, E4.3, E4.4, E4.5, E4.6).
 
 Provides an AlphaStar-style league with:
 
@@ -13,6 +13,9 @@ Provides an AlphaStar-style league with:
   :meth:`~training.league.matchmaker.LeagueMatchmaker.set_nash_weights`.
 * :mod:`~training.league.nash` — Nash equilibrium approximation via
   regret matching / LP; entropy metric for W&B logging.
+* :mod:`~training.league.diversity` — behavioral embedding, pairwise
+  cosine distances, diversity score, and :class:`DiversityTracker` for
+  quantifying strategy diversity across the pool (E4.6).
 * :class:`~training.league.train_main_agent.MainAgentTrainer` — MAPPO
   training loop for main agents using PFSP against the full league pool.
 * :class:`~training.league.train_exploiter.MainExploiterTrainer` — MAPPO
@@ -45,6 +48,13 @@ from training.league.nash import (
     compute_nash_distribution,
     nash_entropy,
 )
+from training.league.diversity import (
+    TrajectoryBatch,
+    DiversityTracker,
+    embed_trajectory,
+    pairwise_cosine_distances,
+    diversity_score,
+)
 
 __all__ = [
     "AgentPool",
@@ -57,6 +67,11 @@ __all__ = [
     "build_payoff_matrix",
     "compute_nash_distribution",
     "nash_entropy",
+    "TrajectoryBatch",
+    "DiversityTracker",
+    "embed_trajectory",
+    "pairwise_cosine_distances",
+    "diversity_score",
     "MainAgentTrainer",
     "make_pfsp_weight_fn",
     "MainExploiterTrainer",

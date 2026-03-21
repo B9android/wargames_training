@@ -41,6 +41,7 @@ from envs.multi_battalion_env import MultiBattalionEnv
 from models.mappo_policy import MAPPOPolicy
 from training.elo import EloRegistry
 from training.league.agent_pool import AgentPool, AgentType
+from training.league.diversity import DiversityTracker, TrajectoryBatch
 from training.league.match_database import MatchDatabase
 from training.league.matchmaker import LeagueMatchmaker
 from training.league.nash import build_payoff_matrix, compute_nash_distribution, nash_entropy
@@ -199,6 +200,10 @@ class MainAgentTrainer:
         self._current_opponent_id: Optional[str] = None
         # per-matchup win-rate accumulator {opponent_id: [outcomes]}
         self._matchup_outcomes: Dict[str, List[float]] = {}
+
+        # Diversity tracker: accumulates per-agent behavioral embeddings and
+        # computes pool-wide diversity scores for W&B logging (E4.6).
+        self._diversity_tracker: DiversityTracker = DiversityTracker()
 
         self.snapshot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -457,6 +462,134 @@ class MainAgentTrainer:
         )
         return win_rate
 
+    def _collect_trajectory(
+        self,
+        agent_id: str,
+        snapshot_path: Optional[Path],
+        n_steps: int = 200,
+    ) -> Optional[TrajectoryBatch]:
+        """Run a single episode with a frozen snapshot and collect a trajectory.
+
+        A **separate** environment instance (same parameters as the trainer's)
+        is created for each collection run so that the trainer's internal state
+        (``_obs_buf``, episode counters, etc.) is never disturbed.  The policy
+        from *snapshot_path* controls the Blue team.  Red agents always take
+        idle (zero-valued) actions.  Observations, actions, and normalised
+        (x, y) positions are collected from the first Blue agent on each step.
+
+        Parameters
+        ----------
+        agent_id:
+            Identifier used to label the returned :class:`TrajectoryBatch`.
+        snapshot_path:
+            Path to the frozen ``.pt`` snapshot.  If ``None``, the trainer's
+            *current* (live) policy is used.
+        n_steps:
+            Maximum number of environment steps to collect (default 200).
+
+        Returns
+        -------
+        TrajectoryBatch | None
+            Collected trajectory, or ``None`` on failure.
+        """
+        try:
+            if snapshot_path is not None:
+                policy = self._load_opponent(snapshot_path)
+                if policy is None:
+                    return None
+            else:
+                policy = self._trainer.policy
+
+            # Create a fresh environment with the same parameters so that we
+            # do not desync the trainer's internal episode state (_obs_buf,
+            # _ep_rewards, etc.) which assumes exclusive control of env.reset/step.
+            from envs.multi_battalion_env import MultiBattalionEnv
+            src = self._trainer.env  # type: ignore[attr-defined]
+            env = MultiBattalionEnv(
+                n_blue=src.n_blue,
+                n_red=src.n_red,
+                map_width=src.map_width,
+                map_height=src.map_height,
+                max_steps=src.max_steps,
+                randomize_terrain=src.randomize_terrain,
+                hill_speed_factor=src.hill_speed_factor,
+                visibility_radius=src.visibility_radius,
+            )
+            obs_dict, _ = env.reset()
+
+            action_list: List[np.ndarray] = []
+            pos_list: List[np.ndarray] = []
+
+            # Collect up to n_steps transitions.
+            for _ in range(n_steps):
+                # Build per-agent local observation arrays.
+                blue_ids = [a for a in env.possible_agents if a.startswith("blue_")]
+                if not blue_ids:
+                    break
+
+                obs_arr = np.stack(
+                    [obs_dict.get(a, np.zeros(env.observation_space(a).shape)) for a in blue_ids],
+                    axis=0,
+                )  # (n_blue, obs_dim)
+
+                # Compute one action per Blue agent using the correct MAPPOPolicy
+                # signature: act(obs, agent_idx, deterministic).
+                # obs shape for each call: (1, obs_dim) → actions: (1, action_dim).
+                with torch.no_grad():
+                    action_t_list = []
+                    for agent_idx, _ in enumerate(blue_ids):
+                        local_obs = torch.tensor(
+                            obs_arr[agent_idx], dtype=torch.float32
+                        ).unsqueeze(0)  # (1, obs_dim)
+                        action_agent_t, _ = policy.act(
+                            local_obs, agent_idx=agent_idx, deterministic=True
+                        )
+                        action_t_list.append(action_agent_t.squeeze(0))  # (action_dim,)
+                    actions_t = torch.stack(action_t_list, dim=0)  # (n_blue, action_dim)
+                actions_np = actions_t.cpu().numpy()  # (n_blue, action_dim)
+
+                # Aggregate all Blue agents' actions into one row per step.
+                # Mean aggregation captures the team's overall action tendency
+                # while keeping the embedding dimension independent of team size.
+                mean_action = actions_np.mean(axis=0)  # (action_dim,)
+
+                # Extract (x, y) position from the first Blue agent's obs.
+                first_obs = obs_arr[0]  # (obs_dim,)
+                pos_xy = first_obs[:2].astype(np.float32)  # normalised (x, y)
+
+                action_list.append(mean_action.astype(np.float32))
+                pos_list.append(pos_xy)
+
+                # Build action dict for env.step.
+                action_dict = {
+                    a: actions_np[i] for i, a in enumerate(blue_ids)
+                }
+                # Red agents take idle (zero-valued) actions.
+                red_ids = [a for a in env.possible_agents if a.startswith("red_")]
+                for r in red_ids:
+                    action_dict[r] = np.zeros(env.action_space(r).shape, dtype=np.float32)
+
+                obs_dict, _, terminated, truncated, _ = env.step(action_dict)
+                done = all(terminated.values()) or all(truncated.values())
+                if done:
+                    break
+
+            if not action_list:
+                return None
+
+            return TrajectoryBatch(
+                actions=np.stack(action_list, axis=0),
+                positions=np.stack(pos_list, axis=0),
+                agent_id=agent_id,
+            )
+        except Exception as exc:
+            log.debug(
+                "MainAgentTrainer: trajectory collection failed for %s: %s",
+                agent_id,
+                exc,
+            )
+            return None
+
     def _run_evaluation(self, total_steps: int) -> None:
         """Evaluate vs the current opponent, update records, and log to W&B."""
         if self._current_opponent_id is None:
@@ -542,6 +675,20 @@ class MainAgentTrainer:
             )
             nash_dist = compute_nash_distribution(payoff)
             metrics["league/nash_entropy"] = nash_entropy(nash_dist)
+
+        # Collect behavioral trajectories and update diversity tracker (E4.6).
+        # Sample the main agent's current behaviour and the opponent's behaviour,
+        # then compute the pool-wide diversity score for W&B logging.
+        self._update_diversity_tracker(opp_id, opponent_record.snapshot_path)
+        if self._diversity_tracker.pool_size >= 2:
+            div_score = self._diversity_tracker.diversity_score()
+            metrics["league/diversity_score"] = div_score
+            log.info(
+                "MainAgentTrainer: diversity_score=%.4f (pool=%d agents tracked)",
+                div_score,
+                self._diversity_tracker.pool_size,
+            )
+
         metrics["eval/step"] = total_steps
         if wandb.run is not None:
             wandb.log(metrics, step=total_steps)
@@ -551,6 +698,36 @@ class MainAgentTrainer:
             self._elo.save()
         except ValueError:
             pass  # No path configured — in-memory only.
+
+    def _update_diversity_tracker(
+        self,
+        opponent_id: str,
+        opponent_snapshot_path: Path,
+    ) -> None:
+        """Collect trajectories for the main agent and opponent; update tracker.
+
+        Runs a short rollout episode for each party to obtain behavioral
+        embeddings.  Silently skips if trajectory collection fails (e.g. the
+        environment is unavailable or the snapshot is missing).
+
+        Parameters
+        ----------
+        opponent_id:
+            ID of the opponent agent.
+        opponent_snapshot_path:
+            Path to the opponent's frozen snapshot ``.pt`` file.
+        """
+        # Main agent — use live policy (snapshot_path=None).
+        main_traj = self._collect_trajectory(self.agent_id, snapshot_path=None)
+        if main_traj is not None:
+            self._diversity_tracker.update(self.agent_id, main_traj)
+
+        # Opponent — use frozen snapshot.
+        opp_traj = self._collect_trajectory(
+            opponent_id, snapshot_path=opponent_snapshot_path
+        )
+        if opp_traj is not None:
+            self._diversity_tracker.update(opponent_id, opp_traj)
 
     def _log_training(self, losses: dict, total_steps: int) -> None:
         """Log MAPPO training losses and league state to W&B."""
