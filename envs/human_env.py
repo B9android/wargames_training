@@ -31,7 +31,7 @@ Three built-in scenarios are registered in :data:`SCENARIOS`:
     Randomised hilly terrain with a speed penalty, curriculum level 5.
 
 ``last_stand``
-    Flat terrain; Blue starts at 60 % strength vs. a level-3 opponent.
+    Flat terrain; Blue starts at 60% strength vs. a level-3 opponent.
 
 Usage::
 
@@ -93,7 +93,7 @@ SCENARIOS: dict[str, dict] = {
         "initial_blue_strength": 1.0,
     },
     "last_stand": {
-        "description": "Last Stand — Blue starts at 60 % strength. Survive!",
+        "description": "Last Stand — Blue starts at 60% strength. Survive!",
         "map_width": 1000.0,
         "map_height": 1000.0,
         "max_steps": 500,

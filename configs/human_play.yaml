@@ -8,8 +8,8 @@
 #   1 — Stationary   (no movement, no fire)
 #   2 — Turning only (faces player, no advance, no fire)
 #   3 — Advancing    (moves to fire range, no fire)
-#   4 — Soft combat  (moves and fires at 50 % intensity)
-#   5 — Full combat  (moves and fires at 100 % intensity)
+#   4 — Soft combat  (moves and fires at 50% intensity)
+#   5 — Full combat  (moves and fires at 100% intensity)
 
 human_play:
   default_scenario: open_field
@@ -44,7 +44,7 @@ human_play:
       initial_blue_strength: 1.0
 
     last_stand:
-      description: "Last Stand — Blue starts at 60 % strength. Survive!"
+      description: "Last Stand — Blue starts at 60% strength. Survive!"
       map_width: 1000.0
       map_height: 1000.0
       max_steps: 500

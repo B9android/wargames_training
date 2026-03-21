@@ -60,7 +60,7 @@ def _list_scenarios() -> None:
         if float(cfg.get("hill_speed_factor", 0.5)) < 0.5:
             extras.append("steep hills")
         if float(init_str) < 1.0:
-            extras.append(f"Blue starts at {int(float(init_str) * 100)} % strength")
+            extras.append(f"Blue starts at {int(float(init_str) * 100)}% strength")
         extras_str = f"  [{', '.join(extras)}]" if extras else ""
         print(f"  {name:<20} (difficulty {lvl}) — {desc}{extras_str}")
     print()
@@ -92,8 +92,8 @@ def _prompt_difficulty() -> int:
         (1, "Stationary — Red does not move or fire"),
         (2, "Turning only — Red faces you but stays put"),
         (3, "Advancing — Red moves toward you; no fire"),
-        (4, "Combat — Red moves and fires at 50 % intensity"),
-        (5, "Full combat — Red moves and fires at 100 % intensity (default)"),
+        (4, "Combat — Red moves and fires at 50% intensity"),
+        (5, "Full combat — Red moves and fires at 100% intensity (default)"),
     ]
     print("\nSelect AI difficulty:\n")
     for lvl, desc in levels:
