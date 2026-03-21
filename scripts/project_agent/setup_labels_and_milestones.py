@@ -96,6 +96,31 @@ LABEL_DEFINITIONS: dict[str, tuple[str, str]] = {
     "v5: explainability":("e2d9f3", "v5 strategy explainability"),
     "v5: validation":    ("e2d9f3", "v5 historical scenario validation"),
     "v5: deployment":    ("e2d9f3", "v5 policy export & deployment"),
+    # ── v6: work-stream labels ──────────────────────────────────────────────
+    "v6: simulation":    ("fff3cd", "v6 physics-accurate simulation"),
+    "v6: documentation": ("fff3cd", "v6 documentation & release"),
+    # ── v7: work-stream labels ──────────────────────────────────────────────
+    "v7: operational":   ("d1ecf1", "v7 operational-scale (corps) work"),
+    "v7: documentation": ("d1ecf1", "v7 documentation & release"),
+    # ── v8: work-stream labels ──────────────────────────────────────────────
+    "v8: architecture":  ("d6d8db", "v8 transformer policy architecture"),
+    "v8: documentation": ("d6d8db", "v8 documentation & release"),
+    # ── v9: work-stream labels ──────────────────────────────────────────────
+    "v9: interface":     ("c3e6cb", "v9 human-in-the-loop interface"),
+    "v9: coa":           ("c3e6cb", "v9 COA planning tool"),
+    "v9: training":      ("c3e6cb", "v9 human feedback training"),
+    "v9: documentation": ("c3e6cb", "v9 documentation & release"),
+    # ── v10: work-stream labels ─────────────────────────────────────────────
+    "v10: multi-domain": ("f5c6cb", "v10 multi-domain joint operations"),
+    "v10: documentation":("f5c6cb", "v10 documentation & release"),
+    # ── v11: work-stream labels ─────────────────────────────────────────────
+    "v11: real-world":   ("bee5eb", "v11 real-world data & transfer"),
+    "v11: documentation":("bee5eb", "v11 documentation & release"),
+    # ── v12: work-stream labels ─────────────────────────────────────────────
+    "v12: foundation-model": ("e2e3e5", "v12 wargames foundation model"),
+    "v12: platform":         ("e2e3e5", "v12 open research platform"),
+    "v12: modern-era":       ("e2e3e5", "v12 modern-era extension"),
+    "v12: documentation":    ("e2e3e5", "v12 documentation & release"),
     # ── misc ───────────────────────────────────────────────────────────────
     "status: needs-experiment": ("0075ca", "Requires an experiment to proceed"),
     "enhancement":              ("a2eeef", "Improvement to existing functionality"),
@@ -161,6 +186,86 @@ MILESTONE_DEFINITIONS: list[dict] = [
         "title": "M10: v4 Complete",
         "description": "All v4 acceptance criteria met; Nash distribution sampling and strategy diversity operational.",
         "due_date": "2028-08-31",
+    },
+    {
+        "title": "M11: Interface & Analysis",
+        "description": "Human-playable interface, COA generator, and explainability tools operational.",
+        "due_date": "2028-12-31",
+    },
+    {
+        "title": "M12: v5 Complete",
+        "description": "All v5 acceptance criteria met; policy export and deployment pipeline in place.",
+        "due_date": "2029-03-31",
+    },
+    {
+        "title": "M13: Physics Simulation",
+        "description": "Terrain elevation, LOS, weapon physics, formations, and morale model complete.",
+        "due_date": "2029-07-31",
+    },
+    {
+        "title": "M14: v6 Complete",
+        "description": "All v6 acceptance criteria met; logistics, weather, and v1 agent retrained on v6 engine.",
+        "due_date": "2029-10-31",
+    },
+    {
+        "title": "M15: Corps Command",
+        "description": "Corps-level operational environment with road network and strategic supply running.",
+        "due_date": "2030-03-31",
+    },
+    {
+        "title": "M16: v7 Complete",
+        "description": "All v7 acceptance criteria met; corps-level league training running.",
+        "due_date": "2030-06-30",
+    },
+    {
+        "title": "M17: Transformer Policy",
+        "description": "Entity-based transformer policy with recurrent memory running on corps env.",
+        "due_date": "2030-10-31",
+    },
+    {
+        "title": "M18: v8 Complete",
+        "description": "All v8 acceptance criteria met; model scaling study complete.",
+        "due_date": "2030-12-31",
+    },
+    {
+        "title": "M19: Decision Support",
+        "description": "Web-based wargame interface and AI-assisted COA planning tool operational.",
+        "due_date": "2031-04-30",
+    },
+    {
+        "title": "M20: v9 Complete",
+        "description": "All v9 acceptance criteria met; live demo deployed; DAgger loop running.",
+        "due_date": "2031-06-30",
+    },
+    {
+        "title": "M21: Joint Operations",
+        "description": "Naval units and joint amphibious/coastal operations functional.",
+        "due_date": "2031-10-31",
+    },
+    {
+        "title": "M22: v10 Complete",
+        "description": "All v10 acceptance criteria met; cavalry corps and grand battery complete.",
+        "due_date": "2031-12-31",
+    },
+    {
+        "title": "M23: Real-World Transfer",
+        "description": "50-battle historical database imported; GIS terrain for key battle sites loaded.",
+        "due_date": "2032-04-30",
+    },
+    {
+        "title": "M24: v11 Complete",
+        "description": "All v11 acceptance criteria met; arXiv pre-print submitted.",
+        "due_date": "2032-06-30",
+    },
+    {
+        "title": "M25: Foundation Model",
+        "description": "WFM-1 multi-task foundation model checkpoint published on HuggingFace.",
+        "due_date": "2032-10-31",
+    },
+    {
+        "title": "M26: v12 Complete",
+        "description": "All v12 acceptance criteria met; WargamesBench published; system paper submitted.",
+        "due_date": "2032-12-31",
     },
 ]
 

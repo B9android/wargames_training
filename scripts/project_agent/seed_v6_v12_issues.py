@@ -24,6 +24,31 @@ ATTRIBUTION = (
     "> Label `status: agent-created` was requested; it may be absent if the label does not exist on this repository.\n"
 )
 
+# Fallback color map for auto-created labels.  Matches the color scheme in
+# setup_labels_and_milestones.py so auto-created labels stay visually consistent
+# with those created by the bootstrap script.
+_LABEL_COLOR_MAP: dict[str, str] = {
+    "v6:":    "fff3cd",
+    "v7:":    "d1ecf1",
+    "v8:":    "d6d8db",
+    "v9:":    "c3e6cb",
+    "v10:":   "f5c6cb",
+    "v11:":   "bee5eb",
+    "v12:":   "e2e3e5",
+    "type:":  "7057ff",
+    "priority:": "fbca04",
+    "status:":   "0075ca",
+    "domain:":   "bfd4f2",
+}
+
+
+def _label_color(label_name: str) -> str:
+    """Return an appropriate hex color for a label, based on its prefix."""
+    for prefix, color in _LABEL_COLOR_MAP.items():
+        if label_name.startswith(prefix):
+            return color
+    return "ededed"  # fallback grey
+
 # ---------------------------------------------------------------------------
 # ── v6 EPICS — Physics-Accurate Simulation Foundation ────────────────────
 # ---------------------------------------------------------------------------
@@ -1500,11 +1525,11 @@ M26: v12 Complete""" + ATTRIBUTION,
 SPRINT_ISSUES: list[dict] = [
     # v6 sprints
     {
-        "title": "[EPIC] Sprint S23 — v6 Kickoff: Terrain & Weapons",
+        "title": "[EPIC] Sprint S26 — v6 Kickoff: Terrain & Weapons",
         "labels": ["type: epic", "priority: high", "v6: simulation", "domain: env", "status: agent-created"],
         "milestone": "M13: Physics Simulation",
         "body": """\
-### Sprint S23 (Weeks 45–46)
+### Sprint S26 (Weeks 45–46)
 
 **Goal:** Terrain engine and weapons system complete; basic simulation loop running on new physics model.
 
@@ -1521,11 +1546,11 @@ LOS unit tests pass; weapon accuracy within ±5 % of historical data.
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S24 — Formations & Morale",
+        "title": "[EPIC] Sprint S27 — Formations & Morale",
         "labels": ["type: epic", "priority: high", "v6: simulation", "domain: env", "status: agent-created"],
         "milestone": "M13: Physics Simulation",
         "body": """\
-### Sprint S24 (Weeks 47–48)
+### Sprint S27 (Weeks 47–48)
 
 **Goal:** Formation system and morale model integrated; rout mechanics functional.
 
@@ -1542,11 +1567,11 @@ Square reliably defeats cavalry in unit tests; rout triggers at morale threshold
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S25 — Logistics, Weather & v6 Release",
+        "title": "[EPIC] Sprint S28 — Logistics, Weather & v6 Release",
         "labels": ["type: epic", "priority: medium", "v6: simulation", "domain: env", "status: agent-created"],
         "milestone": "M14: v6 Complete",
         "body": """\
-### Sprint S25 (Weeks 49–50)
+### Sprint S28 (Weeks 49–50)
 
 **Goal:** Supply, fatigue, and weather systems complete; v1 agent retrained on v6 engine; `v6.0.0` released.
 
@@ -1565,11 +1590,11 @@ v1 agent convergent on v6 engine; all v6 unit tests passing; release tag created
     },
     # v7 sprints
     {
-        "title": "[EPIC] Sprint S26 — v7 Kickoff: Corps Environment",
+        "title": "[EPIC] Sprint S29 — v7 Kickoff: Corps Environment",
         "labels": ["type: epic", "priority: high", "v7: operational", "domain: env", "status: agent-created"],
         "milestone": "M15: Corps Command",
         "body": """\
-### Sprint S26 (Weeks 51–52)
+### Sprint S29 (Weeks 51–52)
 
 **Goal:** Corps-level environment with road network and operational objectives running.
 
@@ -1586,11 +1611,11 @@ v1 agent convergent on v6 engine; all v6 unit tests passing; release tag created
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S27 — Supply Network & Corps League",
+        "title": "[EPIC] Sprint S30 — Supply Network & Corps League",
         "labels": ["type: epic", "priority: medium", "v7: operational", "domain: ml", "status: agent-created"],
         "milestone": "M15: Corps Command",
         "body": """\
-### Sprint S27 (Weeks 53–54)
+### Sprint S30 (Weeks 53–54)
 
 **Goal:** Strategic supply network complete; corps-level league training running.
 
@@ -1606,11 +1631,11 @@ Supply interdiction changes agent behaviour; corps main agent Elo increasing.
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S28 — v7 Release",
+        "title": "[EPIC] Sprint S31 — v7 Release",
         "labels": ["type: epic", "priority: low", "v7: documentation", "domain: infra", "status: agent-created"],
         "milestone": "M16: v7 Complete",
         "body": """\
-### Sprint S28 (Weeks 55–56)
+### Sprint S31 (Weeks 55–56)
 
 **Goal:** v7 documentation complete; `v7.0.0` released.
 
@@ -1627,11 +1652,11 @@ Supply interdiction changes agent behaviour; corps main agent Elo increasing.
     },
     # v8 sprints
     {
-        "title": "[EPIC] Sprint S29 — v8 Kickoff: Entity Encoder",
+        "title": "[EPIC] Sprint S32 — v8 Kickoff: Entity Encoder",
         "labels": ["type: epic", "priority: high", "v8: architecture", "domain: ml", "status: agent-created"],
         "milestone": "M17: Transformer Policy",
         "body": """\
-### Sprint S29 (Weeks 57–58)
+### Sprint S32 (Weeks 57–58)
 
 **Goal:** Entity encoder transformer running on 4v4 scenario; attention maps visualised.
 
@@ -1648,11 +1673,11 @@ Entity encoder handles variable N without errors; ablation `[EXP]` issue filed.
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S30 — Memory Module, Scaling Study & v8 Release",
+        "title": "[EPIC] Sprint S33 — Memory Module, Scaling Study & v8 Release",
         "labels": ["type: epic", "priority: medium", "v8: architecture", "domain: ml", "status: agent-created"],
         "milestone": "M18: v8 Complete",
         "body": """\
-### Sprint S30 (Weeks 59–60)
+### Sprint S33 (Weeks 59–60)
 
 **Goal:** Recurrent memory integrated; W&B scaling sweep complete; `v8.0.0` released.
 
@@ -1670,11 +1695,11 @@ LSTM outperforms memoryless on fog-of-war; sweep complete; release tag exists.
     },
     # v9 sprints
     {
-        "title": "[EPIC] Sprint S31 — v9 Kickoff: Web Interface",
+        "title": "[EPIC] Sprint S34 — v9 Kickoff: Web Interface",
         "labels": ["type: epic", "priority: high", "v9: interface", "domain: viz", "status: agent-created"],
         "milestone": "M19: Decision Support",
         "body": """\
-### Sprint S31 (Weeks 61–62)
+### Sprint S34 (Weeks 61–62)
 
 **Goal:** React + WebGL wargame interface serving real-time AI via ONNX policy server.
 
@@ -1690,11 +1715,11 @@ Human can play a full 2v2 battle in browser against AI opponent.
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S32 — COA Tool, AAR & v9 Release",
+        "title": "[EPIC] Sprint S35 — COA Tool, AAR & v9 Release",
         "labels": ["type: epic", "priority: medium", "v9: coa", "v9: training", "domain: ml", "status: agent-created"],
         "milestone": "M20: v9 Complete",
         "body": """\
-### Sprint S32 (Weeks 63–64)
+### Sprint S35 (Weeks 63–64)
 
 **Goal:** COA planning tool and AAR system complete; live demo deployed; `v9.0.0` released.
 
@@ -1712,11 +1737,11 @@ Human can play a full 2v2 battle in browser against AI opponent.
     },
     # v10 sprints
     {
-        "title": "[EPIC] Sprint S33 — v10 Kickoff: Naval & Joint Operations",
+        "title": "[EPIC] Sprint S36 — v10 Kickoff: Naval & Joint Operations",
         "labels": ["type: epic", "priority: high", "v10: multi-domain", "domain: env", "status: agent-created"],
         "milestone": "M21: Joint Operations",
         "body": """\
-### Sprint S33 (Weeks 65–66)
+### Sprint S36 (Weeks 65–66)
 
 **Goal:** Naval units operational; amphibious landing scenario running.
 
@@ -1733,11 +1758,11 @@ Naval gunfire correctly accounts for LOS; amphibious landing produces beach-head
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S34 — Cavalry Corps, Grand Battery & v10 Release",
+        "title": "[EPIC] Sprint S37 — Cavalry Corps, Grand Battery & v10 Release",
         "labels": ["type: epic", "priority: medium", "v10: multi-domain", "domain: env", "status: agent-created"],
         "milestone": "M22: v10 Complete",
         "body": """\
-### Sprint S34 (Weeks 67–68)
+### Sprint S37 (Weeks 67–68)
 
 **Goal:** Cavalry corps reconnaissance and grand battery mechanics complete; `v10.0.0` released.
 
@@ -1755,11 +1780,11 @@ Cavalry reduces fog-of-war for allies; grand battery breaks enemy line; release 
     },
     # v11 sprints
     {
-        "title": "[EPIC] Sprint S35 — v11 Kickoff: Historical Database & GIS Import",
+        "title": "[EPIC] Sprint S38 — v11 Kickoff: Historical Database & GIS Import",
         "labels": ["type: epic", "priority: high", "v11: real-world", "domain: eval", "status: agent-created"],
         "milestone": "M23: Real-World Transfer",
         "body": """\
-### Sprint S35 (Weeks 69–70)
+### Sprint S38 (Weeks 69–70)
 
 **Goal:** 50-battle historical database imported; GIS terrain for Waterloo and Austerlitz loaded.
 
@@ -1776,11 +1801,11 @@ Importer handles 50 battles without errors; agent achieves historically plausibl
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S36 — Expert Demonstrations & v11 Release",
+        "title": "[EPIC] Sprint S39 — Expert Demonstrations & v11 Release",
         "labels": ["type: epic", "priority: medium", "v11: real-world", "domain: ml", "status: agent-created"],
         "milestone": "M24: v11 Complete",
         "body": """\
-### Sprint S36 (Weeks 71–72)
+### Sprint S39 (Weeks 71–72)
 
 **Goal:** Expert demonstrations collected; BC pre-training pipeline complete; arXiv pre-print submitted; `v11.0.0` released.
 
@@ -1798,11 +1823,11 @@ BC pre-trained agent reaches 60 % win rate after 500k fine-tuning steps; pre-pri
     },
     # v12 sprints
     {
-        "title": "[EPIC] Sprint S37 — v12 Kickoff: WFM-1 Foundation Model",
+        "title": "[EPIC] Sprint S40 — v12 Kickoff: WFM-1 Foundation Model",
         "labels": ["type: epic", "priority: high", "v12: foundation-model", "domain: ml", "status: agent-created"],
         "milestone": "M25: Foundation Model",
         "body": """\
-### Sprint S37 (Weeks 73–74)
+### Sprint S40 (Weeks 73–74)
 
 **Goal:** WFM-1 architecture defined; multi-task training loop running on full distribution.
 
@@ -1818,11 +1843,11 @@ Multi-task loop trains without errors; zero-shot evaluation started.
 """ + ATTRIBUTION,
     },
     {
-        "title": "[EPIC] Sprint S38 — Open Platform, Paper & v12 Release",
+        "title": "[EPIC] Sprint S41 — Open Platform, Paper & v12 Release",
         "labels": ["type: epic", "priority: medium", "v12: platform", "v12: documentation", "domain: infra", "status: agent-created"],
         "milestone": "M26: v12 Complete",
         "body": """\
-### Sprint S38 (Weeks 75–76)
+### Sprint S41 (Weeks 75–76)
 
 **Goal:** WFM-1 checkpoint published; WargamesBench standardized; system paper submitted; `v12.0.0` LTS released.
 
@@ -1898,22 +1923,41 @@ def create_issue(repo, issue_def: dict, known: set[str], *, dry_run: bool) -> st
         print(f"  [dry-run] Would create: {title[:80]}")
         return "skipped"
 
-    # Resolve labels; warn and skip any that are not found on this repository.
+    # Resolve labels; auto-create any that are missing so seeded issues get
+    # consistent metadata even if setup_labels_and_milestones.py is outdated.
     label_objects = []
     for label_name in issue_def.get("labels", []):
         try:
             label_objects.append(repo.get_label(label_name))
         except Exception:
-            print(f"    [warn] Label not found: {label_name} — skipping")
+            try:
+                auto_label = repo.create_label(
+                    name=label_name,
+                    color=_label_color(label_name),
+                    description=(
+                        "Auto-created by v6–v12 roadmap seeding script; "
+                        "consider updating setup_labels_and_milestones.py."
+                    ),
+                )
+                label_objects.append(auto_label)
+                print(f"    [+] Auto-created missing label: {label_name}")
+            except Exception:
+                print(f"    [warn] Label not found and could not be created: {label_name} — skipping")
 
-    # Resolve milestone
+    # Resolve milestone; auto-create if missing so that long-range roadmap
+    # issues stay properly grouped.
     milestone_obj = None
     if issue_def.get("milestone"):
-        milestone_obj = get_milestone_by_title(repo, issue_def["milestone"])
+        milestone_title = issue_def["milestone"]
+        milestone_obj = get_milestone_by_title(repo, milestone_title)
         if milestone_obj is None:
-            print(
-                f"    [warn] Milestone not found: {issue_def['milestone']} — issue will have no milestone"
-            )
+            try:
+                milestone_obj = repo.create_milestone(title=milestone_title)
+                print(f"    [+] Auto-created missing milestone: {milestone_title}")
+            except Exception:
+                print(
+                    f"    [warn] Milestone not found and could not be created: {milestone_title} — issue will have no milestone"
+                )
 
     try:
         kwargs: dict = {

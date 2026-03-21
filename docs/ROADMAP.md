@@ -207,9 +207,9 @@ tactically meaningful.
 ### Sprint Schedule (v6)
 | Sprint | Weeks | Focus | Epics |
 |---|---|---|---|
-| S23 | 45–46 | Terrain engine + weapon system | E6.1, E6.2 |
-| S24 | 47–48 | Formations + morale + rout | E6.3, E6.4 |
-| S25 | 49–50 | Logistics + weather + v6 release | E6.5, E6.6, E6.7 |
+| S26 | 45–46 | Terrain engine + weapon system | E6.1, E6.2 |
+| S27 | 47–48 | Formations + morale + rout | E6.3, E6.4 |
+| S28 | 49–50 | Logistics + weather + v6 release | E6.5, E6.6, E6.7 |
 
 ---
 
@@ -237,9 +237,9 @@ operational objectives (capture, interdict, fix-and-flank).
 ### Sprint Schedule (v7)
 | Sprint | Weeks | Focus | Epics |
 |---|---|---|---|
-| S26 | 51–52 | Corps env + road network + objectives | E7.1 |
-| S27 | 53–54 | Strategic supply + corps league | E7.2, E7.3 |
-| S28 | 55–56 | v7 release | E7.4 |
+| S29 | 51–52 | Corps env + road network + objectives | E7.1 |
+| S30 | 53–54 | Strategic supply + corps league | E7.2, E7.3 |
+| S31 | 55–56 | v7 release | E7.4 |
 
 ---
 
@@ -267,8 +267,8 @@ Add recurrent memory for fog-of-war scenarios.  Systematic scaling study.
 ### Sprint Schedule (v8)
 | Sprint | Weeks | Focus | Epics |
 |---|---|---|---|
-| S29 | 57–58 | Entity encoder + transformer policy | E8.1 |
-| S30 | 59–60 | Memory module + scaling study + v8 release | E8.2, E8.3, E8.4 |
+| S32 | 57–58 | Entity encoder + transformer policy | E8.1 |
+| S33 | 59–60 | Memory module + scaling study + v8 release | E8.2, E8.3, E8.4 |
 
 ---
 
@@ -296,8 +296,8 @@ human feedback integration.
 ### Sprint Schedule (v9)
 | Sprint | Weeks | Focus | Epics |
 |---|---|---|---|
-| S31 | 61–62 | Web interface + AI policy server | E9.1 |
-| S32 | 63–64 | COA tool + AAR + v9 release | E9.2, E9.3, E9.4 |
+| S34 | 61–62 | Web interface + AI policy server | E9.1 |
+| S35 | 63–64 | COA tool + AAR + v9 release | E9.2, E9.3, E9.4 |
 
 ---
 
@@ -324,8 +324,8 @@ operational arms, and enable joint combined-arms operations (land + sea).
 ### Sprint Schedule (v10)
 | Sprint | Weeks | Focus | Epics |
 |---|---|---|---|
-| S33 | 65–66 | Naval units + coastal operations | E10.1 |
-| S34 | 67–68 | Cavalry corps + grand battery + v10 release | E10.2, E10.3, E10.4 |
+| S36 | 65–66 | Naval units + coastal operations | E10.1 |
+| S37 | 67–68 | Cavalry corps + grand battery + v10 release | E10.2, E10.3, E10.4 |
 
 ---
 
@@ -353,8 +353,8 @@ Validate and fine-tune agents on real-world data.
 ### Sprint Schedule (v11)
 | Sprint | Weeks | Focus | Epics |
 |---|---|---|---|
-| S35 | 69–70 | Historical database + GIS import | E11.1, E11.2 |
-| S36 | 71–72 | Expert demonstrations + BC pre-training + v11 release | E11.3, E11.4 |
+| S38 | 69–70 | Historical database + GIS import | E11.1, E11.2 |
+| S39 | 71–72 | Expert demonstrations + BC pre-training + v11 release | E11.3, E11.4 |
 
 ---
 
@@ -382,8 +382,8 @@ reproducible research benchmark (WargamesBench).  Submit the system paper.
 ### Sprint Schedule (v12)
 | Sprint | Weeks | Focus | Epics |
 |---|---|---|---|
-| S37 | 73–74 | WFM-1 architecture + multi-task training | E12.1 |
-| S38 | 75–76 | Open platform + paper + v12 LTS release | E12.2, E12.3, E12.4 |
+| S40 | 73–74 | WFM-1 architecture + multi-task training | E12.1 |
+| S41 | 75–76 | Open platform + paper + v12 LTS release | E12.2, E12.3, E12.4 |
 
 ---
 
@@ -439,43 +439,43 @@ Sprints are 2 weeks. Sprint planning happens every other Monday.
 ### v6 Sprints (Planned)
 | Sprint | Weeks | Focus |
 |---|---|---|
-| S23 | 45–46 | Terrain engine + weapon system |
-| S24 | 47–48 | Formations + morale + rout |
-| S25 | 49–50 | Logistics + weather + v6 release |
+| S26 | 45–46 | Terrain engine + weapon system |
+| S27 | 47–48 | Formations + morale + rout |
+| S28 | 49–50 | Logistics + weather + v6 release |
 
 ### v7 Sprints (Planned)
 | Sprint | Weeks | Focus |
 |---|---|---|
-| S26 | 51–52 | Corps env + road network + objectives |
-| S27 | 53–54 | Strategic supply + corps league |
-| S28 | 55–56 | v7 release |
+| S29 | 51–52 | Corps env + road network + objectives |
+| S30 | 53–54 | Strategic supply + corps league |
+| S31 | 55–56 | v7 release |
 
 ### v8 Sprints (Planned)
 | Sprint | Weeks | Focus |
 |---|---|---|
-| S29 | 57–58 | Entity encoder + transformer policy |
-| S30 | 59–60 | Memory module + scaling study + v8 release |
+| S32 | 57–58 | Entity encoder + transformer policy |
+| S33 | 59–60 | Memory module + scaling study + v8 release |
 
 ### v9 Sprints (Planned)
 | Sprint | Weeks | Focus |
 |---|---|---|
-| S31 | 61–62 | Web interface + AI policy server |
-| S32 | 63–64 | COA tool + AAR + v9 release |
+| S34 | 61–62 | Web interface + AI policy server |
+| S35 | 63–64 | COA tool + AAR + v9 release |
 
 ### v10 Sprints (Planned)
 | Sprint | Weeks | Focus |
 |---|---|---|
-| S33 | 65–66 | Naval units + coastal operations |
-| S34 | 67–68 | Cavalry corps + grand battery + v10 release |
+| S36 | 65–66 | Naval units + coastal operations |
+| S37 | 67–68 | Cavalry corps + grand battery + v10 release |
 
 ### v11 Sprints (Planned)
 | Sprint | Weeks | Focus |
 |---|---|---|
-| S35 | 69–70 | Historical database + GIS import |
-| S36 | 71–72 | Expert demonstrations + BC pre-training + v11 release |
+| S38 | 69–70 | Historical database + GIS import |
+| S39 | 71–72 | Expert demonstrations + BC pre-training + v11 release |
 
 ### v12 Sprints (Planned)
 | Sprint | Weeks | Focus |
 |---|---|---|
-| S37 | 73–74 | WFM-1 architecture + multi-task training |
-| S38 | 75–76 | Open platform + paper + v12 LTS release |
+| S40 | 73–74 | WFM-1 architecture + multi-task training |
+| S41 | 75–76 | Open platform + paper + v12 LTS release |

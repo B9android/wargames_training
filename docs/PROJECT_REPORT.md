@@ -1,7 +1,7 @@
 # Wargames Training — Comprehensive Project Report
 
 > **Date:** 2026-03-21  
-> **Version at time of writing:** 5.0 (v5 code complete, pending roadmap update)  
+> **Version at time of writing:** 5.0 (v5 code complete)  
 > **Author:** Copilot project-report agent
 
 ---
@@ -25,9 +25,9 @@
    - 4.4 [Operational & Organisational Gaps](#44-operational--organisational-gaps)
 5. [Most Logical Next Step](#5-most-logical-next-step)
 6. [Long-Term Vision — v6 and Beyond](#6-long-term-vision--v6-and-beyond)
-   - 6.1 [v6: Combined Arms & Expanded Realism](#61-v6-combined-arms--expanded-realism)
-   - 6.2 [v7: Operational-Level Planning](#62-v7-operational-level-planning)
-   - 6.3 [v8: Human-AI Collaborative Wargaming](#63-v8-human-ai-collaborative-wargaming)
+   - 6.1 [v6: Physics-Accurate Simulation](#61-v6-physics-accurate-simulation)
+   - 6.2 [v7: Operational Scale — Corps Command](#62-v7-operational-scale--corps-command)
+   - 6.3 [v8: Transformer Policy & Architecture](#63-v8-transformer-policy--architecture)
 7. [Recommended Priorities](#7-recommended-priorities)
 8. [Appendix — Component Inventory](#8-appendix--component-inventory)
 
@@ -58,7 +58,7 @@ realism gaps limit its applicability beyond academic exploration.
 The most logical immediate next step is **end-to-end validation** — running a
 full training experiment through the complete pipeline (battalion → league →
 export → COA generation → historical validation) and recording reproducible
-results. The next major long-term goal is **v6: Combined Arms & Expanded Realism**,
+results. The next major long-term goal is **v6: Physics-Accurate Simulation**,
 which adds artillery, cavalry, and logistical constraints to push the agents toward
 more doctrinally credible behaviour.
 
@@ -369,95 +369,83 @@ The current foundation (multi-echelon simulation, CTDE MARL, HRL, league trainin
 COA generation, historical validation, policy export) supports an ambitious
 long-term trajectory.
 
-### 6.1 v6: Combined Arms & Expanded Realism
+### 6.1 v6: Physics-Accurate Simulation
 
-**Theme:** Introduce combined-arms interactions and push simulation fidelity to
-the level required for serious operational research.
+**Theme:** Achieve physics-accurate battalion-level simulation suitable for
+quantitative analysis and future operational research.
 
 **Core additions:**
 
 | Epic | Description |
 |---|---|
-| E6.1 | **Multi-arm unit types** — Infantry, Cavalry, Artillery as distinct unit classes with type-specific action spaces and stat tables |
-| E6.2 | **Artillery layer** — indirect fire, suppression, counter-battery mechanics; brigade and division commanders can issue fire missions |
-| E6.3 | **Formation system** — line (maximum firepower), column (maximum movement), square (anti-cavalry) with transitions and associated stat modifiers |
-| E6.4 | **Cavalry shock and pursuit** — melee combat, rout exploitation, screening missions |
-| E6.5 | **Supply and logistics** — ammunition depletion, resupply routes, overextension penalties |
-| E6.6 | **Larger maps** — 10 km × 10 km operational theatre, procedural map generation with rivers, roads, and villages |
-| E6.7 | **Weather and visibility** — fog of war, rain (fire penalty), night operations |
-| E6.8 | **v6 Documentation & Release** |
+| E6.1 | **Terrain Elevation & LOS Engine** — heightmap-driven terrain with JAX-compiled line-of-sight, elevation-aware movement costs, and a procedural map generator |
+| E6.2 | **Realistic Weapon Ranges, Accuracy & Reload Cycles** — historically-grounded musket/cannon parameters, reload state machines, volley fire mechanics |
+| E6.3 | **Morale, Cohesion & Rout Mechanics** — continuous morale state variable, cohesion-loss threshold, rout (forced withdrawal) and dispersal |
+| E6.4 | **Formation System** — LINE, COLUMN, SQUARE, SKIRMISH with transition timing and attribute modifiers; cavalry vs. square resolution |
+| E6.5 | **Supply, Ammunition & Fatigue Model** — per-battalion ammo counter, supply wagons as emergent high-value targets, fatigue accumulator |
+| E6.6 | **Weather & Time-of-Day Effects** — CLEAR/RAIN/FOG/SNOW/OVERCAST conditions affecting visibility, accuracy, and movement |
+| E6.7 | **v6 Documentation & Release** |
 
-**Target milestones:** M11 (Combined Arms), M12 (v6 Complete)
+**Target milestones:** M13 (Physics Simulation), M14 (v6 Complete)
 
 **Key research questions:**
-- Does MAPPO learn effective combined-arms tactics without explicit reward for
-  inter-arm coordination?
-- Do formation transitions emerge from unit survival incentives alone?
-- Can the HRL commander discover historically documented battle plans for
-  multi-arm engagements?
+- Does terrain-aware training produce qualitatively different emergent tactics?
+- What is the minimum physics fidelity required for historically-plausible agent behaviour?
+- Can agents discover fire-and-movement doctrine without explicit reward?
 
 **Estimated effort:** 12–16 weeks
 
 ---
 
-### 6.2 v7: Operational-Level Planning
+### 6.2 v7: Operational Scale — Corps Command
 
-**Theme:** Scale to corps / army-level simulation; introduce strategic and
-operational planning layers above the brigade/division tactical layer.
+**Theme:** Extend the HRL stack to corps level (3–5 divisions per side on a
+20–50 km² map). Introduce road networks, strategic supply chains, and
+operational objectives (capture, interdict, fix-and-flank).
 
 **Core additions:**
 
 | Epic | Description |
 |---|---|
-| E7.1 | **Corps-level environment** — 3+ division hierarchy; map spanning 50+ km |
-| E7.2 | **Planning horizon abstraction** — temporal ratio of 1 000:1 (one corps commander step = 100 battalion steps) |
-| E7.3 | **Lines of communication** — model road networks, supply depots, retreat routes |
-| E7.4 | **Intelligence layer** — probabilistic enemy position estimates; agents must manage information uncertainty |
-| E7.5 | **Coalition forces** — allied AI or human co-commanders with doctrine differences |
-| E7.6 | **Asymmetric scenarios** — attacker/defender imbalance; siege mechanics |
-| E7.7 | **Historical campaign validation** — Austerlitz campaign (not just battle), Leipzig, Waterloo campaign |
-| E7.8 | **v7 Documentation & Release** |
+| E7.1 | **Corps-Level Operational Environment** — multi-division ParallelEnv wrapper, road network, operational objectives |
+| E7.2 | **Strategic Supply & Logistics Network** — depot nodes, convoy routes, supply radius; cutting supply lines is a primary objective |
+| E7.3 | **Multi-Corps Self-Play & League Extension** — port v4 league infrastructure to corps scale; Nash equilibrium sampling at operational level |
+| E7.4 | **v7 Documentation & Release** |
+
+**Target milestones:** M15 (Corps Command), M16 (v7 Complete)
 
 **Key research questions:**
-- Does a learned corps commander discover operational manoeuvres (e.g.,
-  the strategy of the central position) without being shown historical examples?
-- How does uncertainty in enemy intelligence affect Nash equilibrium properties
-  of the league?
-- Can the system reproduce campaign-level outcomes that are beyond the scope
-  of single-battle simulation?
+- Does corps-level HRL discover Napoleon's corps maneuver system independently?
+- What map scale makes supply interdiction a decisive operational factor?
+- Does Nash equilibrium sampling still prevent strategy collapse at corps scale?
 
-**Estimated effort:** 20–28 weeks
+**Estimated effort:** 12–16 weeks
 
 ---
 
-### 6.3 v8: Human-AI Collaborative Wargaming
+### 6.3 v8: Transformer Policy & Architecture
 
-**Theme:** Turn the trained system into a tool for human military planners.
-Replace the research prototype with a production-quality collaborative
-decision-support system.
+**Theme:** Replace fixed-size concatenation observations with variable-length
+entity-token sequences processed by a multi-head self-attention transformer.
+Add recurrent memory for fog-of-war scenarios. Systematic scaling study.
 
 **Core additions:**
 
 | Epic | Description |
 |---|---|
-| E8.1 | **Web-based interactive interface** — Browser-accessible command console; human issues orders to brigade/division AI subordinates |
-| E8.2 | **COA comparison dashboard** — Visual side-by-side display of AI-generated courses of action with confidence intervals, risk estimates, and historical analogues |
-| E8.3 | **Red team AI** — Adversarial AI that challenges human plans; surfaces exploitable weaknesses automatically |
-| E8.4 | **Doctrine injection** — Allow users to encode doctrine constraints (e.g., "hold the ridge until 09:00") as reward shaping or SMDP option constraints |
-| E8.5 | **Natural language interface** — LLM front-end that translates plain-English orders into SMDP options and displays AI reasoning in plain language |
-| E8.6 | **Audit trail & replay** — Full decision replay, counterfactual ("what if?") scenario branching |
-| E8.7 | **Export to standard formats** — OPORD generation, MSEL export, interop with JCATS / OneSAF |
-| E8.8 | **v8 Documentation & Release** |
+| E8.1 | **Entity-Based Observation & Transformer Policy** — entity token schema, multi-head self-attention encoder, variable-length masking |
+| E8.2 | **Memory Module (LSTM / Temporal Context)** — recurrent memory for fog-of-war, hidden state checkpointing |
+| E8.3 | **Model Scaling & Hyperparameter Study** — W&B sweep over depth × width × heads; "small/medium/large" config tiers |
+| E8.4 | **v8 Documentation & Release** |
+
+**Target milestones:** M17 (Transformer Policy), M18 (v8 Complete)
 
 **Key research questions:**
-- Does access to AI-generated COAs measurably improve human planner decision
-  quality in controlled experiments?
-- Can the NLP interface lower the expertise threshold sufficiently for non-RL
-  practitioners to use the system?
-- Does operator trust in AI-generated plans increase when SHAP explainability is
-  surfaced alongside recommendations?
+- Does entity-based transformer encoding outperform flat MLP at 8v8+?
+- Does recurrent memory provide meaningful advantage under fog-of-war?
+- What is the optimal model size for the performance–latency Pareto frontier?
 
-**Estimated effort:** 24–36 weeks (includes significant UX/frontend work)
+**Estimated effort:** 8–12 weeks
 
 ---
 
