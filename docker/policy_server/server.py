@@ -227,6 +227,10 @@ def predict() -> Any:
             t0 = time.perf_counter()
             with torch.no_grad():
                 out_t = _model(obs_t)
+            if isinstance(out_t, (tuple, list)):
+                # TorchScript policies (e.g., MAPPOActor) may return (mean, std).
+                # For consistency with the ONNX path, use the first element.
+                out_t = out_t[0]
             latency_ms = (time.perf_counter() - t0) * 1e3
             output = out_t.tolist()
 

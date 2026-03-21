@@ -240,10 +240,21 @@ def export_to_onnx(
 
     if input_names is None:
         input_names = ["obs"]
+
+    # Auto-detect output count when defaults are used so multi-output models
+    # (e.g. MAPPOActor returning (mean, std)) get complete metadata.
     if output_names is None:
-        output_names = ["output"]
+        with torch.no_grad():
+            sample_out = model(dummy_input)
+        if isinstance(sample_out, (tuple, list)):
+            output_names = [f"output_{i}" for i in range(len(sample_out))]
+        else:
+            output_names = ["output"]
+
     if dynamic_axes is None:
-        dynamic_axes = {input_names[0]: {0: "batch"}, output_names[0]: {0: "batch"}}
+        dynamic_axes = {input_names[0]: {0: "batch"}}
+        for name in output_names:
+            dynamic_axes[name] = {0: "batch"}
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -492,17 +503,31 @@ def export_policy(
 
     if "onnx" in formats:
         onnx_path = output_dir / f"{stem}.onnx"
-        # Critic takes a different input; label accordingly.
+        # Determine input/output names and dynamic axes per model type.
         input_name = "state" if model_type == "mappo_critic" else "obs"
-        output_name = "value" if model_type == "mappo_critic" else "output"
+        if model_type == "mappo_critic":
+            out_names = ["value"]
+            dyn_axes = {input_name: {0: "batch"}, "value": {0: "batch"}}
+        elif model_type == "mappo_actor":
+            # MAPPOActor forward() returns (mean, std) — expose both outputs.
+            out_names = ["action_mean", "action_std"]
+            dyn_axes = {
+                input_name: {0: "batch"},
+                "action_mean": {0: "batch"},
+                "action_std": {0: "batch"},
+            }
+        else:
+            # Default single-output policy (e.g. _SB3ActorWrapper).
+            out_names = ["output"]
+            dyn_axes = {input_name: {0: "batch"}, "output": {0: "batch"}}
         export_to_onnx(
             model,
             dummy_input,
             onnx_path,
             opset_version=opset_version,
             input_names=[input_name],
-            output_names=[output_name],
-            dynamic_axes={input_name: {0: "batch"}, output_name: {0: "batch"}},
+            output_names=out_names,
+            dynamic_axes=dyn_axes,
         )
         print(f"[export] ONNX       → {onnx_path}")
         exported["onnx"] = onnx_path
@@ -635,7 +660,7 @@ def main(argv: list[str] | None = None) -> int:
             opset_version=args.opset_version,
             run_benchmark=args.benchmark,
         )
-    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+    except (FileNotFoundError, ValueError, RuntimeError, ImportError) as exc:
         print(f"[error] {exc}", file=sys.stderr)
         return 1
 

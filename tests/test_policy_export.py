@@ -215,28 +215,45 @@ class TestExportToOnnx(unittest.TestCase):
             proto = _onnx.load(str(out))
             _onnx.checker.check_model(proto)  # raises if invalid
 
-    def test_onnx_parity_with_pytorch_mean(self) -> None:
-        """ONNX actor action-mean output matches PyTorch within 1e-5."""
+    def test_onnx_parity_with_pytorch_actor_outputs(self) -> None:
+        """ONNX actor outputs (action_mean, action_std) both match PyTorch within 1e-5."""
         import numpy as np
         import onnxruntime as ort
 
         actor = _make_actor().eval()
         obs = _dummy_obs()
         with torch.no_grad():
-            pt_mean, _ = actor(obs)
+            pt_mean, pt_std = actor(obs)
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "actor.onnx"
-            export_to_onnx(actor, obs, out)
+            export_to_onnx(
+                actor, obs, out,
+                input_names=["obs"],
+                output_names=["action_mean", "action_std"],
+                dynamic_axes={
+                    "obs": {0: "batch"},
+                    "action_mean": {0: "batch"},
+                    "action_std": {0: "batch"},
+                },
+            )
 
             sess = ort.InferenceSession(str(out), providers=["CPUExecutionProvider"])
             input_name = sess.get_inputs()[0].name
             ort_outputs = sess.run(None, {input_name: obs.numpy()})
 
+        # Verify both outputs are present.
+        self.assertEqual(len(ort_outputs), 2, "Expected 2 outputs (action_mean, action_std)")
+
         ort_mean = torch.tensor(ort_outputs[0])
+        ort_std = torch.tensor(ort_outputs[1])
         self.assertTrue(
             torch.allclose(pt_mean, ort_mean, atol=ATOL),
-            msg=f"Max diff: {(pt_mean - ort_mean).abs().max().item():.2e}",
+            msg=f"action_mean max diff: {(pt_mean - ort_mean).abs().max().item():.2e}",
+        )
+        self.assertTrue(
+            torch.allclose(pt_std, ort_std, atol=ATOL),
+            msg=f"action_std max diff: {(pt_std - ort_std).abs().max().item():.2e}",
         )
 
     def test_onnx_dynamic_batch(self) -> None:

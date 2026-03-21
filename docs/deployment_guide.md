@@ -39,8 +39,8 @@ pip install onnx onnxruntime
 pip install torch stable-baselines3 flask
 ```
 
-These packages are **not** in the core `requirements.txt` because they are
-only needed for deployment, not for training.
+These packages are included in the core `requirements.txt`, so a standard
+`pip install -r requirements.txt` from the repo root will install them.
 
 ---
 
