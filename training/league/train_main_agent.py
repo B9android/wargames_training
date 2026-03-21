@@ -27,7 +27,6 @@ import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-import numpy as np
 import torch
 import wandb
 from omegaconf import DictConfig, OmegaConf
@@ -275,6 +274,7 @@ class MainAgentTrainer:
                     agent_id=new_id,
                     version=self._snapshot_version,
                     metadata={"parent_agent_id": self.agent_id, "step": total_steps},
+                    force=True,
                 )
                 log.info(
                     "MainAgentTrainer: snapshot v%d saved → pool size=%d",
@@ -398,7 +398,6 @@ class MainAgentTrainer:
                 self._current_opponent_id = None
             return
 
-        win_rates = self._match_db.win_rates_for(self.agent_id)
         opponent_record = self._matchmaker.select_opponent(
             self.agent_id,
             rng=self._trainer._rng,
@@ -414,11 +413,13 @@ class MainAgentTrainer:
         if opponent_policy is not None:
             self._trainer.set_red_policy(opponent_policy)
             self._current_opponent_id = opponent_record.agent_id
-            log.debug(
-                "MainAgentTrainer: opponent changed → %s (win_rate=%.3f)",
-                opponent_record.agent_id,
-                win_rates.get(opponent_record.agent_id, float("nan")),
-            )
+            if log.isEnabledFor(logging.DEBUG):
+                win_rates = self._match_db.win_rates_for(self.agent_id)
+                log.debug(
+                    "MainAgentTrainer: opponent changed → %s (win_rate=%.3f)",
+                    opponent_record.agent_id,
+                    win_rates.get(opponent_record.agent_id, float("nan")),
+                )
 
     def _evaluate_vs_opponent(self, opponent_id: str, snapshot_path: Path) -> float:
         """Evaluate the main agent against *opponent_id* and return win rate.
