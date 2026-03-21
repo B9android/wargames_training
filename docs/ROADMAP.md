@@ -12,7 +12,7 @@
 | **v1** | Foundation — 1v1 battalion | ✅ Complete | M4 |
 | **v2** | Multi-Agent — MARL 2v2+ | ✅ Complete | M6 |
 | **v3** | Hierarchy — Brigade/Division HRL | ✅ Complete | M8 |
-| **v4** | League — AlphaStar-style training | 📋 Planned | M10 |
+| **v4** | League — AlphaStar-style training | ✅ Complete | M10 |
 | **v5** | Real-World Interface & Analysis | 🔮 Future | TBD |
 
 ---
@@ -114,24 +114,24 @@ battalion policies. HRL architecture matching Black (NPS 2024).
 
 ---
 
-## v4: League Training (Planned)
+## v4: League Training (Complete ✅)
 
 **Goal:** AlphaStar-style league with main agents, exploiters, and
 league exploiters. Nash equilibrium sampling. Strategy diversity metrics.
 
 ### Epics
-- [ ] **E4.1** — League Infrastructure (agent pool, matchmaking)
-- [ ] **E4.2** — Main Agent Training Loop
-- [ ] **E4.3** — Main Exploiter Agents
-- [ ] **E4.4** — League Exploiter Agents
-- [ ] **E4.5** — Nash Distribution Sampling
-- [ ] **E4.6** — Strategy Diversity Metrics
-- [ ] **E4.7** — Distributed Training (Ray/RLlib)
-- [ ] **E4.8** — v4 Documentation & Release
+- [x] **E4.1** — League Infrastructure (agent pool, matchmaking)
+- [x] **E4.2** — Main Agent Training Loop
+- [x] **E4.3** — Main Exploiter Agents
+- [x] **E4.4** — League Exploiter Agents
+- [x] **E4.5** — Nash Distribution Sampling
+- [x] **E4.6** — Strategy Diversity Metrics
+- [x] **E4.7** — Distributed Training (Ray/RLlib)
+- [x] **E4.8** — v4 Documentation & Release
 
 ### Milestones
-- M9: League Training (target 2028-04-30)
-- M10: v4 Complete (target 2028-08-31)
+- M9: League Training ✅
+- M10: v4 Complete ✅
 
 ### Key Research Questions
 - Can we achieve Nash equilibrium sampling in a multi-agent wargame setting?

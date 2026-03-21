@@ -11,6 +11,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.0] — 2026-03-21
+
+### Added
+- **League infrastructure** (`training/league/agent_pool.py`,
+  `training/league/match_database.py`) — `AgentPool` (JSON manifest, atomic
+  writes) and `MatchDatabase` (JSONL append-log) as the persistence backbone
+  for the v4 league.  `AgentType` enum: `MAIN_AGENT`, `MAIN_EXPLOITER`,
+  `LEAGUE_EXPLOITER`.
+- **League matchmaker** (`training/league/matchmaker.py`) —
+  `LeagueMatchmaker` implementing Prioritized Fictitious Self-Play (PFSP)
+  with a hard-first weight function `f(w) = 1 − w`; `set_weight_function()`
+  for custom weighting; `set_nash_weights()` to switch to Nash distribution
+  sampling; matchup rules: main agents face all roles, main exploiters face
+  main agents only, league exploiters face all roles.
+- **Main agent training loop** (`training/league/train_main_agent.py`) —
+  `MainAgentTrainer` combining PFSP matchmaking, MAPPO policy updates, Elo
+  rating, and periodic pool snapshots; `make_pfsp_weight_fn(T)` temperature
+  factory; config `configs/league/main_agent.yaml`.
+- **Main exploiter** (`training/league/train_exploiter.py`) —
+  `MainExploiterTrainer` targeting the latest main agent snapshot; rolling
+  win-rate reset via `_orthogonal_reinit`; `MAIN_EXPLOITER` pool snapshots;
+  W&B `exploiter/*` metrics; config `configs/league/main_exploiter.yaml`.
+- **League exploiter** (`training/league/train_league_exploiter.py`) —
+  `LeagueExploiterTrainer` using PFSP against the full historical pool;
+  Nash exploitability computation via `compute_league_exploitability()`;
+  `LEAGUE_EXPLOITER` pool snapshots; W&B `league_exploiter/*` metrics;
+  config `configs/league/league_exploiter.yaml`.
+- **Nash distribution sampling** (`training/league/nash.py`) —
+  `build_payoff_matrix` (win-rate callable → NumPy array);
+  `compute_nash_distribution` (LP + regret matching → `{agent_id: prob}`);
+  `nash_entropy` (Shannon entropy in nats); W&B key `league/nash_entropy`.
+- **Strategy diversity metrics** (`training/league/diversity.py`) —
+  `TrajectoryBatch`; `embed_trajectory` (action histogram + position heatmap
+  + movement stats, L2-normalised); `pairwise_cosine_distances`;
+  `diversity_score` (mean/min/median); `DiversityTracker`; W&B key
+  `league/diversity_score`.
+- **Distributed training** (`training/league/distributed_runner.py`,
+  `envs/remote_multi_battalion_env.py`) — `RemoteMultiBattalionEnv`
+  (`@ray.remote` actor); `make_remote_envs(n)`; `DistributedRolloutRunner`;
+  `RolloutResult`; `benchmark()` throughput utility; Ray cluster config
+  `configs/distributed/ray_cluster.yaml`; smoke-test CI workflow
+  `.github/workflows/ray_smoke_test.yml`.
+- **Documentation** — `docs/league_training_guide.md` (agent types,
+  matchmaking, Nash sampling, diversity, distributed execution),
+  `docs/v4_architecture.md` (ASCII component and data-flow diagrams).
+
+---
+
 ## [3.0.0] — 2026-03-20
 
 ### Added
