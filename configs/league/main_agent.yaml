@@ -1,0 +1,62 @@
+# configs/league/main_agent.yaml
+# League main-agent training configuration (E4.2)
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/league/train_main_agent.py league.pfsp_temperature=2.0
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null                         # W&B team/org (null → personal account)
+  tags: ["v4", "league", "main_agent", "pfsp"]
+  log_freq: 2000                       # log every N timesteps
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_blue: 2                            # Blue (MAPPO-controlled) agents
+  n_red: 2                             # Red (league opponent) agents
+  map_width: 1000.0
+  map_height: 1000.0
+  max_steps: 500
+  randomize_terrain: true
+  hill_speed_factor: 0.5
+  visibility_radius: 600.0
+
+# ── MAPPO training ────────────────────────────────────────────────────────
+training:
+  total_timesteps: 5_000_000
+  n_steps: 256                         # rollout steps per update
+  n_epochs: 10                         # PPO update epochs per rollout
+  batch_size: 64                       # minibatch size
+  lr: 3.0e-4                           # Adam learning rate
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2                      # PPO ε clipping
+  vf_coef: 0.5                         # value-function loss coefficient
+  ent_coef: 0.01                       # entropy bonus coefficient
+  max_grad_norm: 0.5
+  share_parameters: true               # true = all Blue agents share one actor
+  actor_hidden_sizes: [128, 64]
+  critic_hidden_sizes: [128, 64]
+  device: "cpu"
+  seed: 42
+
+# ── League ────────────────────────────────────────────────────────────────
+league:
+  agent_id: "main_agent_001"           # unique ID for this main agent lineage
+  snapshot_freq: 100000                # steps between policy snapshots
+  eval_freq: 50000                     # steps between evaluation rounds
+  n_eval_episodes: 20                  # episodes per evaluation round
+  pfsp_temperature: 1.0                # PFSP temperature (1.0 = hard-first)
+  unknown_win_rate: 0.5                # assumed win rate vs unseen opponents
+  pool_manifest: "checkpoints/league/main_agent/pool.json"
+  match_db_path: "checkpoints/league/main_agent/matches.jsonl"
+  elo_registry_path: "checkpoints/league/main_agent/elo.json"
+  snapshot_dir: "checkpoints/league/main_agent/snapshots"
+  pool_max_size: 200                   # maximum snapshots in the agent pool
+  checkpoint_dir: "checkpoints/league/main_agent"
+  checkpoint_freq: 100000              # steps between trainer checkpoints
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"

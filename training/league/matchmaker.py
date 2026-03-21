@@ -185,6 +185,20 @@ class LeagueMatchmaker:
             return {}
         return {c.agent_id: float(p) for c, p in zip(candidates, probs)}
 
+    def set_weight_function(
+        self, pfsp_weight_fn: Optional[Callable[[float], float]]
+    ) -> None:
+        """Replace the PFSP weight function used for opponent sampling.
+
+        Parameters
+        ----------
+        pfsp_weight_fn:
+            New PFSP weighting function ``f(win_rate: float) -> float``.
+            Pass ``None`` to revert to the default hard-first function
+            ``f(w) = 1 - w``.
+        """
+        self._pfsp_weight_fn = pfsp_weight_fn
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
