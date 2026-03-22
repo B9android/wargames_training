@@ -112,6 +112,7 @@ from envs.sim.combat import (
 )
 from envs.metrics.coordination import compute_all as _compute_coordination
 from envs.sim.engine import DESTROYED_THRESHOLD
+from envs.sim.road_network import RoadNetwork
 from envs.sim.terrain import TerrainMap
 
 # ---------------------------------------------------------------------------
@@ -226,6 +227,11 @@ class MultiBattalionEnv(ParallelEnv):
             else TerrainMap.flat(map_width, map_height)
         )
         self.render_mode = render_mode
+
+        # Optional road network — when set, battalions on roads gain a
+        # movement-speed bonus (see :data:`~envs.sim.road_network.ROAD_SPEED_BONUS`).
+        # Can be set after construction: ``env.road_network = my_network``.
+        self.road_network: Optional[RoadNetwork] = None
 
         # ------------------------------------------------------------------
         # PettingZoo required: possible_agents (fixed for the lifetime of env)
@@ -411,6 +417,8 @@ class MultiBattalionEnv(ParallelEnv):
             speed_mod = self.terrain.get_speed_modifier(
                 battalion.x, battalion.y, self.hill_speed_factor
             )
+            if self.road_network is not None:
+                speed_mod *= self.road_network.get_speed_modifier(battalion.x, battalion.y)
             vx = math.cos(battalion.theta) * move_cmd * battalion.max_speed * speed_mod
             vy = math.sin(battalion.theta) * move_cmd * battalion.max_speed * speed_mod
             battalion.move(vx, vy, dt=DT)
