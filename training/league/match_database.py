@@ -453,23 +453,30 @@ class MatchDatabase:
     ) -> Optional[Dict[str, float]]:
         """Mean Blue/Red casualties for *agent_id*'s matches.
 
-        Only results that have at least one casualty field populated are
-        included.  Returns a dict with keys ``"blue"`` and ``"red"`` (both
-        floats), or ``None`` when no such records exist.
+        Each side's mean is computed independently over only the records where
+        that side's casualty field is populated, so partial records do not bias
+        the mean of the other side.  Returns a dict with keys ``"blue"`` and
+        ``"red"`` (both floats), or ``None`` when no records with any casualty
+        field exist.
         """
-        relevant = [
+        all_relevant = [
             r for r in self.results_for(agent_id, opponent_id)
             if r.blue_casualties is not None or r.red_casualties is not None
         ]
-        if not relevant:
+        if not all_relevant:
             return None
-        n = len(relevant)
-        mean_blue = sum(
-            (r.blue_casualties or 0) for r in relevant
-        ) / n
-        mean_red = sum(
-            (r.red_casualties or 0) for r in relevant
-        ) / n
+
+        blue_values = [
+            r.blue_casualties for r in all_relevant
+            if r.blue_casualties is not None
+        ]
+        red_values = [
+            r.red_casualties for r in all_relevant
+            if r.red_casualties is not None
+        ]
+
+        mean_blue = float(sum(blue_values)) / len(blue_values) if blue_values else 0.0
+        mean_red = float(sum(red_values)) / len(red_values) if red_values else 0.0
         return {"blue": mean_blue, "red": mean_red}
 
     def mean_supply_consumed(

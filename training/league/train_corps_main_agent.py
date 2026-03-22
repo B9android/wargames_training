@@ -500,7 +500,7 @@ class CorpsMainAgentTrainer:
 
         # Apply PFSP weight function to matchmaker.
         pfsp_fn = make_pfsp_weight_fn(pfsp_temperature)
-        self._matchmaker._pfsp_weight_fn = pfsp_fn
+        self._matchmaker.set_weight_function(pfsp_fn)
 
         # Rollout buffer
         self._buffer = _RolloutBuffer(
@@ -555,6 +555,12 @@ class CorpsMainAgentTrainer:
         )
 
         while self._total_steps < total_timesteps:
+            # PFSP: refresh the opponent snapshot registered in the pool
+            # before collecting each rollout.  For CorpsEnv the "opponent"
+            # is the scripted Red behavior built into the env, so we track
+            # the ID for ELO / match-DB purposes but do not inject a policy.
+            self._refresh_opponent()
+
             # Collect a rollout and run a PPO update.
             losses = self._collect_and_update()
 
@@ -636,6 +642,10 @@ class CorpsMainAgentTrainer:
 
         self._buffer._reset()
         self.policy.eval()
+        # Track whether the *last collected* transition was terminal so that
+        # compute_returns_and_advantages() can correctly bootstrap: when the
+        # rollout ends on a terminal step the last value should be zero.
+        last_done = False
         with torch.no_grad():
             for _ in range(self._n_steps):
                 obs_t = torch.tensor(
@@ -646,6 +656,7 @@ class CorpsMainAgentTrainer:
 
                 obs_new, reward, terminated, truncated, info = self.env.step(action)
                 done = terminated or truncated
+                last_done = done
                 self._last_info = info
 
                 self._buffer.add(
@@ -665,14 +676,19 @@ class CorpsMainAgentTrainer:
                 else:
                     self._obs = obs_new
 
-            # Compute last value for GAE bootstrap.
-            last_obs_t = torch.tensor(
-                self._obs, dtype=torch.float32, device=self._device
-            )
-            last_value = self.policy.forward_critic(last_obs_t).item()
+            # Bootstrap value.  When the rollout ended on a terminal transition
+            # the value of the *new* (already-reset) observation is irrelevant;
+            # the correct last_value for GAE is 0 in that case.
+            if last_done:
+                last_value = 0.0
+            else:
+                last_obs_t = torch.tensor(
+                    self._obs, dtype=torch.float32, device=self._device
+                )
+                last_value = self.policy.forward_critic(last_obs_t).item()
 
         returns, advantages = self._buffer.compute_returns_and_advantages(
-            last_value, self._ep_done
+            last_value, last_done
         )
         self._buffer_returns = torch.tensor(
             returns, dtype=torch.float32, device=self._device
@@ -779,6 +795,29 @@ class CorpsMainAgentTrainer:
             self.agent_id,
         )
 
+    def _refresh_opponent(self) -> None:
+        """Select a PFSP opponent from the pool and update *_current_opponent_id*.
+
+        Unlike the battalion-level trainer, CorpsEnv uses built-in scripted
+        Red behavior; there is no policy-injection mechanism into the env.
+        This method therefore only updates the *tracking* state
+        (``_current_opponent_id``) used for ELO / match-database records.
+        When the pool contains only the main agent itself, no opponent is
+        selected and the fixed scripted Red is used.
+        """
+        if self._agent_pool.size <= 1:
+            if self._current_opponent_id is None:
+                # No pool opponent yet — use the scripted Red label.
+                self._current_opponent_id = "scripted_red"
+            return
+
+        opponent_record = self._matchmaker.select_opponent(
+            self.agent_id,
+            rng=self._rng,
+        )
+        if opponent_record is not None:
+            self._current_opponent_id = opponent_record.agent_id
+
     def _save_snapshot(self, version: int) -> Path:
         """Persist current policy weights to a ``.pt`` file."""
         snap_path = (
@@ -835,26 +874,29 @@ class CorpsMainAgentTrainer:
         log.info("CorpsMainAgentTrainer: checkpoint saved → %s", ckpt_path)
 
     def _evaluate_episode(self) -> Dict:
-        """Run one evaluation episode; return operational result dict."""
+        """Run one evaluation episode; return operational result dict.
+
+        Casualties are derived from ``info['blue_units_alive']`` and
+        ``info['red_units_alive']`` (added to the CorpsEnv info dict in E7.3)
+        and the total unit counts ``env.n_blue`` / ``env.n_red``.
+
+        Supply consumed is the accumulated sum of per-step supply drops
+        (``sum(prev_levels) - sum(cur_levels)``) across the episode, giving the
+        true total consumption rather than the end-of-episode deficit.
+        """
         seed = int(self._rng.integers(0, 2**31))
         obs, _ = self.env.reset(seed=seed)
         total_reward = 0.0
         ep_info: dict = {}
         max_steps = getattr(self.env, "max_steps", 500)
-        # Track initial blue unit count to derive casualties.
-        inner_before = getattr(
-            getattr(getattr(self.env, "_division", None), "_brigade", None),
-            "_inner",
-            None,
-        )
-        blue_start = 0
-        red_start = 0
-        if inner_before is not None:
-            for aid in getattr(inner_before, "_battalions", {}):
-                if aid.startswith("blue_"):
-                    blue_start += 1
-                else:
-                    red_start += 1
+
+        # Use env.n_blue / env.n_red as the starting unit counts.
+        blue_start = getattr(self.env, "n_blue", 0)
+        red_start = getattr(self.env, "n_red", 0)
+
+        # Accumulate supply-level drops step-by-step to measure true consumption.
+        prev_supply_levels: Optional[List[float]] = None
+        supply_consumed_acc = 0.0
 
         self.policy.eval()
         with torch.no_grad():
@@ -863,42 +905,35 @@ class CorpsMainAgentTrainer:
                 action, _ = self.policy.act(obs_t, deterministic=True)
                 obs, reward, terminated, truncated, ep_info = self.env.step(action)
                 total_reward += float(reward)
+
+                # Accumulate supply drop for this step.
+                cur_supply: List[float] = ep_info.get("supply_levels", [])
+                if prev_supply_levels is not None and cur_supply:
+                    drop = sum(
+                        max(0.0, p - c)
+                        for p, c in zip(prev_supply_levels, cur_supply)
+                    )
+                    supply_consumed_acc += drop
+                prev_supply_levels = cur_supply if cur_supply else prev_supply_levels
+
                 if terminated or truncated:
                     break
 
         # Extract operational fields from the final info dict.
         obj_rewards: dict = ep_info.get("objective_rewards", {})
-        supply_levels: List[float] = ep_info.get("supply_levels", [])
 
-        inner = getattr(
-            getattr(getattr(self.env, "_division", None), "_brigade", None),
-            "_inner",
-            None,
-        )
-        blue_alive = 0
-        red_alive = 0
-        if inner is not None:
-            alive_set = getattr(inner, "_alive", set())
-            for aid in getattr(inner, "_battalions", {}):
-                if aid in alive_set:
-                    if aid.startswith("blue_"):
-                        blue_alive += 1
-                    else:
-                        red_alive += 1
+        # Casualties from public info keys added in E7.3.
+        blue_alive = ep_info.get("blue_units_alive", blue_start)
+        red_alive = ep_info.get("red_units_alive", red_start)
         blue_casualties = max(0, blue_start - blue_alive)
         red_casualties = max(0, red_start - red_alive)
 
-        # Territory control: fraction of objective reward slots that are positive.
+        # Territory control: fraction of objectives with a positive reward this step.
         territory_control = float(
             sum(1 for v in obj_rewards.values() if isinstance(v, (int, float)) and v > 0)
             / max(len(obj_rewards), 1)
         ) if obj_rewards else 0.0
         territory_control = min(max(territory_control, 0.0), 1.0)
-
-        # Supply consumed: sum of (1 - supply_level) across divisions.
-        supply_consumed = float(
-            sum(max(0.0, 1.0 - s) for s in supply_levels)
-        ) if supply_levels else 0.0
 
         return {
             "total_reward": total_reward,
@@ -906,7 +941,7 @@ class CorpsMainAgentTrainer:
             "territory_control": territory_control,
             "blue_casualties": blue_casualties,
             "red_casualties": red_casualties,
-            "supply_consumed": supply_consumed,
+            "supply_consumed": supply_consumed_acc,
         }
 
     def _run_evaluation(self, total_steps: int) -> None:

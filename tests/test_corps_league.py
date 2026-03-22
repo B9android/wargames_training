@@ -83,6 +83,8 @@ def _make_corps_env_mock(
     env.n_corps_options = n_options
     env.max_steps = 50
     env.observation_space.shape = (obs_dim,)
+    env.n_blue = n_divisions * 2   # total blue unit count for casualty tracking
+    env.n_red = n_divisions * 2    # total red unit count for casualty tracking
 
     rng = np.random.default_rng(0)
     # Cheap step / reset that always returns done after 1 step.
@@ -99,6 +101,8 @@ def _make_corps_env_mock(
             "corps_steps": 1,
             "objective_rewards": {"capture": 0.5, "supply_cut": 0.0, "flank": 0.0},
             "supply_levels": [0.8, 0.7],
+            "blue_units_alive": n_divisions * 2,
+            "red_units_alive": n_divisions * 2,
         }
         return obs, reward, terminated, truncated, info
 
@@ -327,6 +331,25 @@ class TestMatchDatabaseOperationalQueries(unittest.TestCase):
         self.assertAlmostEqual(result["blue"], 3.0)
         self.assertAlmostEqual(result["red"], 4.0)
 
+    def test_mean_casualties_partial_records_not_biased(self) -> None:
+        """Records missing one side's casualties must not bias the other side's mean."""
+        # Record with only blue_casualties set.
+        self._db.record(
+            agent_id="a", opponent_id="b", outcome=0.5,
+            blue_casualties=10, red_casualties=None,
+        )
+        # Record with only red_casualties set.
+        self._db.record(
+            agent_id="a", opponent_id="b", outcome=0.5,
+            blue_casualties=None, red_casualties=6,
+        )
+        result = self._db.mean_casualties("a", "b")
+        self.assertIsNotNone(result)
+        # blue mean should be 10 (only one record has it), not biased by missing red record.
+        self.assertAlmostEqual(result["blue"], 10.0)
+        # red mean should be 6 (only one record has it), not biased by missing blue record.
+        self.assertAlmostEqual(result["red"], 6.0)
+
     def test_mean_casualties_no_results_returns_none(self) -> None:
         self.assertIsNone(self._db.mean_casualties("nobody"))
 
@@ -537,6 +560,8 @@ class TestCorpsMainAgentTrainerConstruction(unittest.TestCase):
         t = _make_corps_trainer(self._tmpdir.name, pfsp_temperature=2.0)
         fn = t._matchmaker._pfsp_weight_fn
         self.assertIsNotNone(fn)
+        # At T=2 weight(0.5) = (1-0.5)^(1/2) = 0.5^0.5 ≈ 0.707
+        self.assertAlmostEqual(fn(0.5), 0.5 ** 0.5, places=5)
 
     def test_invalid_total_timesteps_raises(self) -> None:
         t = _make_corps_trainer(self._tmpdir.name)
@@ -761,9 +786,11 @@ class TestCorpsBenchmarkSignature(unittest.TestCase):
     """corps_benchmark returns the expected result dict."""
 
     def test_single_process_only_result_shape(self) -> None:
-        """Verify corps_benchmark result structure without running Ray."""
-        # Patch ray.is_initialized to return True and ray.get to return step counts
-        # so we skip the actual Ray startup in CI.
+        """Verify corps_benchmark result structure and keys by actually calling it.
+
+        Ray is patched so that the parallel portion is mocked while the
+        single-process path runs for real (2 tiny episodes).
+        """
         from training.league import distributed_runner as dr
 
         env_kw = {
@@ -771,32 +798,42 @@ class TestCorpsBenchmarkSignature(unittest.TestCase):
             "n_brigades_per_division": 2,
             "n_blue_per_brigade": 2,
         }
-        # Patch out Ray entirely so this test runs in pure-Python CI.
+
+        # Patch ray so the Ray actor-pool path is skipped in CI.
         with patch.object(dr, "ray") as mock_ray:
-            mock_ray.is_initialized.return_value = True
-            # Simulate remote function returning step counts.
-            mock_ray.remote.return_value = lambda fn: fn
-            # Each "remote" episode returns 10 steps.
-            mock_ray.get.return_value = [10, 10, 10, 10]
+            mock_ray.is_initialized.return_value = True  # skip ray.init()
 
-            # Manually call the single-process path to at least verify structure.
-            # We skip the Ray path by providing a mock that gives plausible speedup.
-            # Just call the function with n_episodes=1 for speed.
-            result = {
-                "single_steps_per_sec": 100.0,
-                "ray_steps_per_sec": 500.0,
-                "speedup": 5.0,
-                "num_workers": 8,
-                "n_episodes": 1,
-            }
+            # Make @ray.remote(num_cpus=1) a no-op decorator that returns the fn.
+            def _noop_remote(*args, **kwargs):
+                def _decorator(fn):
+                    fn.remote = fn  # fn.remote(a, b) → fn(a, b)
+                    return fn
+                if len(args) == 1 and callable(args[0]):
+                    # Called without arguments: @ray.remote
+                    return _decorator(args[0])
+                # Called with arguments: @ray.remote(num_cpus=1)
+                return _decorator
 
-        # Verify the expected key set from the real function contract.
+            mock_ray.remote.side_effect = _noop_remote
+            # ray.get([...]) returns the list as-is (already resolved).
+            mock_ray.get.side_effect = lambda refs: refs
+
+            result = dr.corps_benchmark(
+                num_workers=2,
+                n_episodes=2,
+                env_kwargs=env_kw,
+                seed=0,
+            )
+
+        # Verify the expected key set and types.
         for key in (
             "single_steps_per_sec", "ray_steps_per_sec", "speedup",
             "num_workers", "n_episodes",
         ):
             self.assertIn(key, result)
-        self.assertGreater(result["speedup"], 0)
+        self.assertGreater(result["single_steps_per_sec"], 0)
+        self.assertEqual(result["num_workers"], 2)
+        self.assertEqual(result["n_episodes"], 2)
 
     def test_corps_benchmark_exported(self) -> None:
         from training.league.distributed_runner import corps_benchmark

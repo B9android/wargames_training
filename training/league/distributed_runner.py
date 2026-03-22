@@ -525,23 +525,25 @@ def corps_benchmark(
     n_episodes: int = 16,
     env_kwargs: Optional[Dict[str, Any]] = None,
     seed: int = 0,
+    ray_init_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, float]:
     """Benchmark single-process vs. Ray actor-pool throughput on :class:`~envs.corps_env.CorpsEnv`.
 
-    Designed to characterise the throughput of the corps-level league on an
-    8-GPU cluster.  Runs *n_episodes* episodes sequentially (single process)
-    and then in parallel using *num_workers* Ray workers, then reports the
-    speedup factor.
+    Measures the wall-clock speedup achieved by running *n_episodes* CorpsEnv
+    episodes in parallel across *num_workers* Ray CPU workers compared to the
+    same workload executed sequentially in a single process.
 
     .. note::
-        Each worker runs one CorpsEnv episode on its own CPU core.  To
-        exploit GPU acceleration on an 8-GPU node, set *num_workers* = 8 and
-        start Ray with ``ray.init(num_gpus=8)``.
+        Each worker runs one CorpsEnv episode on its own CPU core.
+        This helper only requests CPU resources for workers; CorpsEnv
+        simulations are CPU-bound and do not use GPU acceleration.
+        To benchmark GPU-backed policy inference, configure Ray's cluster
+        resources and per-task resource requirements separately.
 
     Parameters
     ----------
     num_workers:
-        Number of parallel Ray workers.  Use 8 to model a single 8-GPU node.
+        Number of parallel Ray workers (e.g. 8 to model an 8-core/8-GPU node).
     n_episodes:
         Number of episodes per configuration.
     env_kwargs:
@@ -550,6 +552,11 @@ def corps_benchmark(
         ``{"n_divisions": 3, "n_brigades_per_division": 3, "n_blue_per_brigade": 2}``.
     seed:
         Base seed for episode reproducibility.
+    ray_init_kwargs:
+        Extra keyword arguments forwarded to :func:`ray.init` when Ray is not
+        already initialised.  Use this to suppress the dashboard or adjust
+        logging for CI environments (e.g.
+        ``{"include_dashboard": False, "configure_logging": False}``).
 
     Returns
     -------
@@ -586,7 +593,15 @@ def corps_benchmark(
     # CorpsEnv is not a PettingZoo env, so we use a simple Ray remote function
     # rather than DistributedRolloutRunner (which wraps MultiBattalionEnv).
     if not ray.is_initialized():
-        ray.init(num_cpus=num_workers, ignore_reinit_error=True)
+        init_kwargs: Dict[str, Any] = {
+            "num_cpus": num_workers,
+            "ignore_reinit_error": True,
+            "include_dashboard": False,
+            "configure_logging": False,
+            "log_to_driver": False,
+        }
+        init_kwargs.update(ray_init_kwargs or {})
+        ray.init(**init_kwargs)
 
     @ray.remote(num_cpus=1)
     def _run_corps_episode(ep_seed: int, kw: Dict[str, Any]) -> int:

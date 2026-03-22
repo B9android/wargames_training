@@ -719,11 +719,23 @@ class CorpsEnv(gym.Env):
 
         self._corps_steps += 1
 
+        # Count alive units for operational casualty tracking.
+        blue_alive = sum(
+            1 for aid in inner._battalions
+            if aid in inner._alive and aid.startswith("blue_")
+        )
+        red_alive = sum(
+            1 for aid in inner._battalions
+            if aid in inner._alive and not aid.startswith("blue_")
+        )
+
         info: dict = {
             "corps_steps": self._corps_steps,
             "division_action": division_action.tolist(),
             "objective_rewards": obj_details,
             "supply_levels": supply_levels,
+            "blue_units_alive": blue_alive,
+            "red_units_alive": red_alive,
         }
         info.update(div_info)
 
