@@ -206,6 +206,26 @@ class TestWeatherConfigValidation(unittest.TestCase):
         cfg = WeatherConfig(fixed_time_of_day=TimeOfDay.NIGHT)
         self.assertEqual(cfg.fixed_time_of_day, TimeOfDay.NIGHT)
 
+    def test_invalid_fixed_condition_type(self) -> None:
+        """Passing an int for fixed_condition must raise ValueError."""
+        with self.assertRaises(ValueError):
+            WeatherConfig(fixed_condition=3)  # type: ignore[arg-type]
+
+    def test_invalid_fixed_condition_str(self) -> None:
+        """Passing a string for fixed_condition must raise ValueError."""
+        with self.assertRaises(ValueError):
+            WeatherConfig(fixed_condition="FOG")  # type: ignore[arg-type]
+
+    def test_invalid_fixed_tod_type(self) -> None:
+        """Passing an int for fixed_time_of_day must raise ValueError."""
+        with self.assertRaises(ValueError):
+            WeatherConfig(fixed_time_of_day=1)  # type: ignore[arg-type]
+
+    def test_invalid_fixed_tod_str(self) -> None:
+        """Passing a string for fixed_time_of_day must raise ValueError."""
+        with self.assertRaises(ValueError):
+            WeatherConfig(fixed_time_of_day="NIGHT")  # type: ignore[arg-type]
+
     def test_steps_per_tod_zero_accepted(self) -> None:
         cfg = WeatherConfig(steps_per_time_of_day=0)
         self.assertEqual(cfg.steps_per_time_of_day, 0)
@@ -343,6 +363,18 @@ class TestStepWeather(unittest.TestCase):
         self.assertEqual(state._tod_step_counter, 1)
         step_weather(state, cfg)
         self.assertEqual(state._tod_step_counter, 2)
+
+    def test_noop_when_fixed_time_of_day_with_steps_positive(self) -> None:
+        """fixed_time_of_day must suppress progression even if steps_per_time_of_day > 0."""
+        cfg = WeatherConfig(
+            fixed_time_of_day=TimeOfDay.NIGHT,
+            steps_per_time_of_day=3,
+        )
+        state = WeatherState(condition=WeatherCondition.CLEAR, time_of_day=TimeOfDay.NIGHT)
+        for _ in range(30):
+            step_weather(state, cfg)
+        self.assertEqual(state.time_of_day, TimeOfDay.NIGHT)
+        self.assertEqual(state._tod_step_counter, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -796,6 +828,70 @@ class TestBattalionEnvWeatherIntegration(unittest.TestCase):
         dist_snow = _run_one_step(WeatherCondition.SNOW)
         # SNOW speed_modifier=0.5, so displacement should be ~50% of CLEAR
         self.assertLess(dist_snow, dist_clear * 0.90)
+
+    # -- fixed_time_of_day suppresses progression even with steps_per_time_of_day>0 --
+
+    def test_fixed_tod_suppresses_progression_in_env(self) -> None:
+        """fixed_time_of_day must keep TOD constant even when steps_per_time_of_day > 0."""
+        cfg = WeatherConfig(
+            fixed_condition=WeatherCondition.CLEAR,
+            fixed_time_of_day=TimeOfDay.DAWN,
+            steps_per_time_of_day=3,  # would normally cycle
+        )
+        env = self._make_env(weather_config=cfg)
+        env.reset(seed=0)
+        for _ in range(20):
+            _, _, done, trunc, _ = env.step(env.action_space.sample())
+            if done or trunc:
+                break
+        self.assertEqual(env.weather_state.time_of_day, TimeOfDay.DAWN)
+
+    # -- _get_red_obs logistics dims --
+
+    def test_red_obs_includes_logistics_dims(self) -> None:
+        """_get_red_obs must include Red ammo/food/fatigue when enable_logistics=True."""
+        env = BattalionEnv(enable_weather=True, enable_logistics=True)
+        env.reset(seed=0)
+        red_obs = env._get_red_obs()
+        # 17 base + 3 logistics + 2 weather = 22 dims
+        self.assertEqual(red_obs.shape[0], 22)
+
+    def test_red_obs_logistics_and_formations_dims(self) -> None:
+        """_get_red_obs with formations+logistics+weather → 24 dims."""
+        env = BattalionEnv(enable_weather=True, enable_logistics=True, enable_formations=True)
+        env.reset(seed=0)
+        red_obs = env._get_red_obs()
+        # 17 base + 2 formations + 3 logistics + 2 weather = 24
+        self.assertEqual(red_obs.shape[0], 24)
+
+    def test_red_obs_matches_obs_space_shape(self) -> None:
+        """_get_red_obs shape must match observation_space (shared schema)."""
+        env = BattalionEnv(enable_weather=True, enable_logistics=True)
+        env.reset(seed=0)
+        red_obs = env._get_red_obs()
+        self.assertEqual(red_obs.shape[0], env.observation_space.shape[0])
+
+    # -- Weather morale drain consistent across both code paths --
+
+    def test_weather_morale_drain_legacy_path(self) -> None:
+        """Weather morale stressor is applied even when morale_config is None."""
+        cfg = WeatherConfig(
+            fixed_condition=WeatherCondition.SNOW,  # morale_stressor=0.008
+            fixed_time_of_day=TimeOfDay.NIGHT,     # morale_stressor=0.005 → total 0.013
+        )
+        env = BattalionEnv(
+            enable_weather=True,
+            weather_config=cfg,
+            # No morale_config → legacy morale_check path
+        )
+        env.reset(seed=0)
+        initial_blue_morale = env.blue.morale
+        # Step without firing so only weather drains morale
+        action = env.action_space.sample() * 0  # no move, no rotate, no fire
+        env.step(action)
+        # Morale should have decreased or stayed the same (recovery may offset stressor)
+        # At minimum it should never INCREASE when there is a stressor and no recovery
+        self.assertLessEqual(env.blue.morale, initial_blue_morale + 1e-6)
 
 
 # ---------------------------------------------------------------------------

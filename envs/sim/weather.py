@@ -240,6 +240,20 @@ class WeatherConfig:
     base_visibility_range: float = DEFAULT_BASE_VISIBILITY_RANGE
 
     def __post_init__(self) -> None:
+        if self.fixed_condition is not None and not isinstance(
+            self.fixed_condition, WeatherCondition
+        ):
+            raise ValueError(
+                f"fixed_condition must be a WeatherCondition instance, "
+                f"got {type(self.fixed_condition)!r}"
+            )
+        if self.fixed_time_of_day is not None and not isinstance(
+            self.fixed_time_of_day, TimeOfDay
+        ):
+            raise ValueError(
+                f"fixed_time_of_day must be a TimeOfDay instance, "
+                f"got {type(self.fixed_time_of_day)!r}"
+            )
         if len(self.condition_weights) != NUM_CONDITIONS:
             raise ValueError(
                 f"condition_weights must have {NUM_CONDITIONS} entries "
@@ -346,9 +360,15 @@ def sample_weather(
 def step_weather(state: WeatherState, config: WeatherConfig) -> None:
     """Advance time of day by one simulation step (mutates *state* in place).
 
-    When :attr:`WeatherConfig.steps_per_time_of_day` is ``0``, this function
-    is a no-op (time of day stays fixed for the episode).  Otherwise the
-    internal step counter is incremented; when it reaches
+    This function is a no-op in two cases:
+
+    * :attr:`WeatherConfig.steps_per_time_of_day` is ``0`` — time of day
+      stays fixed for the entire episode.
+    * :attr:`WeatherConfig.fixed_time_of_day` is not ``None`` — the caller
+      has pinned a specific time of day; progression is suppressed so that
+      the fixed value is respected throughout the episode.
+
+    Otherwise the internal step counter is incremented; when it reaches
     ``steps_per_time_of_day`` the time of day advances to the next period in
     the cycle DAWN → DAY → DUSK → NIGHT → DAWN and the counter resets.
 
@@ -359,7 +379,7 @@ def step_weather(state: WeatherState, config: WeatherConfig) -> None:
     config:
         :class:`WeatherConfig` with ``steps_per_time_of_day``.
     """
-    if config.steps_per_time_of_day <= 0:
+    if config.steps_per_time_of_day <= 0 or config.fixed_time_of_day is not None:
         return
     state._tod_step_counter += 1
     if state._tod_step_counter >= config.steps_per_time_of_day:

@@ -761,19 +761,16 @@ class BattalionEnv(gym.Env):
                 rng=self.np_random,
             )
         else:
-            morale_check(self.blue_state, rng=self.np_random)
-            morale_check(self.red_state, rng=self.np_random)
-            # Weather morale stressor — applied directly when not using
-            # the full MoraleConfig update path.
+            # Weather morale stressor — added to accumulated_damage before morale_check
+            # so that it enters the same deduction pipeline (recovery + clamping)
+            # as the MoraleConfig path.
             if self.enable_weather and self.weather_state is not None:
                 weather_ms = get_morale_stressor(self.weather_state)
                 if weather_ms > 0.0:
-                    self.blue_state.morale = max(
-                        0.0, self.blue_state.morale - weather_ms
-                    )
-                    self.red_state.morale = max(
-                        0.0, self.red_state.morale - weather_ms
-                    )
+                    self.blue_state.accumulated_damage += weather_ms
+                    self.red_state.accumulated_damage += weather_ms
+            morale_check(self.blue_state, rng=self.np_random)
+            morale_check(self.red_state, rng=self.np_random)
 
         # Sync Battalion flags from CombatState
         self.blue.morale = self.blue_state.morale
@@ -1076,6 +1073,11 @@ class BattalionEnv(gym.Env):
         if self.enable_formations:
             base.append(r.formation / float(NUM_FORMATIONS - 1))  # [17] formation norm
             base.append(1.0 if r.target_formation is not None else 0.0)  # [18] transitioning
+        if self.enable_logistics:
+            ls = self.red_logistics
+            base.append(ls.ammo if ls is not None else 1.0)      # [N+0] ammo
+            base.append(ls.food if ls is not None else 1.0)      # [N+1] food
+            base.append(ls.fatigue if ls is not None else 0.0)   # [N+2] fatigue
         if self.enable_weather and self.weather_state is not None:
             base.append(
                 self.weather_state.condition.value / float(NUM_CONDITIONS - 1)

@@ -4,9 +4,11 @@
 # Illustrates how to configure fixed weather conditions, a random weather
 # distribution, and time-of-day progression in a 1v1 battalion episode.
 #
-# Three named presets are shown below as separate scenario blocks.  Load the
-# desired block programmatically via the ScenarioLoader or use as a reference
-# when constructing WeatherConfig instances directly.
+# Three named presets are shown below as separate scenario blocks.  Use them
+# primarily as a reference when constructing WeatherConfig / scenario configs
+# directly, or with a custom loader that supports multi-document YAML + weather.
+# Note: the existing ScenarioLoader (envs/scenarios/historical.py) reads only
+# a single-document mapping and does not parse weather fields.
 
 # ── Preset 1: Heavy Rain (acceptance-criteria validation) ────────────────────
 # Demonstrates ≥ 30 % musket accuracy reduction.  WeatherCondition.RAIN has
