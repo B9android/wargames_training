@@ -35,8 +35,9 @@ Observation space
 ``Box(shape=(obs_dim,), dtype=float32)``
 
 ``obs_dim = N_CORPS_SECTORS + 8 * n_divisions + N_ROAD_FEATURES +
-N_OBJECTIVES + 1`` where ``N_CORPS_SECTORS = 7``, ``N_ROAD_FEATURES = 2``
-(blue + red road-usage fractions), ``N_OBJECTIVES = 3``.
+N_OBJECTIVES + n_divisions + 1`` where ``N_CORPS_SECTORS = 7``,
+``N_ROAD_FEATURES = 2`` (blue + red road-usage fractions),
+``N_OBJECTIVES = 3``.
 
 ==================================  =============================================  =========
 Slice                               Feature                                        Range
@@ -50,6 +51,8 @@ Slice                               Feature                                     
                                     Sentinel ``[1,0,0,0,0]`` when out of range.
 ``[7+8*nd : 7+8*nd+2]``             Road usage: blue / red fraction on roads       ``[0, 1]``
 ``[7+8*nd+2 : 7+8*nd+5]``           Objective control (3 objectives)               ``[0, 1]``
+``[7+8*nd+5 : 7+8*nd+5+nd]``        Supply level per Blue division                 ``[0, 1]``
+                                    (avg supply level of units in the division).
 ``[-1]``                            Step progress: ``step / max_steps``            ``[0, 1]``
 ==================================  =============================================  =========
 
@@ -103,6 +106,7 @@ import gymnasium as gym
 from envs.division_env import DivisionEnv
 from envs.multi_battalion_env import MAX_STEPS
 from envs.sim.road_network import RoadNetwork
+from envs.sim.supply_network import SupplyNetwork
 
 __all__ = [
     "CorpsEnv",
@@ -113,6 +117,7 @@ __all__ = [
     "N_OBJECTIVES",
     "CORPS_MAP_WIDTH",
     "CORPS_MAP_HEIGHT",
+    "N_ROAD_FEATURES",
 ]
 
 # ---------------------------------------------------------------------------
@@ -240,6 +245,7 @@ def _corps_obs_dim(n_divisions: int) -> int:
         + (_DIV_STATUS_DIM + _DIV_THREAT_DIM) * n_divisions
         + N_ROAD_FEATURES
         + N_OBJECTIVES
+        + n_divisions  # supply_level per Blue division
         + 1  # step progress
     )
 
@@ -305,6 +311,11 @@ class CorpsEnv(gym.Env):
         Optional :class:`~envs.sim.road_network.RoadNetwork`.  When
         ``None`` (the default) a standard network is generated via
         :meth:`~envs.sim.road_network.RoadNetwork.generate_default`.
+    supply_network:
+        Optional :class:`~envs.sim.supply_network.SupplyNetwork`.  When
+        ``None`` (the default) a standard bilateral supply network is
+        generated via
+        :meth:`~envs.sim.supply_network.SupplyNetwork.generate_default`.
     objectives:
         Optional list of :class:`OperationalObjective`.  When ``None``,
         three default objectives are placed automatically.
@@ -335,6 +346,7 @@ class CorpsEnv(gym.Env):
         map_height: float = CORPS_MAP_HEIGHT,
         max_steps: int = MAX_STEPS,
         road_network: Optional[RoadNetwork] = None,
+        supply_network: Optional[SupplyNetwork] = None,
         objectives: Optional[List[OperationalObjective]] = None,
         comm_radius: float = DEFAULT_COMM_RADIUS,
         red_random: bool = True,
@@ -413,6 +425,13 @@ class CorpsEnv(gym.Env):
             else RoadNetwork.generate_default(self.map_width, self.map_height)
         )
 
+        # ── Supply network ────────────────────────────────────────────
+        self.supply_network: SupplyNetwork = (
+            supply_network
+            if supply_network is not None
+            else SupplyNetwork.generate_default(self.map_width, self.map_height)
+        )
+
         # ── Operational objectives ───────────────────────────────────
         self.objectives: List[OperationalObjective] = (
             objectives
@@ -463,6 +482,50 @@ class CorpsEnv(gym.Env):
         """Attach the road network to the innermost MultiBattalionEnv."""
         inner = self._division._brigade._inner
         inner.road_network = self.road_network
+
+    # ------------------------------------------------------------------
+    # Supply network helpers
+    # ------------------------------------------------------------------
+
+    def _interdiction_radius(self) -> float:
+        """Capture radius used for supply-depot interdiction.
+
+        Matches the radius of the ``CUT_SUPPLY_LINE`` operational objective
+        so that any Blue unit that can claim the objective can also capture
+        the corresponding depot.
+        """
+        for obj in self.objectives:
+            if obj.obj_type == ObjectiveType.CUT_SUPPLY_LINE:
+                return obj.radius
+        return min(self.map_width, self.map_height) * 0.05
+
+    def _compute_division_supply_levels(self, inner) -> List[float]:
+        """Return the average supply level for each Blue division.
+
+        For each Blue division, computes the mean
+        :meth:`~envs.sim.supply_network.SupplyNetwork.get_supply_level`
+        across all alive units in that division.  Returns ``0.0`` for a
+        division with no alive units.
+
+        Parameters
+        ----------
+        inner:
+            The :class:`~envs.multi_battalion_env.MultiBattalionEnv`
+            instance.
+        """
+        total_per_div = self.n_brigades_per_division * self.n_blue_per_brigade
+        levels: List[float] = []
+        for i in range(self.n_divisions):
+            div_levels: List[float] = []
+            for j in range(total_per_div):
+                agent_id = f"blue_{i * total_per_div + j}"
+                if agent_id in inner._battalions and agent_id in inner._alive:
+                    b = inner._battalions[agent_id]
+                    div_levels.append(
+                        self.supply_network.get_supply_level(b.x, b.y, team=0)
+                    )
+            levels.append(float(np.mean(div_levels)) if div_levels else 0.0)
+        return levels
 
     # ------------------------------------------------------------------
     # Default objectives
@@ -522,6 +585,10 @@ class CorpsEnv(gym.Env):
         lows.extend([0.0] * N_OBJECTIVES)
         highs.extend([1.0] * N_OBJECTIVES)
 
+        # Supply level per Blue division: [0, 1]
+        lows.extend([0.0] * self.n_divisions)
+        highs.extend([1.0] * self.n_divisions)
+
         # Step progress: [0, 1]
         lows.append(0.0)
         highs.append(1.0)
@@ -556,6 +623,9 @@ class CorpsEnv(gym.Env):
         # Reset objective state
         for obj in self.objectives:
             obj.reset()
+
+        # Reset supply network
+        self.supply_network.reset()
 
         self._corps_steps = 0
         return self._get_corps_obs(), {}
@@ -617,6 +687,32 @@ class CorpsEnv(gym.Env):
             if obj.obj_type != ObjectiveType.FIX_AND_FLANK:
                 obj.update(inner)
 
+        # ── Supply network step ───────────────────────────────────────
+        # Collect alive unit positions for both teams
+        blue_positions = []
+        red_positions = []
+        for agent_id, b in inner._battalions.items():
+            if agent_id not in inner._alive:
+                continue
+            if agent_id.startswith("blue_"):
+                blue_positions.append((b.x, b.y))
+            else:
+                red_positions.append((b.x, b.y))
+
+        # Check supply-line interdiction BEFORE step() so that captured depots
+        # are already dead when consumption and convoy transfers are computed
+        # for this tick — ensuring immediate effect on the same step.
+        capture_radius = self._interdiction_radius()
+        for bx, by in blue_positions:
+            self.supply_network.interdict_nearest_depot(
+                bx, by, enemy_team=1, capture_radius=capture_radius
+            )
+
+        self.supply_network.step(blue_positions, red_positions)
+
+        # Compute supply levels per Blue division for the info dict
+        supply_levels = self._compute_division_supply_levels(inner)
+
         # Compute operational objective rewards
         obj_reward, obj_details = self._compute_objective_rewards(inner)
         total_reward = float(base_reward) + obj_reward
@@ -627,6 +723,7 @@ class CorpsEnv(gym.Env):
             "corps_steps": self._corps_steps,
             "division_action": division_action.tolist(),
             "objective_rewards": obj_details,
+            "supply_levels": supply_levels,
         }
         info.update(div_info)
 
@@ -822,7 +919,11 @@ class CorpsEnv(gym.Env):
         parts.append(obj_values.get(ObjectiveType.CUT_SUPPLY_LINE, 0.5))
         parts.append(obj_values.get(ObjectiveType.FIX_AND_FLANK, 0.0))
 
-        # ── 6. Step progress ──────────────────────────────────────────
+        # ── 6. Supply level per Blue division ─────────────────────────
+        supply_levels = self._compute_division_supply_levels(inner)
+        parts.extend(supply_levels)
+
+        # ── 7. Step progress ──────────────────────────────────────────
         parts.append(min(inner._step_count / self.max_steps, 1.0))
 
         obs = np.array(parts, dtype=np.float32)
