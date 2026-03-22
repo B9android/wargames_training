@@ -60,8 +60,11 @@ def _bresenham_cells(
 ) -> Generator[tuple[int, int], None, None]:
     """Yield ``(row, col)`` for every grid cell on the line from ``(r0,c0)`` to ``(r1,c1)``.
 
-    Uses the classic Bresenham line-drawing algorithm: each yielded cell is
-    one step along the line, with the start and end cells both included.
+    Uses the standard Bresenham line-drawing algorithm.  The two ``if``
+    blocks (rather than ``if/elif``) are intentional: when both conditions
+    are true simultaneously, both *r* and *c* advance in the same iteration,
+    producing a diagonal step.  This is required for correct traversal of
+    ~45-degree lines and is standard Bresenham behaviour.
     """
     dr = abs(r1 - r0)
     dc = abs(c1 - c0)
@@ -74,10 +77,10 @@ def _bresenham_cells(
         if r == r1 and c == c1:
             break
         e2 = 2 * err
-        if e2 > -dc:
+        if e2 > -dc:   # step along row direction; may also step col below
             err -= dc
             r += sr
-        if e2 < dr:
+        if e2 < dr:    # step along col direction (both ifs can fire: diagonal step)
             err += dr
             c += sc
 
@@ -414,6 +417,10 @@ class TerrainEngine:
 
         cells = list(_bresenham_cells(r0, c0, r1, c1))
         n = len(cells)
+
+        # Single cell: start and end map to the same grid cell — always visible.
+        if n <= 1:
+            return True
 
         for i, (r, c) in enumerate(cells):
             if i == 0 or i == n - 1:

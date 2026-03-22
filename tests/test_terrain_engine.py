@@ -143,6 +143,23 @@ class TestBresenhamLOS(unittest.TestCase):
         eng = TerrainEngine.from_arrays(300.0, 100.0, elev, cov)
         self.assertTrue(eng.bresenham_los(150.0, 50.0, 150.0, 50.0))
 
+    def test_blocked_at_interior_cell_midpoints(self) -> None:
+        """Endpoints placed at interior cell midpoints to avoid boundary effects."""
+        # 5-column grid (100 m per cell): low–low–ridge–low–low
+        # Cell midpoints at x = 50, 150, 250, 350, 450 (width=500)
+        elev = np.array([[0.0, 0.0, 10.0, 0.0, 0.0]], dtype=np.float32)
+        cov = np.zeros_like(elev)
+        eng = TerrainEngine.from_arrays(500.0, 100.0, elev, cov)
+        # Endpoints in first and last cell centres — ridge cell is fully interior
+        self.assertFalse(eng.bresenham_los(50.0, 50.0, 450.0, 50.0))
+
+    def test_unblocked_interior_clear_path(self) -> None:
+        """Endpoints at interior cell midpoints with no ridge between them."""
+        elev = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]], dtype=np.float32)
+        cov = np.zeros_like(elev)
+        eng = TerrainEngine.from_arrays(500.0, 100.0, elev, cov)
+        self.assertTrue(eng.bresenham_los(50.0, 50.0, 450.0, 50.0))
+
 
 # ---------------------------------------------------------------------------
 # Movement cost
