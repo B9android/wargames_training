@@ -126,7 +126,7 @@ class BattalionEnv(gym.Env):
     5      Full combat — Red turns, advances, fires at 100 % intensity (default).
     =====  =============================================
 
-    Observation space — ``Box(shape=(12,), dtype=float32)``
+    Observation space — ``Box(shape=(17,), dtype=float32)``
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     =====  ===========================  =========
     Index  Feature                      Range
@@ -143,6 +143,11 @@ class BattalionEnv(gym.Env):
     9      red strength                 [0, 1]
     10     red morale                   [0, 1]
     11     step / max_steps             [0, 1]
+    12     blue elevation (normalised)  [0, 1]
+    13     blue cover                   [0, 1]
+    14     red elevation (normalised)   [0, 1]
+    15     red cover                    [0, 1]
+    16     line-of-sight (0=blocked)    [0, 1]
     =====  ===========================  =========
 
     Action space — ``Box(shape=(3,), dtype=float32)``
@@ -260,14 +265,16 @@ class BattalionEnv(gym.Env):
         self._renderer: Optional[Any] = None
 
         # ------------------------------------------------------------------
-        # Observation space — 12-dimensional, all normalised
+        # Observation space — 17-dimensional, all normalised
         # ------------------------------------------------------------------
         obs_low = np.array(
-            [0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0,
+             0.0, 0.0, 0.0, 0.0, 0.0],
             dtype=np.float32,
         )
         obs_high = np.array(
-            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+             1.0, 1.0, 1.0, 1.0, 1.0],
             dtype=np.float32,
         )
         self.observation_space = spaces.Box(
@@ -493,8 +500,21 @@ class BattalionEnv(gym.Env):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _norm_elevation(self, x: float, y: float) -> float:
+        """Return terrain elevation at ``(x, y)`` normalised to ``[0, 1]``.
+
+        Uses the map's maximum elevation as the normalisation factor (the
+        same approach as :meth:`~envs.sim.terrain.TerrainMap.get_speed_modifier`).
+        Returns ``0.0`` on flat terrain.
+        """
+        max_e = self.terrain._max_elev
+        if max_e <= 0.0:
+            return 0.0
+        elev = self.terrain.get_elevation(x, y)
+        return float(np.clip(elev / max_e, 0.0, 1.0))
+
     def _get_obs(self) -> np.ndarray:
-        """Build and return the normalised 12-dimensional observation."""
+        """Build and return the normalised 17-dimensional observation."""
         b = self.blue
         r = self.red
 
@@ -502,6 +522,13 @@ class BattalionEnv(gym.Env):
         dy = r.y - b.y
         dist = math.sqrt(dx ** 2 + dy ** 2)
         bearing = math.atan2(dy, dx)
+
+        # Terrain features
+        blue_elev = self._norm_elevation(b.x, b.y)
+        blue_cover = self.terrain.get_cover(b.x, b.y)
+        red_elev = self._norm_elevation(r.x, r.y)
+        red_cover = self.terrain.get_cover(r.x, r.y)
+        los = 1.0 if self.terrain.line_of_sight(b.x, b.y, r.x, r.y) else 0.0
 
         obs = np.array(
             [
@@ -517,6 +544,11 @@ class BattalionEnv(gym.Env):
                 r.strength,                              # [9] red strength
                 r.morale,                                # [10] red morale
                 min(self._step_count / self.max_steps, 1.0),  # [11] step norm
+                blue_elev,                               # [12] blue elevation
+                blue_cover,                              # [13] blue cover
+                red_elev,                                # [14] red elevation
+                red_cover,                               # [15] red cover
+                los,                                     # [16] line-of-sight
             ],
             dtype=np.float32,
         )
@@ -524,7 +556,7 @@ class BattalionEnv(gym.Env):
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
     def _get_red_obs(self) -> np.ndarray:
-        """Build the 12-dimensional observation from **Red's** perspective.
+        """Build the 17-dimensional observation from **Red's** perspective.
 
         The observation is symmetric to Blue's: Red sees itself where Blue
         normally sits and Blue where Red normally sits.  This means a frozen
@@ -537,6 +569,13 @@ class BattalionEnv(gym.Env):
         dy = b.y - r.y
         dist = math.sqrt(dx ** 2 + dy ** 2)
         bearing = math.atan2(dy, dx)
+
+        # Terrain features from Red's perspective
+        red_elev = self._norm_elevation(r.x, r.y)
+        red_cover = self.terrain.get_cover(r.x, r.y)
+        blue_elev = self._norm_elevation(b.x, b.y)
+        blue_cover = self.terrain.get_cover(b.x, b.y)
+        los = 1.0 if self.terrain.line_of_sight(r.x, r.y, b.x, b.y) else 0.0
 
         obs = np.array(
             [
@@ -552,6 +591,11 @@ class BattalionEnv(gym.Env):
                 b.strength,                              # [9] blue strength
                 b.morale,                                # [10] blue morale
                 min(self._step_count / self.max_steps, 1.0),  # [11] step norm
+                red_elev,                                # [12] red elevation
+                red_cover,                               # [13] red cover
+                blue_elev,                               # [14] blue elevation
+                blue_cover,                              # [15] blue cover
+                los,                                     # [16] line-of-sight
             ],
             dtype=np.float32,
         )

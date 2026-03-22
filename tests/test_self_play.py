@@ -123,7 +123,7 @@ class TestBattalionEnvRedPolicy(unittest.TestCase):
         policy = _ConstantPolicy(_IDLE_ACTION)
         env = _make_env(red_policy=policy)
         obs, _ = env.reset(seed=1)
-        self.assertEqual(obs.shape, (12,))
+        self.assertEqual(obs.shape, (17,))
         env.close()
 
     def test_info_keys_present_with_policy_red(self) -> None:
@@ -136,11 +136,11 @@ class TestBattalionEnvRedPolicy(unittest.TestCase):
         env.close()
 
     def test_get_red_obs_shape(self) -> None:
-        """_get_red_obs should return a (12,) array within observation bounds."""
+        """_get_red_obs should return a (17,) array within observation bounds."""
         env = _make_env()
         env.reset(seed=3)
         red_obs = env._get_red_obs()
-        self.assertEqual(red_obs.shape, (12,))
+        self.assertEqual(red_obs.shape, (17,))
         self.assertTrue(np.all(red_obs >= env.observation_space.low))
         self.assertTrue(np.all(red_obs <= env.observation_space.high))
         env.close()
