@@ -699,15 +699,16 @@ class CorpsEnv(gym.Env):
             else:
                 red_positions.append((b.x, b.y))
 
-        self.supply_network.step(blue_positions, red_positions)
-
-        # Check supply-line interdiction: any Blue unit near a Red depot
-        # (capture radius = same as the CUT_SUPPLY_LINE objective radius).
+        # Check supply-line interdiction BEFORE step() so that captured depots
+        # are already dead when consumption and convoy transfers are computed
+        # for this tick — ensuring immediate effect on the same step.
         capture_radius = self._interdiction_radius()
         for bx, by in blue_positions:
             self.supply_network.interdict_nearest_depot(
                 bx, by, enemy_team=1, capture_radius=capture_radius
             )
+
+        self.supply_network.step(blue_positions, red_positions)
 
         # Compute supply levels per Blue division for the info dict
         supply_levels = self._compute_division_supply_levels(inner)

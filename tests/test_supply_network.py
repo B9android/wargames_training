@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import sys
 import unittest
 from pathlib import Path
@@ -15,9 +14,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from envs.sim.supply_network import (
     ConvoyRoute,
-    DEFAULT_CONSUMPTION_PER_STEP,
-    DEFAULT_CONVOY_TRANSFER_RATE,
-    DEFAULT_SUPPLY_RADIUS,
     SupplyDepot,
     SupplyNetwork,
 )
@@ -415,10 +411,12 @@ class TestSupplyNetwork(unittest.TestCase):
     def test_step_no_positions_noop(self) -> None:
         net = make_network()
         initial_stocks = [d.stock for d in net.depots]
-        # Convoys still run but no consumption
+        # Convoys still run but no consumption: total stock is conserved.
         net.step([], [])
-        # All depots: some may change due to convoy, but none should be depleted
-        # by consumption. Let's just ensure stocks are in valid range.
+        total_initial = sum(initial_stocks)
+        total_after = sum(d.stock for d in net.depots)
+        self.assertAlmostEqual(total_after, total_initial, places=6)
+        # All depots must remain in valid range.
         for d in net.depots:
             self.assertGreaterEqual(d.stock, 0.0)
             self.assertLessEqual(d.stock, 1.0)
@@ -651,7 +649,7 @@ class TestCorpsEnvSupplyIntegration(unittest.TestCase):
         env.close()
 
     def test_supply_obs_slice_updates_after_interdiction(self) -> None:
-        """After interdicting all Red depots, Red supply is gone (no effect on Blue obs slice)."""
+        """Supply obs slice is present, sized correctly, and stays within [0, 1] after a step."""
         env = make_env()
         env.reset(seed=0)
         # Supply obs slice starts at: N_CORPS_SECTORS + 8*nd + N_ROAD_FEATURES + N_OBJECTIVES

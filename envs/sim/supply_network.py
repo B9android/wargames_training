@@ -243,6 +243,10 @@ class ConvoyRoute:
     def step(self, depots: List[SupplyDepot]) -> None:
         """Execute one step of convoy resupply.
 
+        Transfers up to :attr:`transfer_rate` stock from the source depot to
+        the destination depot, capped at the space remaining in the
+        destination so that no stock is wasted when the destination is full.
+
         Parameters
         ----------
         depots:
@@ -253,7 +257,12 @@ class ConvoyRoute:
         dst = depots[self.dest_idx]
         if not src.alive or not dst.alive:
             return
-        transferred = src.consume(self.transfer_rate)
+        # Only transfer what the destination can actually absorb.
+        capacity = dst.initial_stock - dst.stock
+        if capacity <= 0.0:
+            return
+        amount = min(self.transfer_rate, capacity)
+        transferred = src.consume(amount)
         dst.replenish(transferred)
 
 
@@ -285,6 +294,12 @@ class SupplyNetwork:
     depots: List[SupplyDepot] = field(default_factory=list)
     convoy_routes: List[ConvoyRoute] = field(default_factory=list)
     consumption_per_step: float = DEFAULT_CONSUMPTION_PER_STEP
+
+    def __post_init__(self) -> None:
+        if self.consumption_per_step <= 0.0:
+            raise ValueError(
+                f"consumption_per_step must be > 0, got {self.consumption_per_step!r}"
+            )
 
     # ------------------------------------------------------------------
     # Supply level queries
