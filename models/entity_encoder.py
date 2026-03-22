@@ -1,9 +1,12 @@
 # models/entity_encoder.py
 """Entity-based observation encoder with multi-head self-attention.
 
-Implements the core architecture for E8.1: replace the fixed-size concatenation
-observation with a variable-length sequence of entity tokens (one per visible unit),
-processed by a transformer encoder (multi-head self-attention).
+Implements the core architecture for E8.1: adds a variable-length sequence of
+entity tokens (one per visible unit) processed by a transformer encoder
+(multi-head self-attention).  This module provides the building blocks
+(encoder + actor-critic policy) for future integration into the observation
+pipeline; it does **not** yet modify the existing environment observation
+construction code.
 
 Entity Token Schema (ENTITY_TOKEN_DIM = 16)
 -------------------------------------------
@@ -257,8 +260,13 @@ class EntityEncoder(nn.Module):
             enable_nested_tensor=False,  # required when norm_first=True
         )
 
-        # Output projection (initialised as identity-like)
+        # Output projection — initialised as identity to preserve activations
+        # at the start of training (weight = I, bias = 0).
         self.out_proj = nn.Linear(d_model, d_model)
+        with torch.no_grad():
+            self.out_proj.weight.copy_(torch.eye(d_model))
+            if self.out_proj.bias is not None:
+                self.out_proj.bias.zero_()
 
     @property
     def output_dim(self) -> int:
@@ -304,34 +312,40 @@ class EntityEncoder(nn.Module):
             x = x + self.spatial_pe(xy)
 
         if return_attention:
-            # Run layers manually to extract attention from the last layer
-            for i, layer in enumerate(self.transformer.layers):
-                if i < len(self.transformer.layers) - 1:
-                    x = layer(x, src_key_padding_mask=pad_mask)
-                else:
-                    # Last layer: extract attention weights
-                    x_norm = layer.norm1(x) if layer.norm_first else x
-                    attn_out, attn_weights = layer.self_attn(
-                        x_norm, x_norm, x_norm,
-                        key_padding_mask=pad_mask,
-                        need_weights=True,
-                        average_attn_weights=True,
-                    )
-                    # Complete the residual path
-                    if layer.norm_first:
-                        x = x + layer.dropout1(attn_out)
-                        x = x + layer.dropout2(
-                            layer.linear2(
-                                layer.dropout(layer.activation(layer.linear1(layer.norm2(x))))
-                            )
-                        )
+            if len(self.transformer.layers) == 0:
+                # No transformer layers: fall back to the standard path and
+                # return a zero attention matrix as a sensible default.
+                x = self.transformer(x, src_key_padding_mask=pad_mask)
+                attn_weights = torch.zeros(B, N, N, device=x.device, dtype=x.dtype)
+            else:
+                # Run layers manually to extract attention from the last layer
+                for i, layer in enumerate(self.transformer.layers):
+                    if i < len(self.transformer.layers) - 1:
+                        x = layer(x, src_key_padding_mask=pad_mask)
                     else:
-                        x = layer.norm1(x + layer.dropout1(attn_out))
-                        x = layer.norm2(
-                            x + layer.dropout2(
-                                layer.linear2(layer.dropout(layer.activation(layer.linear1(x))))
-                            )
+                        # Last layer: extract attention weights
+                        x_norm = layer.norm1(x) if layer.norm_first else x
+                        attn_out, attn_weights = layer.self_attn(
+                            x_norm, x_norm, x_norm,
+                            key_padding_mask=pad_mask,
+                            need_weights=True,
+                            average_attn_weights=True,
                         )
+                        # Complete the residual path
+                        if layer.norm_first:
+                            x = x + layer.dropout1(attn_out)
+                            x = x + layer.dropout2(
+                                layer.linear2(
+                                    layer.dropout(layer.activation(layer.linear1(layer.norm2(x))))
+                                )
+                            )
+                        else:
+                            x = layer.norm1(x + layer.dropout1(attn_out))
+                            x = layer.norm2(
+                                x + layer.dropout2(
+                                    layer.linear2(layer.dropout(layer.activation(layer.linear1(x))))
+                                )
+                            )
         else:
             x = self.transformer(x, src_key_padding_mask=pad_mask)
             attn_weights = None
