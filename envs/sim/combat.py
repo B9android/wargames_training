@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
+from envs.sim.weapons import hit_probability as _weapon_hit_probability
+
 if TYPE_CHECKING:
     from envs.sim.battalion import Battalion
+    from envs.sim.weapons import ReloadMachine
 
 # ---------------------------------------------------------------------------
 # Tunable constants
@@ -70,6 +73,15 @@ class CombatState:
 
     shots_fired: int = 0
     """Number of volleys this unit has fired.  Incremented by :func:`resolve_volley`."""
+
+    reload_machine: Optional["ReloadMachine"] = field(default=None, repr=False)
+    """Optional :class:`~envs.sim.weapons.ReloadMachine` for this unit.
+
+    When set, :func:`resolve_volley` will honour the reload cycle: if the
+    weapon is not in the ``LOADED`` state the volley is suppressed and
+    returns ``0`` damage.  When ``None`` the legacy behaviour (no reload
+    gating) is preserved.
+    """
 
     def reset_step_accumulators(self) -> None:
         """Reset per-step counters.  Call at the *start* of each simulation step."""
@@ -167,6 +179,13 @@ def compute_fire_damage(
     float
         Fractional strength damage ``≥ 0.0``.  Returns ``0.0`` if the
         target is outside the shooter's range or fire arc.
+
+    Notes
+    -----
+    When ``shooter.weapon_profile`` is set the range-factor is replaced
+    by the historically-calibrated :func:`~envs.sim.weapons.hit_probability`
+    function.  The legacy linear falloff is used when no profile is
+    attached, preserving backward compatibility.
     """
     if not shooter.can_fire_at(target):
         return 0.0
@@ -178,10 +197,18 @@ def compute_fire_damage(
     dy = target.y - shooter.y
     dist = np.sqrt(dx ** 2 + dy ** 2)
 
-    # Linear range falloff via shared helper (also guards fire_range <= 0)
-    if shooter.fire_range <= 0:
-        return 0.0
-    rf = range_factor(dist, shooter.fire_range)
+    # Range effectiveness: use weapon profile when available, else linear falloff.
+    if shooter.weapon_profile is not None:
+        rf = _weapon_hit_probability(
+            shooter.weapon_profile,
+            dist,
+            formation_modifier=shooter.cohesion_bonus,
+        )
+    else:
+        # Legacy linear range falloff (also guards fire_range <= 0)
+        if shooter.fire_range <= 0:
+            return 0.0
+        rf = range_factor(dist, shooter.fire_range)
 
     # Angle-of-attack bonus
     angle_mult = _hit_angle_multiplier(shooter, target)
@@ -318,14 +345,47 @@ def resolve_volley(
         ``target_routing`` – whether the target is now routing.
         ``target_strength`` – target's strength after casualties.
         ``target_morale`` – target's morale after the check.
+        ``fired`` – ``True`` if the volley was actually discharged (i.e. the
+        reload machine was loaded or no reload machine is attached);
+        ``False`` when the weapon is mid-cycle and firing was suppressed.
+
+    Notes
+    -----
+    When ``shooter_state.reload_machine`` is set the volley is only
+    discharged if the machine is in the ``LOADED`` state.  A successful
+    fire transitions it to ``FIRING``; the caller is responsible for
+    advancing the machine each simulation step via
+    :meth:`~envs.sim.weapons.ReloadMachine.step`.
     """
+    # --- Reload-cycle gating ---
+    if shooter_state.reload_machine is not None:
+        fired = shooter_state.reload_machine.fire()
+        if not fired:
+            # Weapon is mid-cycle (FIRING or RELOADING) — advance the cycle but deal no damage.
+            shooter_state.reload_machine.step()
+            return {
+                "damage_dealt": 0.0,
+                "target_routing": target_state.is_routing,
+                "target_strength": target.strength,
+                "target_morale": target_state.morale,
+                "fired": False,
+            }
+    else:
+        fired = True
+
     damage = compute_fire_damage(shooter, target, intensity)
     actual = apply_casualties(target, target_state, damage)
     shooter_state.shots_fired += 1
+
+    # Advance the reload machine one step after firing.
+    if shooter_state.reload_machine is not None:
+        shooter_state.reload_machine.step()
+
     routing = morale_check(target_state, rng=rng)
     return {
         "damage_dealt": actual,
         "target_routing": routing,
         "target_strength": target.strength,
         "target_morale": target_state.morale,
+        "fired": fired,
     }
