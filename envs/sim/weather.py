@@ -9,9 +9,9 @@ speed, and per-step morale drain.
 Historical motivation
 ~~~~~~~~~~~~~~~~~~~~~
 Rain-soaked flintlocks misfired at rates of 30 % or higher (Nafziger, 1988).
-Thick fog reduced effective fighting range to well under 100 m.  Night marches
+Thick fog reduced effective fighting range to well under 100 m. Night marches
 and dawn attacks were staples of Napoleonic warfare precisely because reduced
-visibility neutered long-range firepower.  Snowfall both slowed manoeuvre and
+visibility neutered long-range firepower. Snowfall both slowed manoeuvre and
 sapped troop morale.
 
 Key public API
