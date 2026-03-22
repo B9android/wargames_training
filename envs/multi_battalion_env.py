@@ -112,6 +112,7 @@ from envs.sim.combat import (
 )
 from envs.metrics.coordination import compute_all as _compute_coordination
 from envs.sim.engine import DESTROYED_THRESHOLD
+from envs.sim.road_network import RoadNetwork
 from envs.sim.terrain import TerrainMap
 
 # ---------------------------------------------------------------------------
@@ -226,6 +227,11 @@ class MultiBattalionEnv(ParallelEnv):
             else TerrainMap.flat(map_width, map_height)
         )
         self.render_mode = render_mode
+
+        # Optional road network — when set, battalions on roads gain a
+        # movement-speed bonus (see :data:`~envs.sim.road_network.ROAD_SPEED_BONUS`).
+        # Can be set after construction: ``env.road_network = my_network``.
+        self.road_network: Optional[RoadNetwork] = None
 
         # ------------------------------------------------------------------
         # PettingZoo required: possible_agents (fixed for the lifetime of env)
@@ -408,12 +414,23 @@ class MultiBattalionEnv(ParallelEnv):
 
             battalion = self._battalions[agent_id]
             battalion.rotate(rotate_cmd * battalion.max_turn_rate)
-            speed_mod = self.terrain.get_speed_modifier(
+            terrain_mod = self.terrain.get_speed_modifier(
                 battalion.x, battalion.y, self.hill_speed_factor
             )
+            road_mod = 1.0
+            if self.road_network is not None:
+                road_mod = self.road_network.get_speed_modifier(battalion.x, battalion.y)
+            speed_mod = terrain_mod * road_mod
             vx = math.cos(battalion.theta) * move_cmd * battalion.max_speed * speed_mod
             vy = math.sin(battalion.theta) * move_cmd * battalion.max_speed * speed_mod
-            battalion.move(vx, vy, dt=DT)
+            # Battalion.move() clamps velocity magnitude to battalion.max_speed.
+            # Temporarily raise the effective cap so road bonuses > 1.0 take effect.
+            original_max_speed = battalion.max_speed
+            try:
+                battalion.max_speed = original_max_speed * max(1.0, road_mod)
+                battalion.move(vx, vy, dt=DT)
+            finally:
+                battalion.max_speed = original_max_speed
             battalion.x = float(np.clip(battalion.x, 0.0, self.map_width))
             battalion.y = float(np.clip(battalion.y, 0.0, self.map_height))
 
