@@ -94,7 +94,7 @@ class TestSpaces(unittest.TestCase):
         self.env.close()
 
     def test_observation_space_shape(self) -> None:
-        self.assertEqual(self.env.observation_space.shape, (12,))
+        self.assertEqual(self.env.observation_space.shape, (17,))
 
     def test_observation_space_dtype(self) -> None:
         self.assertEqual(self.env.observation_space.dtype, np.float32)
@@ -114,16 +114,17 @@ class TestSpaces(unittest.TestCase):
         )
 
     def test_observation_space_lower_bounds(self) -> None:
-        # Angles (indices 2, 3, 7, 8) may be -1
+        # Angles (indices 2, 3, 7, 8) may be -1; all terrain features are >= 0
         expected_low = np.array(
-            [0, 0, -1, -1, 0, 0, 0, -1, -1, 0, 0, 0], dtype=np.float32
+            [0, 0, -1, -1, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0],
+            dtype=np.float32,
         )
         np.testing.assert_array_equal(self.env.observation_space.low, expected_low)
 
     def test_observation_space_upper_bounds(self) -> None:
         np.testing.assert_array_almost_equal(
             self.env.observation_space.high,
-            np.ones(12, dtype=np.float32),
+            np.ones(17, dtype=np.float32),
         )
 
 
