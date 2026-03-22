@@ -804,7 +804,7 @@ class TestCorpsEpisode(unittest.TestCase):
 
     def test_configurable_episode_length(self) -> None:
         """max_steps can be configured to any positive value."""
-        for max_steps in [50, 500, 3_600]:  # 50, 500, and 1-hour analogue
+        for max_steps in [50, 500, 3_600]:  # 50, 500, and 1-hour analog
             env = make_env(max_steps=max_steps)
             self.assertEqual(env.max_steps, max_steps)
             env.close()
