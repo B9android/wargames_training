@@ -69,6 +69,18 @@ from envs.sim.morale import (
 )
 from envs.sim.terrain import TerrainMap
 from envs.sim.terrain_engine import TerrainEngine
+from envs.sim.weather import (
+    NUM_CONDITIONS,
+    WeatherConfig,
+    WeatherState,
+    get_accuracy_modifier,
+    get_effective_visibility_range,
+    get_morale_stressor,
+    get_speed_modifier,
+    get_visibility_fraction,
+    sample_weather,
+    step_weather,
+)
 
 # ---------------------------------------------------------------------------
 # Module-level constants
@@ -94,6 +106,8 @@ __all__ = [
     "RewardWeights",
     "RedPolicy",
     "Formation",
+    "WeatherConfig",
+    "WeatherState",
 ]
 
 
@@ -204,6 +218,18 @@ class BattalionEnv(gym.Env):
 
     (where N = 17 with formations disabled or 19 with formations enabled).
 
+    When *enable_weather* is ``True``, two more dimensions are appended after
+    any logistics dims:
+
+    =====  ===========================  =========
+    Index  Feature                      Range
+    =====  ===========================  =========
+    M+0    weather condition id         [0, 1]
+    M+1    combined visibility fraction [0, 1]
+    =====  ===========================  =========
+
+    (where M = N + 3 when logistics are enabled, or N when disabled).
+
     Action space — ``Box(shape=(3,), dtype=float32)`` (formations disabled)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     =====  ===========  ========  ============================================
@@ -283,6 +309,18 @@ class BattalionEnv(gym.Env):
         Optional :class:`~envs.sim.logistics.LogisticsConfig` instance.
         Used when *enable_logistics* is ``True``.  Defaults to
         ``LogisticsConfig()`` if not supplied.
+    enable_weather:
+        When ``True``, the weather and time-of-day model is activated.
+        A :class:`~envs.sim.weather.WeatherState` is sampled at each
+        ``reset()`` (or fixed via *weather_config*).  The observation
+        space gains two extra dimensions: the normalised weather condition
+        id and the combined visibility fraction.  Weather modifiers are
+        applied to LOS range, fire accuracy, movement speed, and morale.
+        Defaults to ``False`` to preserve full backward compatibility.
+    weather_config:
+        Optional :class:`~envs.sim.weather.WeatherConfig` instance.
+        Used when *enable_weather* is ``True``.  Defaults to
+        ``WeatherConfig()`` if not supplied.
     """
 
     metadata: dict = {"render_modes": ["human"]}
@@ -303,6 +341,8 @@ class BattalionEnv(gym.Env):
         enable_formations: bool = False,
         enable_logistics: bool = False,
         logistics_config: Optional[LogisticsConfig] = None,
+        enable_weather: bool = False,
+        weather_config: Optional[WeatherConfig] = None,
     ) -> None:
         super().__init__()
 
@@ -346,6 +386,10 @@ class BattalionEnv(gym.Env):
         self.logistics_config: LogisticsConfig = (
             logistics_config if logistics_config is not None else LogisticsConfig()
         )
+        self.enable_weather: bool = bool(enable_weather)
+        self.weather_config: WeatherConfig = (
+            weather_config if weather_config is not None else WeatherConfig()
+        )
         # When an explicit terrain is supplied, terrain randomisation is
         # disabled so the caller's fixed map is used every episode.
         self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
@@ -373,6 +417,9 @@ class BattalionEnv(gym.Env):
         #   [N+0] blue ammo level
         #   [N+1] blue food level
         #   [N+2] blue fatigue level
+        # When weather is enabled two further dims are appended:
+        #   [M+0] weather condition id (normalised to [0, 1])
+        #   [M+1] combined visibility fraction [0, 1]
         obs_low = np.array(
             [0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0,
              0.0, 0.0, 0.0, 0.0, 0.0],
@@ -389,6 +436,9 @@ class BattalionEnv(gym.Env):
         if self.enable_logistics:
             obs_low = np.append(obs_low, [0.0, 0.0, 0.0]).astype(np.float32)
             obs_high = np.append(obs_high, [1.0, 1.0, 1.0]).astype(np.float32)
+        if self.enable_weather:
+            obs_low = np.append(obs_low, [0.0, 0.0]).astype(np.float32)
+            obs_high = np.append(obs_high, [1.0, 1.0]).astype(np.float32)
         self.observation_space = spaces.Box(
             low=obs_low, high=obs_high, dtype=np.float32
         )
@@ -421,6 +471,9 @@ class BattalionEnv(gym.Env):
         self.red_logistics: LogisticsState | None = None
         self.blue_wagon: SupplyWagon | None = None
         self.red_wagon: SupplyWagon | None = None
+
+        # Weather state — populated by reset() when enable_weather=True
+        self.weather_state: WeatherState | None = None
 
     # ------------------------------------------------------------------
     # Gymnasium API
@@ -505,6 +558,12 @@ class BattalionEnv(gym.Env):
             self.blue_wagon = None
             self.red_wagon = None
 
+        # --- Weather initialisation ---
+        if self.enable_weather:
+            self.weather_state = sample_weather(rng, self.weather_config)
+        else:
+            self.weather_state = None
+
         return self._get_obs(), {}
 
     def step(
@@ -559,6 +618,9 @@ class BattalionEnv(gym.Env):
                 speed_mod *= get_fatigue_speed_modifier(
                     self.blue_logistics, self.logistics_config
                 )
+            # Weather speed penalty applied when weather is active
+            if self.enable_weather and self.weather_state is not None:
+                speed_mod *= get_speed_modifier(self.weather_state)
             vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             self.blue.move(vx, vy, dt=DT)
@@ -614,6 +676,13 @@ class BattalionEnv(gym.Env):
                 effective_red_fire_cmd *= get_fatigue_accuracy_modifier(
                     self.red_logistics, lc
                 )
+
+        # Weather accuracy penalty — applied after logistics modifiers.
+        # Affects both sides equally (rain/fog/night degrades all musketry).
+        if self.enable_weather and self.weather_state is not None:
+            weather_acc = get_accuracy_modifier(self.weather_state)
+            effective_fire_cmd *= weather_acc
+            effective_red_fire_cmd *= weather_acc
 
         raw_b2r = compute_fire_damage(self.blue, self.red, intensity=effective_fire_cmd)
         raw_r2b = compute_fire_damage(self.red, self.blue, intensity=effective_red_fire_cmd)
@@ -671,6 +740,12 @@ class BattalionEnv(gym.Env):
                 self.red.x, self.red.y, self.red.theta,
                 dmg_b2r,
             )
+            # Weather morale stressor — added to flanking penalty so that
+            # update_morale applies it through the same deduction path.
+            if self.enable_weather and self.weather_state is not None:
+                weather_ms = get_morale_stressor(self.weather_state)
+                blue_flank += weather_ms
+                red_flank += weather_ms
             update_morale(
                 self.blue_state,
                 enemy_dist=enemy_dist,
@@ -686,6 +761,14 @@ class BattalionEnv(gym.Env):
                 rng=self.np_random,
             )
         else:
+            # Weather morale stressor — added to accumulated_damage before morale_check
+            # so that it enters the same deduction pipeline (recovery + clamping)
+            # as the MoraleConfig path.
+            if self.enable_weather and self.weather_state is not None:
+                weather_ms = get_morale_stressor(self.weather_state)
+                if weather_ms > 0.0:
+                    self.blue_state.accumulated_damage += weather_ms
+                    self.red_state.accumulated_damage += weather_ms
             morale_check(self.blue_state, rng=self.np_random)
             morale_check(self.red_state, rng=self.np_random)
 
@@ -750,6 +833,10 @@ class BattalionEnv(gym.Env):
 
         self._step_count += 1
 
+        # --- Weather progression (time-of-day advancement) ---
+        if self.enable_weather and self.weather_state is not None:
+            step_weather(self.weather_state, self.weather_config)
+
         # --- Termination ---
         blue_done = (
             self.blue_state.is_routing or self.blue.strength <= DESTROYED_THRESHOLD
@@ -793,6 +880,14 @@ class BattalionEnv(gym.Env):
                 info["red_ammo"]    = float(self.red_logistics.ammo)
                 info["red_food"]    = float(self.red_logistics.food)
                 info["red_fatigue"] = float(self.red_logistics.fatigue)
+
+        # Add weather info when the system is active
+        if self.enable_weather and self.weather_state is not None:
+            info["weather_condition"] = int(self.weather_state.condition)
+            info["time_of_day"]       = int(self.weather_state.time_of_day)
+            info["visibility_fraction"] = float(
+                get_visibility_fraction(self.weather_state)
+            )
 
         return self._get_obs(), reward_comps.total, terminated, truncated, info
 
@@ -857,9 +952,10 @@ class BattalionEnv(gym.Env):
     def _get_obs(self) -> np.ndarray:
         """Build and return the normalised observation.
 
-        Returns a 17-dimensional array when both formations and logistics are
-        disabled.  Two extra dims are added when *enable_formations* is
-        ``True``; three more when *enable_logistics* is ``True``.
+        Returns a 17-dimensional array when formations, logistics, and weather
+        are all disabled.  Two extra dims are added when *enable_formations* is
+        ``True``; three more when *enable_logistics* is ``True``; two more when
+        *enable_weather* is ``True``.
         """
         b = self.blue
         r = self.red
@@ -874,7 +970,17 @@ class BattalionEnv(gym.Env):
         blue_cover = self.terrain.get_cover(b.x, b.y)
         red_elev = self._norm_elevation(r.x, r.y)
         red_cover = self.terrain.get_cover(r.x, r.y)
-        los = 1.0 if self.terrain.bresenham_los(b.x, b.y, r.x, r.y) else 0.0
+
+        # LOS — additionally blocked when the enemy is beyond the effective
+        # weather visibility range.
+        terrain_los = self.terrain.bresenham_los(b.x, b.y, r.x, r.y)
+        if self.enable_weather and self.weather_state is not None:
+            vis_range = get_effective_visibility_range(
+                self.weather_state, self.weather_config
+            )
+            los = 1.0 if (terrain_los and dist <= vis_range) else 0.0
+        else:
+            los = 1.0 if terrain_los else 0.0
 
         base = [
             b.x / self.map_width,                    # [0] blue x norm
@@ -903,6 +1009,11 @@ class BattalionEnv(gym.Env):
             base.append(ls.ammo if ls is not None else 1.0)      # [N+0] ammo
             base.append(ls.food if ls is not None else 1.0)      # [N+1] food
             base.append(ls.fatigue if ls is not None else 0.0)   # [N+2] fatigue
+        if self.enable_weather and self.weather_state is not None:
+            base.append(
+                self.weather_state.condition.value / float(NUM_CONDITIONS - 1)
+            )  # [M+0] weather condition id
+            base.append(get_visibility_fraction(self.weather_state))  # [M+1] visibility
         obs = np.array(base, dtype=np.float32)
         # Clip to declared bounds to guard against floating-point drift
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
@@ -914,7 +1025,8 @@ class BattalionEnv(gym.Env):
         normally sits and Blue where Red normally sits.  This means a frozen
         Red policy trained as Blue sees the same observation schema.
         When formations are enabled the two extra formation dims reflect Red's
-        formation state.
+        formation state.  When weather is enabled Red also receives weather
+        features.
         """
         r = self.red
         b = self.blue
@@ -929,7 +1041,15 @@ class BattalionEnv(gym.Env):
         red_cover = self.terrain.get_cover(r.x, r.y)
         blue_elev = self._norm_elevation(b.x, b.y)
         blue_cover = self.terrain.get_cover(b.x, b.y)
-        los = 1.0 if self.terrain.bresenham_los(r.x, r.y, b.x, b.y) else 0.0
+
+        terrain_los = self.terrain.bresenham_los(r.x, r.y, b.x, b.y)
+        if self.enable_weather and self.weather_state is not None:
+            vis_range = get_effective_visibility_range(
+                self.weather_state, self.weather_config
+            )
+            los = 1.0 if (terrain_los and dist <= vis_range) else 0.0
+        else:
+            los = 1.0 if terrain_los else 0.0
 
         base = [
             r.x / self.map_width,                    # [0] red x norm
@@ -953,6 +1073,16 @@ class BattalionEnv(gym.Env):
         if self.enable_formations:
             base.append(r.formation / float(NUM_FORMATIONS - 1))  # [17] formation norm
             base.append(1.0 if r.target_formation is not None else 0.0)  # [18] transitioning
+        if self.enable_logistics:
+            ls = self.red_logistics
+            base.append(ls.ammo if ls is not None else 1.0)      # [N+0] ammo
+            base.append(ls.food if ls is not None else 1.0)      # [N+1] food
+            base.append(ls.fatigue if ls is not None else 0.0)   # [N+2] fatigue
+        if self.enable_weather and self.weather_state is not None:
+            base.append(
+                self.weather_state.condition.value / float(NUM_CONDITIONS - 1)
+            )  # [M+0] weather condition id
+            base.append(get_visibility_fraction(self.weather_state))  # [M+1] visibility
         obs = np.array(base, dtype=np.float32)
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
@@ -977,6 +1107,8 @@ class BattalionEnv(gym.Env):
             speed_mod *= get_attributes(Formation(r.formation)).speed_modifier
         if self.enable_logistics and self.red_logistics is not None:
             speed_mod *= get_fatigue_speed_modifier(self.red_logistics, self.logistics_config)
+        if self.enable_weather and self.weather_state is not None:
+            speed_mod *= get_speed_modifier(self.weather_state)
         vx = math.cos(r.theta) * move_cmd * r.max_speed * speed_mod
         vy = math.sin(r.theta) * move_cmd * r.max_speed * speed_mod
         r.move(vx, vy, dt=DT)
@@ -1031,6 +1163,8 @@ class BattalionEnv(gym.Env):
                 speed_mod *= get_fatigue_speed_modifier(
                     self.red_logistics, self.logistics_config
                 )
+            if self.enable_weather and self.weather_state is not None:
+                speed_mod *= get_speed_modifier(self.weather_state)
             vx = math.cos(r.theta) * r.max_speed * speed_mod
             vy = math.sin(r.theta) * r.max_speed * speed_mod
             r.move(vx, vy, dt=DT)

@@ -1,0 +1,72 @@
+# configs/scenarios/weather_demo.yaml
+# Weather & Time-of-Day demonstration scenario (E6.6)
+#
+# Illustrates how to configure fixed weather conditions, a random weather
+# distribution, and time-of-day progression in a 1v1 battalion episode.
+#
+# Three named presets are shown below as separate scenario blocks.  Use them
+# primarily as a reference when constructing WeatherConfig / scenario configs
+# directly, or with a custom loader that supports multi-document YAML + weather.
+# Note: the existing ScenarioLoader (envs/scenarios/historical.py) reads only
+# a single-document mapping and does not parse weather fields.
+
+# ── Preset 1: Heavy Rain (acceptance-criteria validation) ────────────────────
+# Demonstrates ≥ 30 % musket accuracy reduction.  WeatherCondition.RAIN has
+# accuracy_modifier = 0.65, giving a 35 % reduction at DAY time-of-day.
+scenario:
+  name: "Heavy Rain — accuracy penalty demo"
+  description: >
+    Fixed RAIN weather at DAY.  Musket accuracy is reduced by 35 %
+    (accuracy_modifier = 0.65), exceeding the historical ≥ 30 % misfire rate.
+  weather:
+    fixed_condition: "RAIN"        # WeatherCondition.RAIN
+    fixed_time_of_day: "DAY"       # TimeOfDay.DAY
+    steps_per_time_of_day: 0       # no time-of-day progression
+    base_visibility_range: 500.0   # metres; RAIN vis_fraction=0.70 → 350 m range
+  terrain:
+    type: "flat"
+    width: 1000.0
+    height: 1000.0
+
+---
+
+# ── Preset 2: Dense Fog (LOS acceptance-criteria validation) ─────────────────
+# FOG condition at DAY: combined visibility_fraction = 0.15 × 1.0 = 0.15
+# effective_range = 0.15 × 500 = 75 m  (< 100 m requirement satisfied)
+scenario:
+  name: "Dense Fog — LOS range < 100 m"
+  description: >
+    Fixed FOG weather at DAY.  Effective visibility range is 75 m,
+    satisfying the < 100 m LOS requirement for fog.
+  weather:
+    fixed_condition: "FOG"
+    fixed_time_of_day: "DAY"
+    steps_per_time_of_day: 0
+    base_visibility_range: 500.0
+  terrain:
+    type: "flat"
+    width: 1000.0
+    height: 1000.0
+
+---
+
+# ── Preset 3: Full randomisation with day/night cycle ────────────────────────
+# Weather drawn each episode from the default distribution; time-of-day
+# progresses every 125 steps (500-step episode → full DAWN→DAY→DUSK→NIGHT cycle).
+scenario:
+  name: "Randomised weather with day/night progression"
+  description: >
+    Weather condition is sampled each episode from the default distribution
+    (CLEAR 40 %, OVERCAST 25 %, RAIN 15 %, FOG 10 %, SNOW 10 %).
+    Time of day progresses every 125 steps through DAWN→DAY→DUSK→NIGHT.
+  weather:
+    fixed_condition: null          # random each episode
+    fixed_time_of_day: null        # random start time
+    steps_per_time_of_day: 125     # 500-step episode covers full cycle
+    condition_weights: [0.40, 0.25, 0.15, 0.10, 0.10]
+    base_visibility_range: 500.0
+  terrain:
+    type: "generated"
+    width: 1000.0
+    height: 1000.0
+    seed: null    # random each episode
