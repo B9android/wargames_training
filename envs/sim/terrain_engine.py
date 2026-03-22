@@ -427,11 +427,14 @@ class TerrainEngine:
         n = max(dr, dc) + 1
 
         # Single cell: start and end map to the same grid cell — always visible.
+        # n == 1 ↔ max(dr, dc) == 0 ↔ dr == 0 and dc == 0, so the guard below
+        # also ensures denom > 0 for all subsequent computation.
         if n <= 1:
             return True
 
         # Denominator for computing the parametric position of each visited
-        # cell along the segment in grid space.  Guaranteed > 0 when n > 1.
+        # cell along the segment in grid space.  Since n > 1 implies at least
+        # one of dr, dc is ≥ 1, denom is strictly positive here.
         denom = float(dc * dc + dr * dr)
 
         for i, (r, c) in enumerate(_bresenham_cells(r0, c0, r1, c1)):

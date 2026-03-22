@@ -191,8 +191,13 @@ class TestMovementCost(unittest.TestCase):
                 self.assertLessEqual(cost, 1.0 + 1e-6)
 
     def test_cost_never_below_hill_speed_factor_on_steep_high_ground(self) -> None:
-        """On maximum-elevation terrain the product of elev_mod * slope_mod must
-        still be >= hill_speed_factor due to the final clamp."""
+        """Validates the final clamp in movement_cost.
+
+        On a 2×2 grid with a steep column gradient, the product of the
+        elevation modifier and slope modifier could fall below hill_speed_factor
+        without the final clamp.  The test confirms the combined penalty is
+        always clamped to [hill_speed_factor, 1].
+        """
         # 2-row × 2-col grid: steep gradient so slope penalty is large
         elev = np.array([[0.0, 1.0], [0.0, 1.0]], dtype=np.float32)
         cov = np.zeros_like(elev)
