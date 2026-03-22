@@ -48,6 +48,18 @@ from envs.sim.formations import (
     get_attributes,
     get_transition_steps,
 )
+from envs.sim.logistics import (
+    LogisticsConfig,
+    LogisticsState,
+    SupplyWagon,
+    check_resupply,
+    consume_ammo,
+    consume_food,
+    get_ammo_modifier,
+    get_fatigue_accuracy_modifier,
+    get_fatigue_speed_modifier,
+    update_fatigue,
+)
 from envs.sim.morale import (
     MoraleConfig,
     compute_flank_stressor,
@@ -74,6 +86,9 @@ __all__ = [
     "MAP_WIDTH",
     "MAP_HEIGHT",
     "MAX_STEPS",
+    "LogisticsConfig",
+    "LogisticsState",
+    "SupplyWagon",
     "MoraleConfig",
     "RewardWeights",
     "RedPolicy",
@@ -175,6 +190,19 @@ class BattalionEnv(gym.Env):
     18     blue transitioning (1=yes)             [0, 1]
     =====  =====================================  =========
 
+    When *enable_logistics* is ``True``, three more dimensions follow the
+    terrain / formations dims:
+
+    =====  ===========================  =========
+    Index  Feature                      Range
+    =====  ===========================  =========
+    N+0    blue ammo level              [0, 1]
+    N+1    blue food level              [0, 1]
+    N+2    blue fatigue level           [0, 1]
+    =====  ===========================  =========
+
+    (where N = 17 with formations disabled or 19 with formations enabled).
+
     Action space — ``Box(shape=(3,), dtype=float32)`` (formations disabled)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     =====  ===========  ========  ============================================
@@ -239,6 +267,21 @@ class BattalionEnv(gym.Env):
         morale hit from casualties is divided by the unit's
         ``morale_resilience`` before being fed into the morale check).
         Defaults to ``False`` to preserve full backward compatibility.
+    enable_logistics:
+        When ``True``, the supply, ammunition, and fatigue model is
+        activated.  The observation space gains three extra dimensions
+        (blue ammo, food, fatigue — all normalised to ``[0, 1]``).
+        Ammunition is consumed when firing (weapon jams at zero);
+        fatigue accumulates from movement and combat, penalising speed and
+        accuracy; and battalions can resupply by halting near a friendly
+        supply wagon.  Pass a :class:`~envs.sim.logistics.LogisticsConfig`
+        via *logistics_config* to tune the rates; if ``None`` a default
+        config is used.  Defaults to ``False`` to preserve full backward
+        compatibility.
+    logistics_config:
+        Optional :class:`~envs.sim.logistics.LogisticsConfig` instance.
+        Used when *enable_logistics* is ``True``.  Defaults to
+        ``LogisticsConfig()`` if not supplied.
     """
 
     metadata: dict = {"render_modes": ["human"]}
@@ -257,6 +300,8 @@ class BattalionEnv(gym.Env):
         render_mode: Optional[str] = None,
         morale_config: Optional[MoraleConfig] = None,
         enable_formations: bool = False,
+        enable_logistics: bool = False,
+        logistics_config: Optional[LogisticsConfig] = None,
     ) -> None:
         super().__init__()
 
@@ -296,6 +341,10 @@ class BattalionEnv(gym.Env):
         )
         self.morale_config: Optional[MoraleConfig] = morale_config
         self.enable_formations: bool = bool(enable_formations)
+        self.enable_logistics: bool = bool(enable_logistics)
+        self.logistics_config: LogisticsConfig = (
+            logistics_config if logistics_config is not None else LogisticsConfig()
+        )
         # When an explicit terrain is supplied, terrain randomisation is
         # disabled so the caller's fixed map is used every episode.
         self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
@@ -319,6 +368,10 @@ class BattalionEnv(gym.Env):
         # When formations are enabled two extra dims are appended:
         #   [17] blue formation normalised in [0, 1]
         #   [18] transitioning flag in {0, 1}
+        # When logistics are enabled three more dims follow:
+        #   [N+0] blue ammo level
+        #   [N+1] blue food level
+        #   [N+2] blue fatigue level
         obs_low = np.array(
             [0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0,
              0.0, 0.0, 0.0, 0.0, 0.0],
@@ -332,6 +385,9 @@ class BattalionEnv(gym.Env):
         if self.enable_formations:
             obs_low = np.append(obs_low, [0.0, 0.0]).astype(np.float32)
             obs_high = np.append(obs_high, [1.0, 1.0]).astype(np.float32)
+        if self.enable_logistics:
+            obs_low = np.append(obs_low, [0.0, 0.0, 0.0]).astype(np.float32)
+            obs_high = np.append(obs_high, [1.0, 1.0, 1.0]).astype(np.float32)
         self.observation_space = spaces.Box(
             low=obs_low, high=obs_high, dtype=np.float32
         )
@@ -358,6 +414,12 @@ class BattalionEnv(gym.Env):
         self.blue_state: CombatState | None = None
         self.red_state: CombatState | None = None
         self._step_count: int = 0
+
+        # Logistics state — populated by reset() when enable_logistics=True
+        self.blue_logistics: LogisticsState | None = None
+        self.red_logistics: LogisticsState | None = None
+        self.blue_wagon: SupplyWagon | None = None
+        self.red_wagon: SupplyWagon | None = None
 
     # ------------------------------------------------------------------
     # Gymnasium API
@@ -409,6 +471,39 @@ class BattalionEnv(gym.Env):
         self.red_state = CombatState()
         self._step_count = 0
 
+        # --- Logistics initialisation ---
+        if self.enable_logistics:
+            cfg = self.logistics_config
+            self.blue_logistics = LogisticsState(
+                ammo=cfg.initial_ammo,
+                food=cfg.initial_food,
+                fatigue=0.0,
+            )
+            self.red_logistics = LogisticsState(
+                ammo=cfg.initial_ammo,
+                food=cfg.initial_food,
+                fatigue=0.0,
+            )
+            # Blue supply wagon: behind Blue (further west), same y as Blue
+            self.blue_wagon = SupplyWagon(
+                x=max(0.0, bx - 150.0),
+                y=by,
+                team=0,
+                strength=cfg.wagon_max_strength,
+            )
+            # Red supply wagon: behind Red (further east), same y as Red
+            self.red_wagon = SupplyWagon(
+                x=min(self.map_width, rx + 150.0),
+                y=ry,
+                team=1,
+                strength=cfg.wagon_max_strength,
+            )
+        else:
+            self.blue_logistics = None
+            self.red_logistics = None
+            self.blue_wagon = None
+            self.red_wagon = None
+
         return self._get_obs(), {}
 
     def step(
@@ -458,6 +553,11 @@ class BattalionEnv(gym.Env):
             # Formation speed modifier applied when formations are active
             if self.enable_formations:
                 speed_mod *= get_attributes(Formation(self.blue.formation)).speed_modifier
+            # Fatigue speed penalty applied when logistics are active
+            if self.enable_logistics and self.blue_logistics is not None:
+                speed_mod *= get_fatigue_speed_modifier(
+                    self.blue_logistics, self.logistics_config
+                )
             vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             self.blue.move(vx, vy, dt=DT)
@@ -485,8 +585,33 @@ class BattalionEnv(gym.Env):
         self.blue_state.reset_step_accumulators()
         self.red_state.reset_step_accumulators()
 
-        raw_b2r = compute_fire_damage(self.blue, self.red, intensity=fire_cmd)
-        raw_r2b = compute_fire_damage(self.red, self.blue, intensity=red_fire_cmd)
+        # Logistics — apply ammo consumption and modifiers before damage
+        # computation.  effective_*_cmd is what is actually fed into the
+        # damage formula; the raw requested intensities are preserved for
+        # fatigue tracking.
+        effective_fire_cmd = fire_cmd
+        effective_red_fire_cmd = red_fire_cmd
+        if self.enable_logistics:
+            lc = self.logistics_config
+            if self.blue_logistics is not None:
+                effective_fire_cmd = consume_ammo(
+                    self.blue_logistics, fire_cmd, lc
+                )
+                effective_fire_cmd *= get_ammo_modifier(self.blue_logistics, lc)
+                effective_fire_cmd *= get_fatigue_accuracy_modifier(
+                    self.blue_logistics, lc
+                )
+            if self.red_logistics is not None:
+                effective_red_fire_cmd = consume_ammo(
+                    self.red_logistics, red_fire_cmd, lc
+                )
+                effective_red_fire_cmd *= get_ammo_modifier(self.red_logistics, lc)
+                effective_red_fire_cmd *= get_fatigue_accuracy_modifier(
+                    self.red_logistics, lc
+                )
+
+        raw_b2r = compute_fire_damage(self.blue, self.red, intensity=effective_fire_cmd)
+        raw_r2b = compute_fire_damage(self.red, self.blue, intensity=effective_red_fire_cmd)
 
         # Apply terrain cover at each target's position
         raw_b2r = self.terrain.apply_cover_modifier(self.red.x, self.red.y, raw_b2r)
@@ -550,6 +675,33 @@ class BattalionEnv(gym.Env):
         self.blue.routed = self.blue_state.is_routing
         self.red.routed  = self.red_state.is_routing
 
+        # --- Logistics update (fatigue, food, resupply) ---
+        if self.enable_logistics:
+            lc = self.logistics_config
+            # Determine movement activity from raw move commands
+            blue_moved = abs(move_cmd) > 0.01
+            red_moved = True  # scripted Red always attempts to advance
+            blue_fired = effective_fire_cmd > 0.0
+            red_fired = effective_red_fire_cmd > 0.0
+            if self.blue_logistics is not None:
+                update_fatigue(self.blue_logistics, blue_moved, blue_fired, lc)
+                consume_food(self.blue_logistics, lc)
+                if self.blue_wagon is not None:
+                    check_resupply(
+                        self.blue_logistics,
+                        self.blue.x, self.blue.y,
+                        self.blue_wagon, lc,
+                    )
+            if self.red_logistics is not None:
+                update_fatigue(self.red_logistics, red_moved, red_fired, lc)
+                consume_food(self.red_logistics, lc)
+                if self.red_wagon is not None:
+                    check_resupply(
+                        self.red_logistics,
+                        self.red.x, self.red.y,
+                        self.red_wagon, lc,
+                    )
+
         # --- Post-morale rout movement (morale_config mode only) ---
         # Applied *after* morale update so that units route on the same step
         # routing is triggered, not just on subsequent steps.  Also handles
@@ -602,6 +754,17 @@ class BattalionEnv(gym.Env):
             "step_count":        self._step_count,
             **reward_comps.as_dict(),
         }
+
+        # Add logistics info when the system is active
+        if self.enable_logistics:
+            if self.blue_logistics is not None:
+                info["blue_ammo"]    = float(self.blue_logistics.ammo)
+                info["blue_food"]    = float(self.blue_logistics.food)
+                info["blue_fatigue"] = float(self.blue_logistics.fatigue)
+            if self.red_logistics is not None:
+                info["red_ammo"]    = float(self.red_logistics.ammo)
+                info["red_food"]    = float(self.red_logistics.food)
+                info["red_fatigue"] = float(self.red_logistics.fatigue)
 
         return self._get_obs(), reward_comps.total, terminated, truncated, info
 
@@ -666,9 +829,9 @@ class BattalionEnv(gym.Env):
     def _get_obs(self) -> np.ndarray:
         """Build and return the normalised observation.
 
-        Returns a 17-dimensional array when formations are disabled, or a
-        19-dimensional array when *enable_formations* is ``True`` (two extra
-        dims: current formation normalised + transitioning flag).
+        Returns a 17-dimensional array when both formations and logistics are
+        disabled.  Two extra dims are added when *enable_formations* is
+        ``True``; three more when *enable_logistics* is ``True``.
         """
         b = self.blue
         r = self.red
@@ -707,6 +870,11 @@ class BattalionEnv(gym.Env):
         if self.enable_formations:
             base.append(b.formation / float(NUM_FORMATIONS - 1))  # [17] formation norm
             base.append(1.0 if b.target_formation is not None else 0.0)  # [18] transitioning
+        if self.enable_logistics:
+            ls = self.blue_logistics
+            base.append(ls.ammo if ls is not None else 1.0)      # [N+0] ammo
+            base.append(ls.food if ls is not None else 1.0)      # [N+1] food
+            base.append(ls.fatigue if ls is not None else 0.0)   # [N+2] fatigue
         obs = np.array(base, dtype=np.float32)
         # Clip to declared bounds to guard against floating-point drift
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
