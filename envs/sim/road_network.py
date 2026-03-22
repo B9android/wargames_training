@@ -10,7 +10,6 @@ Typical usage::
 
     from envs.sim.road_network import RoadNetwork
 
-    rng = np.random.default_rng(42)
     net = RoadNetwork.generate_default(map_width=10_000.0, map_height=5_000.0)
 
     # Check whether a battalion at (3_000, 2_500) is on a road
@@ -23,8 +22,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from typing import List, Sequence, Tuple
-
-import numpy as np
 
 __all__ = [
     "RoadSegment",

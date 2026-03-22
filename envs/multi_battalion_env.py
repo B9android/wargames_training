@@ -414,14 +414,23 @@ class MultiBattalionEnv(ParallelEnv):
 
             battalion = self._battalions[agent_id]
             battalion.rotate(rotate_cmd * battalion.max_turn_rate)
-            speed_mod = self.terrain.get_speed_modifier(
+            terrain_mod = self.terrain.get_speed_modifier(
                 battalion.x, battalion.y, self.hill_speed_factor
             )
+            road_mod = 1.0
             if self.road_network is not None:
-                speed_mod *= self.road_network.get_speed_modifier(battalion.x, battalion.y)
+                road_mod = self.road_network.get_speed_modifier(battalion.x, battalion.y)
+            speed_mod = terrain_mod * road_mod
             vx = math.cos(battalion.theta) * move_cmd * battalion.max_speed * speed_mod
             vy = math.sin(battalion.theta) * move_cmd * battalion.max_speed * speed_mod
-            battalion.move(vx, vy, dt=DT)
+            # Battalion.move() clamps velocity magnitude to battalion.max_speed.
+            # Temporarily raise the effective cap so road bonuses > 1.0 take effect.
+            original_max_speed = battalion.max_speed
+            try:
+                battalion.max_speed = original_max_speed * max(1.0, road_mod)
+                battalion.move(vx, vy, dt=DT)
+            finally:
+                battalion.max_speed = original_max_speed
             battalion.x = float(np.clip(battalion.x, 0.0, self.map_width))
             battalion.y = float(np.clip(battalion.y, 0.0, self.map_height))
 

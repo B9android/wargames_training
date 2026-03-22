@@ -311,9 +311,6 @@ class CorpsEnv(gym.Env):
     comm_radius:
         Inter-division communication radius in metres.  Enemy threat
         vectors beyond this distance are replaced with sentinels.
-    division_policy:
-        Optional frozen division-level policy for Red.
-        Must expose ``predict(obs, deterministic) -> (action, state)``.
     red_random:
         When ``True`` Red takes random brigade actions.
     randomize_terrain:
@@ -340,7 +337,6 @@ class CorpsEnv(gym.Env):
         road_network: Optional[RoadNetwork] = None,
         objectives: Optional[List[OperationalObjective]] = None,
         comm_radius: float = DEFAULT_COMM_RADIUS,
-        division_policy=None,
         red_random: bool = True,
         randomize_terrain: bool = True,
         visibility_radius: float = DEFAULT_VISIBILITY_RADIUS,
@@ -398,8 +394,15 @@ class CorpsEnv(gym.Env):
 
         self.map_width = float(map_width)
         self.map_height = float(map_height)
+        if self.map_width <= 0.0 or self.map_height <= 0.0:
+            raise ValueError(
+                f"map_width and map_height must both be > 0, "
+                f"got map_width={self.map_width}, map_height={self.map_height}"
+            )
         self.map_diagonal = math.hypot(self.map_width, self.map_height)
         self.max_steps = int(max_steps)
+        if self.max_steps < 1:
+            raise ValueError(f"max_steps must be >= 1, got {self.max_steps}")
         self.comm_radius = float(comm_radius)
         self.render_mode = render_mode
 
@@ -436,11 +439,6 @@ class CorpsEnv(gym.Env):
 
         # n_corps_options mirrors the division option count
         self.n_corps_options: int = self._division.n_div_options
-
-        # Optional frozen division policy for Red
-        self._red_division_policy = None
-        if division_policy is not None:
-            self.set_division_policy(division_policy)
 
         # ── Action space ────────────────────────────────────────────
         self.action_space = spaces.MultiDiscrete(
@@ -529,37 +527,6 @@ class CorpsEnv(gym.Env):
         highs.append(1.0)
 
         return np.array(lows, dtype=np.float32), np.array(highs, dtype=np.float32)
-
-    # ------------------------------------------------------------------
-    # Frozen division policy
-    # ------------------------------------------------------------------
-
-    def set_division_policy(self, policy) -> None:
-        """Set (or clear) the frozen division policy for Red.
-
-        When *policy* is supplied, any PyTorch parameters are frozen
-        (``requires_grad=False``) and placed in evaluation mode.
-
-        Parameters
-        ----------
-        policy:
-            An object with a ``predict(obs, deterministic)`` method, or
-            ``None`` to revert to the default Red behaviour.
-        """
-        if policy is None:
-            self._red_division_policy = None
-            return
-
-        if hasattr(policy, "parameters"):
-            for param in policy.parameters():
-                param.requires_grad_(False)
-        if hasattr(policy, "eval"):
-            policy.eval()
-        if hasattr(policy, "policy") and hasattr(policy.policy, "parameters"):
-            for param in policy.policy.parameters():
-                param.requires_grad_(False)
-
-        self._red_division_policy = policy
 
     # ------------------------------------------------------------------
     # Gymnasium API: reset
@@ -700,36 +667,38 @@ class CorpsEnv(gym.Env):
     ) -> tuple[float, dict]:
         """Compute per-objective reward bonuses for the current step.
 
+        Always returns a stable dict with all three canonical keys
+        (``capture_hex``, ``cut_supply_line``, ``fix_and_flank``),
+        defaulting to 0.0 for objective types not in ``self.objectives``.
+
         Returns
         -------
         total_bonus : float
         details : dict  mapping objective name → reward granted this step
         """
         bonus = 0.0
-        details: dict[str, float] = {}
+        details: dict[str, float] = {
+            "capture_hex": 0.0,
+            "cut_supply_line": 0.0,
+            "fix_and_flank": 0.0,
+        }
 
         for obj in self.objectives:
             if obj.obj_type == ObjectiveType.CAPTURE_HEX:
                 if obj.is_blue_controlled:
                     details["capture_hex"] = _OBJ_CAPTURE_REWARD
                     bonus += _OBJ_CAPTURE_REWARD
-                else:
-                    details["capture_hex"] = 0.0
 
             elif obj.obj_type == ObjectiveType.CUT_SUPPLY_LINE:
                 if obj.is_blue_controlled:
                     details["cut_supply_line"] = _OBJ_SUPPLY_CUT_REWARD
                     bonus += _OBJ_SUPPLY_CUT_REWARD
-                else:
-                    details["cut_supply_line"] = 0.0
 
             elif obj.obj_type == ObjectiveType.FIX_AND_FLANK:
                 active = _detect_fix_and_flank(inner, self.map_height)
                 if active:
                     details["fix_and_flank"] = _OBJ_FIX_FLANK_REWARD
                     bonus += _OBJ_FIX_FLANK_REWARD
-                else:
-                    details["fix_and_flank"] = 0.0
 
         return bonus, details
 
@@ -839,13 +808,19 @@ class CorpsEnv(gym.Env):
         parts.append(self.road_network.fraction_on_road(red_positions))
 
         # ── 5. Objective control ──────────────────────────────────────
+        # Always emit exactly N_OBJECTIVES (3) slots for a stable obs schema.
+        # Aggregate by type: last objective of each type wins; missing → 0.5/0.0.
+        obj_values: dict[ObjectiveType, float] = {}
+        fix_flank_active = _detect_fix_and_flank(inner, self.map_height)
         for obj in self.objectives:
             if obj.obj_type == ObjectiveType.FIX_AND_FLANK:
-                # Dynamic objective — 1.0 when active, 0.0 when not
-                active = _detect_fix_and_flank(inner, self.map_height)
-                parts.append(1.0 if active else 0.0)
+                obj_values[ObjectiveType.FIX_AND_FLANK] = 1.0 if fix_flank_active else 0.0
             else:
-                parts.append(float(obj.control_value))
+                obj_values[obj.obj_type] = float(obj.control_value)
+
+        parts.append(obj_values.get(ObjectiveType.CAPTURE_HEX, 0.5))
+        parts.append(obj_values.get(ObjectiveType.CUT_SUPPLY_LINE, 0.5))
+        parts.append(obj_values.get(ObjectiveType.FIX_AND_FLANK, 0.0))
 
         # ── 6. Step progress ──────────────────────────────────────────
         parts.append(min(inner._step_count / self.max_steps, 1.0))

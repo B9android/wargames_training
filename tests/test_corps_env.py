@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -385,6 +384,18 @@ class TestCorpsEnvConstruction(unittest.TestCase):
         self.assertAlmostEqual(env.map_height, CORPS_MAP_HEIGHT)
         env.close()
 
+    def test_invalid_map_width_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            CorpsEnv(map_width=0.0)
+
+    def test_invalid_map_height_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            CorpsEnv(map_height=-100.0)
+
+    def test_invalid_max_steps_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            CorpsEnv(max_steps=0)
+
     def test_large_scale_5_divisions(self) -> None:
         """CorpsEnv must support 5 divisions per side."""
         env = CorpsEnv(n_divisions=5, n_brigades_per_division=2,
@@ -531,6 +542,25 @@ class TestCorpsEnvStep(unittest.TestCase):
         self.assertIn("fix_and_flank", obj_r)
         env.close()
 
+    def test_step_objective_rewards_stable_schema_custom_objectives(self) -> None:
+        """Stable schema is returned even when only some objective types are present."""
+        custom = [
+            OperationalObjective(x=100.0, y=100.0, radius=50.0,
+                                 obj_type=ObjectiveType.CAPTURE_HEX),
+        ]
+        env = make_env(objectives=custom)
+        env.reset(seed=0)
+        _, _, _, _, info = env.step(env.action_space.sample())
+        obj_r = info["objective_rewards"]
+        # All three keys always present
+        self.assertIn("capture_hex", obj_r)
+        self.assertIn("cut_supply_line", obj_r)
+        self.assertIn("fix_and_flank", obj_r)
+        # Missing types default to 0.0
+        self.assertAlmostEqual(obj_r["cut_supply_line"], 0.0)
+        self.assertAlmostEqual(obj_r["fix_and_flank"], 0.0)
+        env.close()
+
     def test_step_corps_steps_increment(self) -> None:
         env = make_env()
         env.reset(seed=0)
@@ -675,6 +705,42 @@ class TestRoadNetworkIntegration(unittest.TestCase):
             road_half_width=50.0,
         )
         self.assertAlmostEqual(net.get_speed_modifier(5000.0, 300.0), 1.0)
+
+    def test_road_bonus_actually_increases_movement(self) -> None:
+        """Battalion on a road should travel farther per step than off road."""
+        import math
+        from envs.sim.battalion import Battalion
+        from envs.multi_battalion_env import MultiBattalionEnv, DT
+
+        # Horizontal road at y=500
+        net = RoadNetwork(
+            segments=[RoadSegment(0.0, 500.0, 5000.0, 500.0)],
+            road_half_width=50.0,
+        )
+
+        def _measure_displacement(on_road: bool) -> float:
+            env_inner = MultiBattalionEnv(
+                n_blue=1, n_red=1, map_width=5000.0, map_height=5000.0
+            )
+            env_inner.road_network = net
+            env_inner.reset(seed=0)
+            b = env_inner._battalions["blue_0"]
+            # Place battalion on or off the road, facing east
+            b.x = 100.0
+            b.y = 500.0 if on_road else 2000.0
+            b.theta = 0.0
+            x_before = b.x
+            actions = {
+                "blue_0": np.array([1.0, 0.0, 0.0], dtype=np.float32),
+                "red_0": np.array([0.0, 0.0, 0.0], dtype=np.float32),
+            }
+            env_inner.step(actions)
+            return b.x - x_before
+
+        disp_on = _measure_displacement(on_road=True)
+        disp_off = _measure_displacement(on_road=False)
+        self.assertGreater(disp_on, disp_off,
+                           "On-road displacement should exceed off-road displacement")
 
 
 # ---------------------------------------------------------------------------
