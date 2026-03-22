@@ -51,6 +51,16 @@ class TestTerrainEngineFactories(unittest.TestCase):
         np.testing.assert_array_almost_equal(eng.elevation, elev)
         np.testing.assert_array_almost_equal(eng.cover, cov)
 
+    def test_max_elevation_property_flat(self) -> None:
+        eng = TerrainEngine.flat(500.0, 500.0, rows=4, cols=4)
+        self.assertAlmostEqual(eng.max_elevation, 0.0)
+
+    def test_max_elevation_property_nonzero(self) -> None:
+        elev = np.array([[0.0, 0.3], [0.7, 1.0]], dtype=np.float32)
+        cov = np.zeros_like(elev)
+        eng = TerrainEngine.from_arrays(200.0, 200.0, elev, cov)
+        self.assertAlmostEqual(eng.max_elevation, 1.0)
+
 
 # ---------------------------------------------------------------------------
 # Slope
@@ -177,8 +187,19 @@ class TestMovementCost(unittest.TestCase):
         for x in np.linspace(0.0, 500.0, 8):
             for y in np.linspace(0.0, 500.0, 8):
                 cost = eng.movement_cost(float(x), float(y), hill_speed_factor=0.5)
-                self.assertGreater(cost, 0.0)
+                self.assertGreaterEqual(cost, 0.5 - 1e-6)
                 self.assertLessEqual(cost, 1.0 + 1e-6)
+
+    def test_cost_never_below_hill_speed_factor_on_steep_high_ground(self) -> None:
+        """On maximum-elevation terrain the product of elev_mod * slope_mod must
+        still be >= hill_speed_factor due to the final clamp."""
+        # 2-row × 2-col grid: steep gradient so slope penalty is large
+        elev = np.array([[0.0, 1.0], [0.0, 1.0]], dtype=np.float32)
+        cov = np.zeros_like(elev)
+        eng = TerrainEngine.from_arrays(100.0, 100.0, elev, cov)
+        hsf = 0.5
+        cost = eng.movement_cost(75.0, 50.0, hill_speed_factor=hsf)
+        self.assertGreaterEqual(cost, hsf - 1e-6)
 
     def test_max_elev_cell_cost_lte_hill_speed_factor(self) -> None:
         # Single-cell map at max elevation → movement_cost == hill_speed_factor

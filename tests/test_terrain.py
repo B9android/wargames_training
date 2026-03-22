@@ -84,6 +84,37 @@ class TestTerrainMapFromArrays(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# max_elevation property
+# ---------------------------------------------------------------------------
+
+
+class TestMaxElevation(unittest.TestCase):
+    def test_flat_terrain_max_elevation_is_zero(self) -> None:
+        tm = TerrainMap.flat(500.0, 500.0, rows=4, cols=4)
+        self.assertAlmostEqual(tm.max_elevation, 0.0)
+
+    def test_no_elevation_grid_returns_zero(self) -> None:
+        tm = TerrainMap(width=500.0, height=500.0, elevation=None, cover=None)
+        self.assertAlmostEqual(tm.max_elevation, 0.0)
+
+    def test_returns_correct_max(self) -> None:
+        elev = np.array([[0.0, 0.5], [0.8, 1.0]], dtype=np.float32)
+        cov = np.zeros_like(elev)
+        tm = TerrainMap.from_arrays(200.0, 200.0, elev, cov)
+        self.assertAlmostEqual(tm.max_elevation, 1.0)
+
+    def test_max_elevation_matches_speed_modifier_normalisation(self) -> None:
+        """max_elevation is the same value used by get_speed_modifier."""
+        elev = np.array([[0.0, 0.3], [0.6, 1.0]], dtype=np.float32)
+        cov = np.zeros_like(elev)
+        tm = TerrainMap.from_arrays(200.0, 200.0, elev, cov)
+        # At max-elev cell (1.0), speed modifier should equal hill_speed_factor
+        max_mod = tm.get_speed_modifier(150.0, 150.0, hill_speed_factor=0.4)
+        self.assertAlmostEqual(max_mod, 0.4, places=5)
+        self.assertAlmostEqual(tm.max_elevation, 1.0)
+
+
+# ---------------------------------------------------------------------------
 # get_elevation
 # ---------------------------------------------------------------------------
 

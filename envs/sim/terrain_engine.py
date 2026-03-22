@@ -128,6 +128,11 @@ class TerrainEngine:
         """Cover grid, or ``None`` for featureless terrain."""
         return self.terrain_map.cover
 
+    @property
+    def max_elevation(self) -> float:
+        """Maximum elevation across the grid (delegates to :class:`~envs.sim.terrain.TerrainMap`)."""
+        return self.terrain_map.max_elevation
+
     # ------------------------------------------------------------------
     # Factories
     # ------------------------------------------------------------------
@@ -415,17 +420,32 @@ class TerrainEngine:
         elev0 = float(elev[r0, c0])
         elev1 = float(elev[r1, c1])
 
-        cells = list(_bresenham_cells(r0, c0, r1, c1))
-        n = len(cells)
+        # Number of visited cells is max(|dr|,|dc|)+1 for Bresenham traversal —
+        # avoid materializing the full list just to get its length.
+        dr = abs(r1 - r0)
+        dc = abs(c1 - c0)
+        n = max(dr, dc) + 1
 
         # Single cell: start and end map to the same grid cell — always visible.
         if n <= 1:
             return True
 
-        for i, (r, c) in enumerate(cells):
+        # Denominator for computing the parametric position of each visited
+        # cell along the segment in grid space.  Guaranteed > 0 when n > 1.
+        denom = float(dc * dc + dr * dr)
+
+        for i, (r, c) in enumerate(_bresenham_cells(r0, c0, r1, c1)):
             if i == 0 or i == n - 1:
                 continue  # endpoints are not checked against themselves
-            t = i / (n - 1)
+
+            # Parametric t: projected position of this cell along the line
+            # segment in grid coordinates, avoiding the index-step bias that
+            # occurs when diagonal steps are made.
+            vx = float(c - c0)
+            vy = float(r - r0)
+            t = (vx * dc + vy * dr) / denom
+            t = max(0.0, min(1.0, t))  # clamp for numerical robustness
+
             los_height = elev0 + t * (elev1 - elev0)
             if float(elev[r, c]) > los_height:
                 return False
@@ -457,9 +477,12 @@ class TerrainEngine:
         elev_mod = self.terrain_map.get_speed_modifier(x, y, hill_speed_factor)
         s = self.slope(x, y)
         # Slope penalty: each unit of slope reduces speed by 50 %.  The
-        # result is clamped so it never drops below hill_speed_factor.
+        # intermediate result is clamped to avoid dropping below hill_speed_factor.
         slope_mod = float(np.clip(1.0 - s * 0.5, hill_speed_factor, 1.0))
-        return elev_mod * slope_mod
+        # Clamp the combined product: on steep high-elevation ground the product
+        # of elev_mod (already as low as hill_speed_factor) and slope_mod can
+        # fall below hill_speed_factor.  Clamp to [hill_speed_factor, 1].
+        return float(np.clip(elev_mod * slope_mod, hill_speed_factor, 1.0))
 
     # ------------------------------------------------------------------
     # Sampling-based LOS (delegates to TerrainMap)

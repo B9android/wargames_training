@@ -125,6 +125,21 @@ class TerrainMap:
         )
 
     # ------------------------------------------------------------------
+    # Public properties
+    # ------------------------------------------------------------------
+
+    @property
+    def max_elevation(self) -> float:
+        """Maximum elevation value across the entire grid.
+
+        Returns ``0.0`` for flat terrain (no elevation grid).  This is the
+        same value used internally by :meth:`get_speed_modifier` to normalise
+        elevation; exposing it as a public property avoids callers reaching
+        into private state.
+        """
+        return self._max_elev
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 

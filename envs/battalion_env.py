@@ -42,6 +42,7 @@ from envs.sim.combat import (
 )
 from envs.sim.engine import DESTROYED_THRESHOLD
 from envs.sim.terrain import TerrainMap
+from envs.sim.terrain_engine import TerrainEngine
 
 # ---------------------------------------------------------------------------
 # Module-level constants
@@ -254,8 +255,10 @@ class BattalionEnv(gym.Env):
         # disabled so the caller's fixed map is used every episode.
         self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
         self._supplied_terrain: Optional[TerrainMap] = terrain
-        self.terrain: TerrainMap = (
-            terrain if terrain is not None else TerrainMap.flat(map_width, map_height)
+        self.terrain: TerrainEngine = (
+            TerrainEngine.from_terrain_map(terrain)
+            if terrain is not None
+            else TerrainEngine.flat(map_width, map_height)
         )
         self.render_mode = render_mode
         # Policy-based Red opponent (overrides scripted behaviour when set).
@@ -323,13 +326,13 @@ class BattalionEnv(gym.Env):
 
         # Generate a fresh terrain map from the seeded RNG each episode.
         if self.randomize_terrain:
-            self.terrain = TerrainMap.generate_random(
+            self.terrain = TerrainEngine.generate_random(
                 rng=rng,
                 width=self.map_width,
                 height=self.map_height,
             )
         elif self._supplied_terrain is not None:
-            self.terrain = self._supplied_terrain
+            self.terrain = TerrainEngine.from_terrain_map(self._supplied_terrain)
 
         # Blue: western quarter, roughly eastward
         bx = float(rng.uniform(0.1 * self.map_width, 0.4 * self.map_width))
@@ -503,11 +506,12 @@ class BattalionEnv(gym.Env):
     def _norm_elevation(self, x: float, y: float) -> float:
         """Return terrain elevation at ``(x, y)`` normalised to ``[0, 1]``.
 
-        Uses the map's maximum elevation as the normalisation factor (the
-        same approach as :meth:`~envs.sim.terrain.TerrainMap.get_speed_modifier`).
+        Uses :attr:`~envs.sim.terrain_engine.TerrainEngine.max_elevation` as
+        the normalisation factor (the same value used internally by
+        :meth:`~envs.sim.terrain.TerrainMap.get_speed_modifier`).
         Returns ``0.0`` on flat terrain.
         """
-        max_e = self.terrain._max_elev
+        max_e = self.terrain.max_elevation
         if max_e <= 0.0:
             return 0.0
         elev = self.terrain.get_elevation(x, y)
@@ -528,7 +532,7 @@ class BattalionEnv(gym.Env):
         blue_cover = self.terrain.get_cover(b.x, b.y)
         red_elev = self._norm_elevation(r.x, r.y)
         red_cover = self.terrain.get_cover(r.x, r.y)
-        los = 1.0 if self.terrain.line_of_sight(b.x, b.y, r.x, r.y) else 0.0
+        los = 1.0 if self.terrain.bresenham_los(b.x, b.y, r.x, r.y) else 0.0
 
         obs = np.array(
             [
@@ -575,7 +579,7 @@ class BattalionEnv(gym.Env):
         red_cover = self.terrain.get_cover(r.x, r.y)
         blue_elev = self._norm_elevation(b.x, b.y)
         blue_cover = self.terrain.get_cover(b.x, b.y)
-        los = 1.0 if self.terrain.line_of_sight(r.x, r.y, b.x, b.y) else 0.0
+        los = 1.0 if self.terrain.bresenham_los(r.x, r.y, b.x, b.y) else 0.0
 
         obs = np.array(
             [
