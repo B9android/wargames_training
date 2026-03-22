@@ -41,6 +41,13 @@ from envs.sim.combat import (
     morale_check,
 )
 from envs.sim.engine import DESTROYED_THRESHOLD
+from envs.sim.formations import (
+    Formation,
+    NUM_FORMATIONS,
+    compute_transition_state,
+    get_attributes,
+    get_transition_steps,
+)
 from envs.sim.morale import (
     MoraleConfig,
     compute_flank_stressor,
@@ -70,6 +77,7 @@ __all__ = [
     "MoraleConfig",
     "RewardWeights",
     "RedPolicy",
+    "Formation",
 ]
 
 
@@ -134,8 +142,8 @@ class BattalionEnv(gym.Env):
     5      Full combat — Red turns, advances, fires at 100 % intensity (default).
     =====  =============================================
 
-    Observation space — ``Box(shape=(17,), dtype=float32)``
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Observation space — ``Box(shape=(17,), dtype=float32)`` (formations disabled)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     =====  ===========================  =========
     Index  Feature                      Range
     =====  ===========================  =========
@@ -158,14 +166,31 @@ class BattalionEnv(gym.Env):
     16     line-of-sight (0=blocked)    [0, 1]
     =====  ===========================  =========
 
-    Action space — ``Box(shape=(3,), dtype=float32)``
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    When *enable_formations* is ``True``, two extra dimensions are appended:
+
+    =====  =====================================  =========
+    Index  Feature                                Range
+    =====  =====================================  =========
+    17     blue formation / (NUM_FORMATIONS−1)    [0, 1]
+    18     blue transitioning (1=yes)             [0, 1]
+    =====  =====================================  =========
+
+    Action space — ``Box(shape=(3,), dtype=float32)`` (formations disabled)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     =====  ===========  ========  ============================================
     Index  Name         Range     Effect
     =====  ===========  ========  ============================================
     0      move         [-1, 1]   Scale ``max_speed``; positive = forward
     1      rotate       [-1, 1]   Scale ``max_turn_rate``; positive = CCW
     2      fire         [0, 1]    Fire intensity this step
+    =====  ===========  ========  ============================================
+
+    When *enable_formations* is ``True``, a fourth dimension is added:
+
+    =====  ===========  ========  ============================================
+    Index  Name         Range     Effect
+    =====  ===========  ========  ============================================
+    3      formation    [0, 3]    Desired formation (rounded to nearest int)
     =====  ===========  ========  ============================================
 
     Parameters
@@ -205,6 +230,13 @@ class BattalionEnv(gym.Env):
         Render mode.  ``None`` disables rendering.  ``"human"`` opens a
         pygame window and renders the simulation in real time; each call to
         :meth:`render` displays the current frame.
+    enable_formations:
+        When ``True``, the formation system is activated.  The action space
+        gains a 4th dimension (desired formation index 0–3) and the
+        observation space gains two extra dimensions (current formation
+        normalised and a transitioning flag).  Formation modifiers are
+        applied to firepower, movement speed, and morale resilience.
+        Defaults to ``False`` to preserve full backward compatibility.
     """
 
     metadata: dict = {"render_modes": ["human"]}
@@ -222,6 +254,7 @@ class BattalionEnv(gym.Env):
         red_policy: Optional[RedPolicy] = None,
         render_mode: Optional[str] = None,
         morale_config: Optional[MoraleConfig] = None,
+        enable_formations: bool = False,
     ) -> None:
         super().__init__()
 
@@ -260,6 +293,7 @@ class BattalionEnv(gym.Env):
             reward_weights if reward_weights is not None else RewardWeights()
         )
         self.morale_config: Optional[MoraleConfig] = morale_config
+        self.enable_formations: bool = bool(enable_formations)
         # When an explicit terrain is supplied, terrain randomisation is
         # disabled so the caller's fixed map is used every episode.
         self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
@@ -277,8 +311,12 @@ class BattalionEnv(gym.Env):
         self._renderer: Optional[Any] = None
 
         # ------------------------------------------------------------------
-        # Observation space — 17-dimensional, all normalised
+        # Observation space
         # ------------------------------------------------------------------
+        # Base 17-dimensional observation (terrain + combat features).
+        # When formations are enabled two extra dims are appended:
+        #   [17] blue formation normalised in [0, 1]
+        #   [18] transitioning flag in {0, 1}
         obs_low = np.array(
             [0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0,
              0.0, 0.0, 0.0, 0.0, 0.0],
@@ -289,18 +327,28 @@ class BattalionEnv(gym.Env):
              1.0, 1.0, 1.0, 1.0, 1.0],
             dtype=np.float32,
         )
+        if self.enable_formations:
+            obs_low = np.append(obs_low, [0.0, 0.0]).astype(np.float32)
+            obs_high = np.append(obs_high, [1.0, 1.0]).astype(np.float32)
         self.observation_space = spaces.Box(
             low=obs_low, high=obs_high, dtype=np.float32
         )
 
         # ------------------------------------------------------------------
-        # Action space — (move, rotate, fire)
+        # Action space — (move, rotate, fire) + optional formation choice
         # ------------------------------------------------------------------
-        self.action_space = spaces.Box(
-            low=np.array([-1.0, -1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 1.0, 1.0], dtype=np.float32),
-            dtype=np.float32,
-        )
+        if self.enable_formations:
+            self.action_space = spaces.Box(
+                low=np.array([-1.0, -1.0, 0.0, 0.0], dtype=np.float32),
+                high=np.array([1.0, 1.0, 1.0, float(NUM_FORMATIONS - 1)], dtype=np.float32),
+                dtype=np.float32,
+            )
+        else:
+            self.action_space = spaces.Box(
+                low=np.array([-1.0, -1.0, 0.0], dtype=np.float32),
+                high=np.array([1.0, 1.0, 1.0], dtype=np.float32),
+                dtype=np.float32,
+            )
 
         # Internal state — populated by reset()
         self.blue: Battalion | None = None
@@ -383,6 +431,16 @@ class BattalionEnv(gym.Env):
         rotate_cmd = float(np.clip(action[1], -1.0, 1.0))
         fire_cmd   = float(np.clip(action[2],  0.0, 1.0))
 
+        # --- Formation action (optional 4th dimension) ---
+        if self.enable_formations and len(action) >= 4:
+            desired_formation_idx = int(np.clip(np.round(action[3]), 0, NUM_FORMATIONS - 1))
+            self._request_formation_change(self.blue, desired_formation_idx)
+
+        # --- Advance formation transitions for both units ---
+        if self.enable_formations:
+            self._advance_formation_transition(self.blue)
+            self._advance_formation_transition(self.red)
+
         # --- Apply agent action to Blue ---
         # Normal movement when not routing, OR when morale_config is not set
         # (legacy path: agent retains control even while CombatState.is_routing).
@@ -395,6 +453,9 @@ class BattalionEnv(gym.Env):
             speed_mod = self.terrain.get_speed_modifier(
                 self.blue.x, self.blue.y, self.hill_speed_factor
             )
+            # Formation speed modifier applied when formations are active
+            if self.enable_formations:
+                speed_mod *= get_attributes(Formation(self.blue.formation)).speed_modifier
             vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             self.blue.move(vx, vy, dt=DT)
@@ -590,7 +651,12 @@ class BattalionEnv(gym.Env):
         return float(np.clip(elev / max_e, 0.0, 1.0))
 
     def _get_obs(self) -> np.ndarray:
-        """Build and return the normalised 17-dimensional observation."""
+        """Build and return the normalised observation.
+
+        Returns a 17-dimensional array when formations are disabled, or a
+        19-dimensional array when *enable_formations* is ``True`` (two extra
+        dims: current formation normalised + transitioning flag).
+        """
         b = self.blue
         r = self.red
 
@@ -606,37 +672,40 @@ class BattalionEnv(gym.Env):
         red_cover = self.terrain.get_cover(r.x, r.y)
         los = 1.0 if self.terrain.bresenham_los(b.x, b.y, r.x, r.y) else 0.0
 
-        obs = np.array(
-            [
-                b.x / self.map_width,                    # [0] blue x norm
-                b.y / self.map_height,                   # [1] blue y norm
-                math.cos(b.theta),                       # [2] cos(blue θ)
-                math.sin(b.theta),                       # [3] sin(blue θ)
-                b.strength,                              # [4] blue strength
-                b.morale,                                # [5] blue morale
-                min(dist / self.map_diagonal, 1.0),      # [6] dist norm
-                math.cos(bearing),                       # [7] cos(bearing)
-                math.sin(bearing),                       # [8] sin(bearing)
-                r.strength,                              # [9] red strength
-                r.morale,                                # [10] red morale
-                min(self._step_count / self.max_steps, 1.0),  # [11] step norm
-                blue_elev,                               # [12] blue elevation
-                blue_cover,                              # [13] blue cover
-                red_elev,                                # [14] red elevation
-                red_cover,                               # [15] red cover
-                los,                                     # [16] line-of-sight
-            ],
-            dtype=np.float32,
-        )
+        base = [
+            b.x / self.map_width,                    # [0] blue x norm
+            b.y / self.map_height,                   # [1] blue y norm
+            math.cos(b.theta),                       # [2] cos(blue θ)
+            math.sin(b.theta),                       # [3] sin(blue θ)
+            b.strength,                              # [4] blue strength
+            b.morale,                                # [5] blue morale
+            min(dist / self.map_diagonal, 1.0),      # [6] dist norm
+            math.cos(bearing),                       # [7] cos(bearing)
+            math.sin(bearing),                       # [8] sin(bearing)
+            r.strength,                              # [9] red strength
+            r.morale,                                # [10] red morale
+            min(self._step_count / self.max_steps, 1.0),  # [11] step norm
+            blue_elev,                               # [12] blue elevation
+            blue_cover,                              # [13] blue cover
+            red_elev,                                # [14] red elevation
+            red_cover,                               # [15] red cover
+            los,                                     # [16] line-of-sight
+        ]
+        if self.enable_formations:
+            base.append(b.formation / float(NUM_FORMATIONS - 1))  # [17] formation norm
+            base.append(1.0 if b.target_formation is not None else 0.0)  # [18] transitioning
+        obs = np.array(base, dtype=np.float32)
         # Clip to declared bounds to guard against floating-point drift
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
     def _get_red_obs(self) -> np.ndarray:
-        """Build the 17-dimensional observation from **Red's** perspective.
+        """Build the observation from **Red's** perspective.
 
         The observation is symmetric to Blue's: Red sees itself where Blue
         normally sits and Blue where Red normally sits.  This means a frozen
         Red policy trained as Blue sees the same observation schema.
+        When formations are enabled the two extra formation dims reflect Red's
+        formation state.
         """
         r = self.red
         b = self.blue
@@ -653,28 +722,29 @@ class BattalionEnv(gym.Env):
         blue_cover = self.terrain.get_cover(b.x, b.y)
         los = 1.0 if self.terrain.bresenham_los(r.x, r.y, b.x, b.y) else 0.0
 
-        obs = np.array(
-            [
-                r.x / self.map_width,                    # [0] red x norm
-                r.y / self.map_height,                   # [1] red y norm
-                math.cos(r.theta),                       # [2] cos(red θ)
-                math.sin(r.theta),                       # [3] sin(red θ)
-                r.strength,                              # [4] red strength
-                r.morale,                                # [5] red morale
-                min(dist / self.map_diagonal, 1.0),      # [6] dist norm
-                math.cos(bearing),                       # [7] cos(bearing to blue)
-                math.sin(bearing),                       # [8] sin(bearing to blue)
-                b.strength,                              # [9] blue strength
-                b.morale,                                # [10] blue morale
-                min(self._step_count / self.max_steps, 1.0),  # [11] step norm
-                red_elev,                                # [12] red elevation
-                red_cover,                               # [13] red cover
-                blue_elev,                               # [14] blue elevation
-                blue_cover,                              # [15] blue cover
-                los,                                     # [16] line-of-sight
-            ],
-            dtype=np.float32,
-        )
+        base = [
+            r.x / self.map_width,                    # [0] red x norm
+            r.y / self.map_height,                   # [1] red y norm
+            math.cos(r.theta),                       # [2] cos(red θ)
+            math.sin(r.theta),                       # [3] sin(red θ)
+            r.strength,                              # [4] red strength
+            r.morale,                                # [5] red morale
+            min(dist / self.map_diagonal, 1.0),      # [6] dist norm
+            math.cos(bearing),                       # [7] cos(bearing to blue)
+            math.sin(bearing),                       # [8] sin(bearing to blue)
+            b.strength,                              # [9] blue strength
+            b.morale,                                # [10] blue morale
+            min(self._step_count / self.max_steps, 1.0),  # [11] step norm
+            red_elev,                                # [12] red elevation
+            red_cover,                               # [13] red cover
+            blue_elev,                               # [14] blue elevation
+            blue_cover,                              # [15] blue cover
+            los,                                     # [16] line-of-sight
+        ]
+        if self.enable_formations:
+            base.append(r.formation / float(NUM_FORMATIONS - 1))  # [17] formation norm
+            base.append(1.0 if r.target_formation is not None else 0.0)  # [18] transitioning
+        obs = np.array(base, dtype=np.float32)
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
     def _step_red_policy(self, action: np.ndarray) -> None:
@@ -686,7 +756,7 @@ class BattalionEnv(gym.Env):
         Parameters
         ----------
         action:
-            Array of shape ``(3,)``: ``[move, rotate, fire]``.
+            Array of shape ``(3,)`` or ``(4,)``: ``[move, rotate, fire, ...]``.
         """
         r = self.red
         move_cmd   = float(np.clip(action[0], -1.0, 1.0))
@@ -694,6 +764,8 @@ class BattalionEnv(gym.Env):
 
         r.rotate(rotate_cmd * r.max_turn_rate)
         speed_mod = self.terrain.get_speed_modifier(r.x, r.y, self.hill_speed_factor)
+        if self.enable_formations:
+            speed_mod *= get_attributes(Formation(r.formation)).speed_modifier
         vx = math.cos(r.theta) * move_cmd * r.max_speed * speed_mod
         vy = math.sin(r.theta) * move_cmd * r.max_speed * speed_mod
         r.move(vx, vy, dt=DT)
@@ -742,6 +814,8 @@ class BattalionEnv(gym.Env):
             speed_mod = self.terrain.get_speed_modifier(
                 r.x, r.y, self.hill_speed_factor
             )
+            if self.enable_formations:
+                speed_mod *= get_attributes(Formation(r.formation)).speed_modifier
             vx = math.cos(r.theta) * r.max_speed * speed_mod
             vy = math.sin(r.theta) * r.max_speed * speed_mod
             r.move(vx, vy, dt=DT)
@@ -788,3 +862,55 @@ class BattalionEnv(gym.Env):
         r.move(vx, vy, dt=DT)
         r.x = float(np.clip(r.x, 0.0, self.map_width))
         r.y = float(np.clip(r.y, 0.0, self.map_height))
+
+    # ------------------------------------------------------------------
+    # Formation helpers (only called when enable_formations is True)
+    # ------------------------------------------------------------------
+
+    def _request_formation_change(self, unit: Battalion, desired_idx: int) -> None:
+        """Request a formation change for *unit*.
+
+        Ignored if the unit is already in or transitioning to *desired_idx*.
+        Starts a transition by setting ``target_formation`` and
+        ``formation_transition_steps`` on the unit.
+
+        Parameters
+        ----------
+        unit:
+            The :class:`~envs.sim.battalion.Battalion` whose formation to change.
+        desired_idx:
+            Target :class:`~envs.sim.formations.Formation` value (integer).
+        """
+        desired_idx = int(np.clip(desired_idx, 0, NUM_FORMATIONS - 1))
+        # Already there or already heading there — no-op
+        if desired_idx == unit.formation:
+            return
+        if unit.target_formation is not None and unit.target_formation == desired_idx:
+            return
+        # Start transition
+        steps = get_transition_steps(
+            Formation(unit.formation), Formation(desired_idx)
+        )
+        unit.target_formation = desired_idx
+        unit.formation_transition_steps = steps
+
+    @staticmethod
+    def _advance_formation_transition(unit: Battalion) -> None:
+        """Advance *unit*'s formation transition by one step.
+
+        Calls :func:`~envs.sim.formations.compute_transition_state` and
+        writes the result back to the unit's formation fields.
+
+        Parameters
+        ----------
+        unit:
+            The :class:`~envs.sim.battalion.Battalion` to advance.
+        """
+        new_formation, new_target, new_steps = compute_transition_state(
+            Formation(unit.formation),
+            Formation(unit.target_formation) if unit.target_formation is not None else None,
+            unit.formation_transition_steps,
+        )
+        unit.formation = int(new_formation)
+        unit.target_formation = int(new_target) if new_target is not None else None
+        unit.formation_transition_steps = new_steps
