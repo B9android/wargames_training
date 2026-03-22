@@ -406,8 +406,8 @@ class TestUpdateMorale(unittest.TestCase):
         """A routing unit with high morale should eventually rally."""
         config = MoraleConfig(rally_probability=1.0)  # always rally if morale gated
         rng = np.random.default_rng(0)
-        state = _make_state(morale=config.rout_threshold * config.rally_threshold_multiplier + 0.1,
-                            is_routing=True)
+        rally_gate_morale = config.rout_threshold * config.rally_threshold_multiplier + 0.1
+        state = _make_state(morale=rally_gate_morale, is_routing=True)
         state.accumulated_damage = 0.0
         result = update_morale(state, enemy_dist=1000.0, config=config, rng=rng)
         self.assertFalse(result, "Unit should rally with high morale and 100% rally_probability")
@@ -416,10 +416,9 @@ class TestUpdateMorale(unittest.TestCase):
         """Routing unit below rally gate should never rally."""
         config = MoraleConfig(rally_probability=1.0)
         rng = np.random.default_rng(0)
-        state = _make_state(
-            morale=config.rout_threshold * 0.5,  # below rally gate
-            is_routing=True,
-        )
+        # Morale below the rally gate (half-way between zero and rally gate)
+        below_gate_morale = config.rout_threshold * config.rally_threshold_multiplier * 0.5
+        state = _make_state(morale=below_gate_morale, is_routing=True)
         state.accumulated_damage = 0.0
         for _ in range(10):
             update_morale(state, enemy_dist=50.0, config=config, rng=rng)

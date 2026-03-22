@@ -441,9 +441,9 @@ class BattalionEnv(gym.Env):
         dmg_r2b = apply_casualties(self.blue, self.blue_state, raw_r2b)
 
         # Compute enemy distance for distance-based morale recovery
-        _dx = self.blue.x - self.red.x
-        _dy = self.blue.y - self.red.y
-        enemy_dist = float(math.sqrt(_dx * _dx + _dy * _dy))
+        dx = self.blue.x - self.red.x
+        dy = self.blue.y - self.red.y
+        enemy_dist = float(math.sqrt(dx * dx + dy * dy))
 
         # Morale checks — use enhanced update_morale when a MoraleConfig is
         # provided, otherwise fall back to the basic morale_check.

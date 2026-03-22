@@ -199,9 +199,11 @@ def compute_flank_stressor(
     if base_damage <= 0.0:
         return 0.0
 
+    # Vector from attacker to target; the arrival direction is the reverse
     dx = target_x - attacker_x
     dy = target_y - attacker_y
-    # Arrival angle: direction from which bullets arrive at the target
+    # Reverse to get the direction bullets travel toward the target, then add π
+    # to get the direction from which they arrive at the target's position
     arrival_angle = math.atan2(dy, dx) + math.pi
     diff = abs(_angle_diff(arrival_angle, target_theta))
 

@@ -202,10 +202,10 @@ class SimEngine:
         if raw_red_to_blue > 0.0:
             self.red_state.shots_fired += 1
 
-        # Compute inter-unit distance for distance-based recovery
+        # Compute enemy distance for distance-based morale recovery
         dx = self.blue.x - self.red.x
         dy = self.blue.y - self.red.y
-        dist = float(np.sqrt(dx * dx + dy * dy))
+        enemy_dist = float(np.sqrt(dx * dx + dy * dy))
 
         # 5. Morale checks — use enhanced update_morale when a MoraleConfig is
         #    provided, otherwise fall back to the basic morale_check.
@@ -223,14 +223,14 @@ class SimEngine:
             )
             blue_routing = update_morale(
                 self.blue_state,
-                enemy_dist=dist,
+                enemy_dist=enemy_dist,
                 config=mc,
                 flank_penalty=blue_flank,
                 rng=self.rng,
             )
             red_routing = update_morale(
                 self.red_state,
-                enemy_dist=dist,
+                enemy_dist=enemy_dist,
                 config=mc,
                 flank_penalty=red_flank,
                 rng=self.rng,
