@@ -235,7 +235,9 @@ class BattalionEnv(gym.Env):
         gains a 4th dimension (desired formation index 0–3) and the
         observation space gains two extra dimensions (current formation
         normalised and a transitioning flag).  Formation modifiers are
-        applied to firepower, movement speed, and morale resilience.
+        applied to firepower, movement speed, and morale resilience (the
+        morale hit from casualties is divided by the unit's
+        ``morale_resilience`` before being fed into the morale check).
         Defaults to ``False`` to preserve full backward compatibility.
     """
 
@@ -493,6 +495,17 @@ class BattalionEnv(gym.Env):
         # Apply casualties
         dmg_b2r = apply_casualties(self.red, self.red_state, raw_b2r)
         dmg_r2b = apply_casualties(self.blue, self.blue_state, raw_r2b)
+
+        # Formation morale resilience — scale down the accumulated damage that
+        # feeds into the morale check.  A higher morale_resilience means the
+        # unit absorbs the same strength loss with less morale penalty (SQUARE
+        # = 1.5×, i.e. morale hit is 2/3 of what unformed troops would suffer).
+        # This only affects morale propagation; strength damage is unchanged.
+        if self.enable_formations:
+            blue_resilience = get_attributes(Formation(self.blue.formation)).morale_resilience
+            red_resilience = get_attributes(Formation(self.red.formation)).morale_resilience
+            self.blue_state.accumulated_damage /= blue_resilience
+            self.red_state.accumulated_damage /= red_resilience
 
         # Compute enemy distance for distance-based morale recovery
         dx = self.blue.x - self.red.x

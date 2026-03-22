@@ -43,7 +43,6 @@ Key public API
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Dict, Optional, Tuple
@@ -314,7 +313,6 @@ def resolve_cavalry_charge(
         rng = np.random.default_rng()
 
     def_attrs = get_attributes(defender_formation)
-    att_attrs = get_attributes(attacker_formation)
 
     # Charge impetus — attacker's strength scales the threat
     impetus = BASE_CHARGE_DAMAGE * max(0.0, float(attacker_strength))
@@ -349,7 +347,7 @@ def resolve_cavalry_charge(
 
 
 # ---------------------------------------------------------------------------
-# Formation state helper (used by Battalion.update_formation)
+# Formation transition state helper (called by BattalionEnv._advance_formation_transition)
 # ---------------------------------------------------------------------------
 
 

@@ -746,6 +746,55 @@ class TestBattalionEnvFormations(unittest.TestCase):
                     msg=f"Formation {formation.name} not reachable via action",
                 )
 
+    def test_square_morale_resilience_reduces_morale_hit(self) -> None:
+        """SQUARE morale_resilience=1.5 should cause less morale damage than LINE (1.0).
+
+        We run identical damage through two parallel setups -- one in LINE
+        formation and one in SQUARE -- and confirm the SQUARE unit's morale
+        drops less than the LINE unit's morale after the same casualty event.
+        """
+        from envs.sim.combat import morale_check
+
+        def _run_hit(formation_idx: int, damage: float = 0.1) -> float:
+            """Return morale after taking *damage* in *formation_idx*.
+
+            Injects accumulated_damage directly into CombatState and applies
+            the same morale_resilience scaling used in BattalionEnv.step(),
+            then runs morale_check to compute the resulting morale level.
+            """
+            env = BattalionEnv(
+                randomize_terrain=False,
+                enable_formations=True,
+                curriculum_level=1,
+            )
+            obs, _ = env.reset(seed=0)
+            env.blue.formation = formation_idx
+            env.blue.target_formation = None
+            env.blue.formation_transition_steps = 0
+            env.blue.morale = 1.0
+            env.blue_state.morale = 1.0
+
+            # Inject damage and apply resilience scaling (mirrors BattalionEnv.step())
+            env.blue_state.accumulated_damage = damage
+            env.blue_state.total_casualties += damage
+            blue_resilience = get_attributes(Formation(env.blue.formation)).morale_resilience
+            env.blue_state.accumulated_damage /= blue_resilience
+
+            morale_check(env.blue_state, rng=np.random.default_rng(0))
+            result = env.blue_state.morale
+            env.close()
+            return result
+
+        morale_line = _run_hit(int(Formation.LINE))
+        morale_square = _run_hit(int(Formation.SQUARE))
+
+        # SQUARE morale_resilience=1.5 reduces the morale hit to 2/3 of LINE's
+        self.assertGreater(
+            morale_square,
+            morale_line,
+            msg="SQUARE should retain more morale than LINE after identical damage",
+        )
+
 
 # ---------------------------------------------------------------------------
 # Skirmish mechanics
