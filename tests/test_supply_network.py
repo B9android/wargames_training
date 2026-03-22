@@ -21,7 +21,13 @@ from envs.sim.supply_network import (
     SupplyDepot,
     SupplyNetwork,
 )
-from envs.corps_env import CorpsEnv, _corps_obs_dim
+from envs.corps_env import (
+    CorpsEnv,
+    N_CORPS_SECTORS,
+    N_OBJECTIVES,
+    N_ROAD_FEATURES,
+    _corps_obs_dim,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -490,7 +496,7 @@ class TestSupplyNetwork(unittest.TestCase):
                 self.assertGreaterEqual(d.x, 5_000.0)  # east half
 
     def test_generate_default_red_forward_depot_matches_objective(self) -> None:
-        """Red's forward depot x should be at 80 % of map width."""
+        """Red's forward depot x should be at 80% of map width."""
         net = SupplyNetwork.generate_default(10_000.0, 5_000.0)
         red_forward_x = [d.x for d in net.depots if d.team == 1]
         self.assertIn(8_000.0, red_forward_x)
@@ -548,7 +554,7 @@ class TestSupplyInterdiction(unittest.TestCase):
         net = SupplyNetwork(depots=[depot])
         # At full stock: unit at 600 m is in supply
         self.assertGreater(net.get_supply_level(600.0, 0.0, team=1), 0.0)
-        # Deplete stock to 50 %
+        # Deplete stock to 50%
         depot.stock = 0.5
         # Now effective radius = 500 m; unit at 600 m is out of supply
         self.assertAlmostEqual(net.get_supply_level(600.0, 0.0, team=1), 0.0)
@@ -568,9 +574,9 @@ class TestCorpsEnvSupplyIntegration(unittest.TestCase):
         """_corps_obs_dim must include n_divisions supply features."""
         for nd in (1, 2, 3):
             dim = _corps_obs_dim(nd)
-            # Old formula was N_CORPS_SECTORS + 8*nd + N_ROAD_FEATURES + N_OBJECTIVES + 1
-            # New formula adds nd (supply per division)
-            old_dim = 7 + 8 * nd + 2 + 3 + 1
+            # Old formula: N_CORPS_SECTORS + 8*nd + N_ROAD_FEATURES + N_OBJECTIVES + 1
+            # New formula adds nd supply features (one per division)
+            old_dim = N_CORPS_SECTORS + 8 * nd + N_ROAD_FEATURES + N_OBJECTIVES + 1
             self.assertEqual(dim, old_dim + nd)
 
     def test_env_obs_shape_matches_dim(self) -> None:
@@ -648,9 +654,9 @@ class TestCorpsEnvSupplyIntegration(unittest.TestCase):
         """After interdicting all Red depots, Red supply is gone (no effect on Blue obs slice)."""
         env = make_env()
         env.reset(seed=0)
-        # Supply obs slice starts at position: N_SECTORS + 8*nd + ROAD + OBJ
+        # Supply obs slice starts at: N_CORPS_SECTORS + 8*nd + N_ROAD_FEATURES + N_OBJECTIVES
         nd = env.n_divisions
-        supply_start = 7 + 8 * nd + 2 + 3
+        supply_start = N_CORPS_SECTORS + 8 * nd + N_ROAD_FEATURES + N_OBJECTIVES
         supply_end = supply_start + nd
         # Step once to get baseline obs
         action = env.action_space.sample()

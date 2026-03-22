@@ -509,7 +509,7 @@ class SupplyNetwork:
 
         Creates two Blue depots (in the western third of the map) and two
         Red depots (in the eastern third), connected by intra-team convoy
-        routes.  Red's primary forward depot is placed at 80 % of map width
+        routes.  Red's primary forward depot is placed at 80% of map width
         to match the :class:`~envs.corps_env.CorpsEnv` ``CUT_SUPPLY_LINE``
         objective position.
 
@@ -537,7 +537,7 @@ class SupplyNetwork:
                 team=0,
                 base_supply_radius=supply_radius,
             ),
-            # Red forward depot (matches CUT_SUPPLY_LINE objective at 80 %)
+            # Red forward depot (matches CUT_SUPPLY_LINE objective at 80%)
             SupplyDepot(
                 x=map_width * 0.8,
                 y=map_height * 0.5,
