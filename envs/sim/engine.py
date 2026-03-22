@@ -33,6 +33,13 @@ from envs.sim.combat import (
     compute_fire_damage,
     morale_check,
 )
+from envs.sim.morale import (
+    MoraleConfig,
+    compute_flank_stressor,
+    is_dispersed,
+    rout_velocity,
+    update_morale,
+)
 from envs.sim.terrain import TerrainMap
 
 # ---------------------------------------------------------------------------
@@ -124,12 +131,14 @@ class SimEngine:
         terrain: Optional[TerrainMap] = None,
         max_steps: int = 500,
         rng: Optional[np.random.Generator] = None,
+        morale_config: Optional[MoraleConfig] = None,
     ) -> None:
         self.blue = blue
         self.red = red
         self.terrain: TerrainMap = terrain if terrain is not None else TerrainMap.flat(1000.0, 1000.0)
         self.max_steps = max_steps
         self.rng: np.random.Generator = rng if rng is not None else np.random.default_rng()
+        self.morale_config: Optional[MoraleConfig] = morale_config
 
         self.blue_state = CombatState()
         self.red_state = CombatState()
@@ -193,9 +202,61 @@ class SimEngine:
         if raw_red_to_blue > 0.0:
             self.red_state.shots_fired += 1
 
-        # 5. Morale checks
-        blue_routing = morale_check(self.blue_state, rng=self.rng)
-        red_routing = morale_check(self.red_state, rng=self.rng)
+        # Compute inter-unit distance for distance-based recovery
+        dx = self.blue.x - self.red.x
+        dy = self.blue.y - self.red.y
+        dist = float(np.sqrt(dx * dx + dy * dy))
+
+        # 5. Morale checks — use enhanced update_morale when a MoraleConfig is
+        #    provided, otherwise fall back to the basic morale_check.
+        if self.morale_config is not None:
+            mc = self.morale_config
+            blue_flank = compute_flank_stressor(
+                self.red.x, self.red.y,
+                self.blue.x, self.blue.y, self.blue.theta,
+                actual_red_to_blue,
+            )
+            red_flank = compute_flank_stressor(
+                self.blue.x, self.blue.y,
+                self.red.x, self.red.y, self.red.theta,
+                actual_blue_to_red,
+            )
+            blue_routing = update_morale(
+                self.blue_state,
+                enemy_dist=dist,
+                config=mc,
+                flank_penalty=blue_flank,
+                rng=self.rng,
+            )
+            red_routing = update_morale(
+                self.red_state,
+                enemy_dist=dist,
+                config=mc,
+                flank_penalty=red_flank,
+                rng=self.rng,
+            )
+        else:
+            blue_routing = morale_check(self.blue_state, rng=self.rng)
+            red_routing = morale_check(self.red_state, rng=self.rng)
+
+        # 6. Apply forced rout movement (overrides normal movement)
+        if self.morale_config is not None:
+            if blue_routing:
+                vx, vy = rout_velocity(
+                    self.blue.x, self.blue.y,
+                    self.red.x, self.red.y,
+                    self.blue.max_speed,
+                    self.morale_config,
+                )
+                self.blue.move(vx, vy, dt=0.1)
+            if red_routing:
+                vx, vy = rout_velocity(
+                    self.red.x, self.red.y,
+                    self.blue.x, self.blue.y,
+                    self.red.max_speed,
+                    self.morale_config,
+                )
+                self.red.move(vx, vy, dt=0.1)
 
         # Keep Battalion.morale and Battalion.routed in sync with CombatState
         self.blue.morale = self.blue_state.morale
