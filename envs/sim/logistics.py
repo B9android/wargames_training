@@ -258,6 +258,13 @@ class LogisticsState:
     food: float = field(default=DEFAULT_INITIAL_FOOD)
     fatigue: float = 0.0
 
+    def __post_init__(self) -> None:
+        # Clamp core logistics values to their documented [0, 1] range to
+        # prevent invalid states (e.g., negative modifiers downstream).
+        self.ammo = min(max(self.ammo, 0.0), 1.0)
+        self.food = min(max(self.food, 0.0), 1.0)
+        self.fatigue = min(max(self.fatigue, 0.0), 1.0)
+
     @property
     def is_ammo_exhausted(self) -> bool:
         """``True`` when the battalion has no ammunition left."""
@@ -313,7 +320,20 @@ class SupplyWagon:
         return self.strength > 0.0
 
     def take_damage(self, damage: float) -> None:
-        """Apply *damage* to the wagon; strength is clamped to ``[0, 1]``."""
+        """Apply *damage* to the wagon; strength is clamped to ``[0, 1]``.
+
+        Parameters
+        ----------
+        damage:
+            Non-negative amount of damage to inflict.
+
+        Raises
+        ------
+        ValueError
+            If *damage* is negative.
+        """
+        if damage < 0.0:
+            raise ValueError(f"damage must be non-negative, got {damage!r}")
         self.strength = float(np.clip(self.strength - damage, 0.0, 1.0))
 
     def move_toward(self, target_x: float, target_y: float, speed: float, dt: float = 0.1) -> None:

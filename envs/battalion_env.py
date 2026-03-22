@@ -35,6 +35,7 @@ from gymnasium import spaces
 from envs.reward import RewardWeights, compute_reward
 from envs.sim.battalion import Battalion
 from envs.sim.combat import (
+    BASE_FIRE_DAMAGE,
     CombatState,
     apply_casualties,
     compute_fire_damage,
@@ -625,6 +626,21 @@ class BattalionEnv(gym.Env):
         dmg_b2r = apply_casualties(self.red, self.red_state, raw_b2r)
         dmg_r2b = apply_casualties(self.blue, self.blue_state, raw_r2b)
 
+        # Wagon targeting — when logistics are active, each side's fire can
+        # also damage the enemy supply wagon if it is within range and in the
+        # fire arc.  This makes wagons emergent high-priority targets.
+        if self.enable_logistics:
+            self._apply_wagon_damage(
+                shooter=self.red,
+                wagon=self.blue_wagon,
+                intensity=effective_red_fire_cmd,
+            )
+            self._apply_wagon_damage(
+                shooter=self.blue,
+                wagon=self.red_wagon,
+                intensity=effective_fire_cmd,
+            )
+
         # Formation morale resilience — scale down the accumulated damage that
         # feeds into the morale check.  A higher morale_resilience means the
         # unit absorbs the same strength loss with less morale penalty (SQUARE
@@ -695,7 +711,9 @@ class BattalionEnv(gym.Env):
             if self.blue_logistics is not None:
                 update_fatigue(self.blue_logistics, blue_moved, blue_fired, lc)
                 consume_food(self.blue_logistics, lc)
-                if self.blue_wagon is not None:
+                # Resupply only available when halted near a friendly wagon
+                # (not moving and not firing) — models historical supply practice.
+                if self.blue_wagon is not None and not blue_moved and not blue_fired:
                     check_resupply(
                         self.blue_logistics,
                         self.blue.x, self.blue.y,
@@ -704,7 +722,8 @@ class BattalionEnv(gym.Env):
             if self.red_logistics is not None:
                 update_fatigue(self.red_logistics, red_moved, red_fired, lc)
                 consume_food(self.red_logistics, lc)
-                if self.red_wagon is not None:
+                # Resupply only available when halted near a friendly wagon
+                if self.red_wagon is not None and not red_moved and not red_fired:
                     check_resupply(
                         self.red_logistics,
                         self.red.x, self.red.y,
@@ -956,6 +975,8 @@ class BattalionEnv(gym.Env):
         speed_mod = self.terrain.get_speed_modifier(r.x, r.y, self.hill_speed_factor)
         if self.enable_formations:
             speed_mod *= get_attributes(Formation(r.formation)).speed_modifier
+        if self.enable_logistics and self.red_logistics is not None:
+            speed_mod *= get_fatigue_speed_modifier(self.red_logistics, self.logistics_config)
         vx = math.cos(r.theta) * move_cmd * r.max_speed * speed_mod
         vy = math.sin(r.theta) * move_cmd * r.max_speed * speed_mod
         r.move(vx, vy, dt=DT)
@@ -1006,6 +1027,10 @@ class BattalionEnv(gym.Env):
             )
             if self.enable_formations:
                 speed_mod *= get_attributes(Formation(r.formation)).speed_modifier
+            if self.enable_logistics and self.red_logistics is not None:
+                speed_mod *= get_fatigue_speed_modifier(
+                    self.red_logistics, self.logistics_config
+                )
             vx = math.cos(r.theta) * r.max_speed * speed_mod
             vy = math.sin(r.theta) * r.max_speed * speed_mod
             r.move(vx, vy, dt=DT)
@@ -1052,6 +1077,55 @@ class BattalionEnv(gym.Env):
         r.move(vx, vy, dt=DT)
         r.x = float(np.clip(r.x, 0.0, self.map_width))
         r.y = float(np.clip(r.y, 0.0, self.map_height))
+
+    def _apply_wagon_damage(
+        self,
+        shooter: Battalion,
+        wagon: Optional[SupplyWagon],
+        intensity: float,
+    ) -> None:
+        """Apply fire damage from *shooter* to an enemy *wagon* if in range.
+
+        Uses a simple linear range-factor scaled by ``BASE_FIRE_DAMAGE`` and
+        shooter strength, without formation modifiers (wagons are unformed
+        logistics assets, not fighting units).  The calculation mirrors the
+        legacy path of :func:`~envs.sim.combat.compute_fire_damage`.
+
+        Parameters
+        ----------
+        shooter:
+            The firing battalion.
+        wagon:
+            The target supply wagon.  If ``None`` or already destroyed, this
+            method is a no-op.
+        intensity:
+            Effective fire intensity (after ammo and fatigue modifiers).
+        """
+        if wagon is None or not wagon.is_alive:
+            return
+        if intensity <= 0.0:
+            return
+
+        dx = wagon.x - shooter.x
+        dy = wagon.y - shooter.y
+        dist = math.sqrt(dx * dx + dy * dy)
+
+        # Range check
+        if dist > shooter.fire_range or shooter.fire_range <= 0.0:
+            return
+
+        # Fire-arc check (same formula as in_fire_arc / can_fire_at)
+        angle_to_wagon = math.atan2(dy, dx)
+        angle_diff = abs(
+            (angle_to_wagon - shooter.theta + math.pi) % (2 * math.pi) - math.pi
+        )
+        if angle_diff >= shooter.fire_arc:
+            return
+
+        # Linear range falloff
+        rf = 1.0 - (dist / shooter.fire_range)
+        damage = BASE_FIRE_DAMAGE * float(intensity) * rf * max(0.0, shooter.strength)
+        wagon.take_damage(damage)
 
     # ------------------------------------------------------------------
     # Formation helpers (only called when enable_formations is True)

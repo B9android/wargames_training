@@ -200,6 +200,27 @@ class TestLogisticsState(unittest.TestCase):
         self.assertAlmostEqual(s.food, 0.3)
         self.assertAlmostEqual(s.fatigue, 0.4)
 
+    def test_post_init_clamps_ammo_above_one(self) -> None:
+        """Values above 1 are clamped on construction to prevent invalid states."""
+        s = LogisticsState(ammo=1.5)
+        self.assertAlmostEqual(s.ammo, 1.0)
+
+    def test_post_init_clamps_ammo_below_zero(self) -> None:
+        s = LogisticsState(ammo=-0.1)
+        self.assertAlmostEqual(s.ammo, 0.0)
+
+    def test_post_init_clamps_food_above_one(self) -> None:
+        s = LogisticsState(food=2.0)
+        self.assertAlmostEqual(s.food, 1.0)
+
+    def test_post_init_clamps_fatigue_above_one(self) -> None:
+        s = LogisticsState(fatigue=1.5)
+        self.assertAlmostEqual(s.fatigue, 1.0)
+
+    def test_post_init_clamps_fatigue_below_zero(self) -> None:
+        s = LogisticsState(fatigue=-0.5)
+        self.assertAlmostEqual(s.fatigue, 0.0)
+
 
 # ---------------------------------------------------------------------------
 # SupplyWagon
@@ -228,10 +249,17 @@ class TestSupplyWagon(unittest.TestCase):
         self.assertEqual(w.strength, 0.0)
         self.assertFalse(w.is_alive)
 
-    def test_take_damage_cannot_exceed_one(self) -> None:
+    def test_take_damage_raises_for_negative_damage(self) -> None:
+        """Negative damage must raise ValueError to prevent silent healing."""
         w = SupplyWagon(x=0.0, y=0.0, team=0)
-        w.take_damage(-0.1)  # negative damage — no change
-        self.assertAlmostEqual(w.strength, 1.0)
+        with self.assertRaises(ValueError):
+            w.take_damage(-0.1)
+
+    def test_take_damage_raises_for_negative_on_damaged_wagon(self) -> None:
+        """Negative damage must never silently increase strength."""
+        w = SupplyWagon(x=0.0, y=0.0, team=0, strength=0.5)
+        with self.assertRaises(ValueError):
+            w.take_damage(-0.1)
 
     def test_move_toward_reaches_target(self) -> None:
         w = SupplyWagon(x=0.0, y=0.0, team=0)
@@ -776,9 +804,9 @@ class TestBattalionEnvLogisticsIntegration(unittest.TestCase):
     # --- Resupply ---
 
     def test_resupply_restores_ammo(self) -> None:
-        """A battalion near its wagon gets ammo replenished."""
+        """A battalion halted near its wagon gets ammo replenished."""
         cfg = LogisticsConfig(
-            ammo_per_volley=0.1,
+            ammo_per_volley=0.0,   # no depletion — isolates resupply signal
             resupply_radius=500.0,  # very large to guarantee proximity
             ammo_resupply_rate=0.05,
         )
@@ -788,11 +816,41 @@ class TestBattalionEnvLogisticsIntegration(unittest.TestCase):
         # Deplete ammo
         env.blue_logistics.ammo = 0.5
 
-        # Stand still next to wagon (wagon spawned near Blue)
+        # Stand still, don't fire (resupply requires halt)
         _, _, _, _, info = env.step(np.array([0.0, 0.0, 0.0], dtype=np.float32))
 
-        # Ammo should have increased (resupply rate > depletion from no firing)
+        # Ammo should have increased by resupply_rate
         self.assertGreater(info["blue_ammo"], 0.5)
+
+    def test_resupply_blocked_while_moving(self) -> None:
+        """Resupply must NOT occur while the battalion is moving."""
+        cfg = LogisticsConfig(
+            ammo_per_volley=0.0,
+            resupply_radius=500.0,
+            ammo_resupply_rate=0.1,
+        )
+        env = self._make_env(logistics_config=cfg)
+        env.reset(seed=0)
+        env.blue_logistics.ammo = 0.5
+        # Move forward (non-zero move_cmd)
+        _, _, _, _, info = env.step(np.array([1.0, 0.0, 0.0], dtype=np.float32))
+        # Ammo should NOT have increased
+        self.assertLessEqual(info["blue_ammo"], 0.5 + 1e-6)
+
+    def test_resupply_blocked_while_firing(self) -> None:
+        """Resupply must NOT occur while the battalion is firing."""
+        cfg = LogisticsConfig(
+            ammo_per_volley=0.0,
+            resupply_radius=500.0,
+            ammo_resupply_rate=0.1,
+        )
+        env = self._make_env(logistics_config=cfg)
+        env.reset(seed=0)
+        env.blue_logistics.ammo = 0.5
+        # Fire (non-zero fire intensity)
+        _, _, _, _, info = env.step(np.array([0.0, 0.0, 1.0], dtype=np.float32))
+        # Ammo should NOT have increased (any decrease is from firing modifiers, not resupply)
+        self.assertLessEqual(info["blue_ammo"], 0.5 + 1e-6)
 
     def test_supply_wagons_exist_after_reset(self) -> None:
         env = self._make_env()
@@ -827,7 +885,82 @@ class TestBattalionEnvLogisticsIntegration(unittest.TestCase):
         _, _, _, _, info = env.step(np.array([0.0, 0.0, 0.0], dtype=np.float32))
         self.assertAlmostEqual(info["blue_ammo"], 0.5, places=4)
 
-    # --- Custom LogisticsConfig ---
+    # --- Red fatigue speed ---
+
+    def test_red_fatigue_reduces_speed(self) -> None:
+        """Fatigue should reduce Red's movement speed symmetrically with Blue."""
+        cfg = LogisticsConfig(fatigue_speed_penalty=1.0)  # max penalty
+        env = self._make_env(logistics_config=cfg, curriculum_level=5)
+        env.reset(seed=13)
+
+        # Record Red's pre-step position
+        r_start_x = env.red.x
+        r_start_y = env.red.y
+
+        # Inject maximum fatigue into Red
+        env.red_logistics.fatigue = 1.0
+        env.step(np.array([0.0, 0.0, 0.0], dtype=np.float32))
+        dist_fatigued = math.sqrt(
+            (env.red.x - r_start_x) ** 2 + (env.red.y - r_start_y) ** 2
+        )
+
+        # Reset: same seed so same positions
+        env.reset(seed=13)
+        r_start_x2 = env.red.x
+        r_start_y2 = env.red.y
+        # Fresh Red (no fatigue)
+        env.step(np.array([0.0, 0.0, 0.0], dtype=np.float32))
+        dist_fresh = math.sqrt(
+            (env.red.x - r_start_x2) ** 2 + (env.red.y - r_start_y2) ** 2
+        )
+
+        self.assertLess(dist_fatigued, dist_fresh)
+
+    # --- Wagon targeting ---
+
+    def test_wagon_can_be_damaged_in_combat(self) -> None:
+        """Enemy wagons should lose health when in range of hostile fire."""
+        from envs.sim.battalion import Battalion
+
+        cfg = LogisticsConfig(ammo_per_volley=0.0)
+        env = self._make_env(logistics_config=cfg, curriculum_level=5)
+        env.reset(seed=0)
+
+        # Place Red's wagon directly in front of Blue and within fire range
+        blue = env.blue
+        env.red_wagon.x = blue.x + blue.fire_range * 0.5
+        env.red_wagon.y = blue.y
+        initial_wagon_strength = env.red_wagon.strength
+
+        # Fire at full intensity from Blue toward the wagon's position
+        # Rotate Blue to face the wagon first
+        import math as _math
+        dx = env.red_wagon.x - blue.x
+        dy = env.red_wagon.y - blue.y
+        blue.theta = _math.atan2(dy, dx)
+
+        env.step(np.array([0.0, 0.0, 1.0], dtype=np.float32))
+
+        self.assertLess(env.red_wagon.strength, initial_wagon_strength)
+
+    def test_destroyed_wagon_stops_resupply(self) -> None:
+        """Once a wagon is destroyed, halted units no longer receive resupply."""
+        cfg = LogisticsConfig(
+            ammo_per_volley=0.0,
+            resupply_radius=500.0,
+            ammo_resupply_rate=0.1,
+        )
+        env = self._make_env(logistics_config=cfg)
+        env.reset(seed=0)
+
+        # Destroy the blue wagon
+        env.blue_wagon.take_damage(1.0)
+        self.assertFalse(env.blue_wagon.is_alive)
+
+        env.blue_logistics.ammo = 0.5
+        _, _, _, _, info = env.step(np.array([0.0, 0.0, 0.0], dtype=np.float32))
+        # Ammo should stay at 0.5 (no resupply from destroyed wagon)
+        self.assertAlmostEqual(info["blue_ammo"], 0.5, places=4)
 
     def test_custom_logistics_config_respected(self) -> None:
         cfg = LogisticsConfig(ammo_per_volley=0.05)
