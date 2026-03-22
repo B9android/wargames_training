@@ -569,6 +569,10 @@ class BattalionEnv(gym.Env):
         # When morale_config is set and Red is already routing, skip scripted/policy
         # movement; rout_velocity() is applied after morale update instead.
         red_skip_normal_movement = self.morale_config is not None and self.red_state.is_routing
+        # Capture Red's pre-movement position to track actual displacement for
+        # fatigue calculation (avoids hard-coded assumptions about behaviour).
+        _red_x_before = self.red.x
+        _red_y_before = self.red.y
         if self.red_policy is not None:
             red_obs = self._get_red_obs()
             red_action, _ = self.red_policy.predict(red_obs, deterministic=False)
@@ -680,7 +684,12 @@ class BattalionEnv(gym.Env):
             lc = self.logistics_config
             # Determine movement activity from raw move commands
             blue_moved = abs(move_cmd) > 0.01
-            red_moved = True  # scripted Red always attempts to advance
+            # Determine Red movement from actual position change (works for both
+            # scripted and policy-driven opponents at all curriculum levels).
+            red_moved = (
+                abs(self.red.x - _red_x_before) > 1e-4
+                or abs(self.red.y - _red_y_before) > 1e-4
+            )
             blue_fired = effective_fire_cmd > 0.0
             red_fired = effective_red_fire_cmd > 0.0
             if self.blue_logistics is not None:

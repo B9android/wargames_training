@@ -715,8 +715,9 @@ class TestBattalionEnvLogisticsIntegration(unittest.TestCase):
     def test_ammo_exhaustion_rate_80_percent(self) -> None:
         """Acceptance criterion: ≥80% of long episodes exhaust ammo when no resupply."""
         cfg = LogisticsConfig(ammo_per_volley=0.01, enable_resupply=False)
-        # Use curriculum_level=1 so episodes run full 150 steps (> 100 to exhaust)
-        env = self._make_env(logistics_config=cfg, max_steps=150, curriculum_level=1)
+        # curriculum_level=1 (default in _make_env) keeps Red stationary so
+        # episodes run the full 150 steps rather than ending in early routing.
+        env = self._make_env(logistics_config=cfg, max_steps=150)
         exhausted_count = 0
         N = 10
         for trial in range(N):
@@ -744,8 +745,6 @@ class TestBattalionEnvLogisticsIntegration(unittest.TestCase):
 
     def test_fatigue_reduces_speed(self) -> None:
         """A fatigued battalion covers less distance than a fresh one in one step."""
-        from envs.sim.logistics import LogisticsConfig, LogisticsState
-
         cfg = LogisticsConfig(fatigue_speed_penalty=1.0)  # max penalty
         env = self._make_env(logistics_config=cfg)
         env.reset(seed=7)
