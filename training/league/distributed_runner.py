@@ -59,7 +59,7 @@ from envs.remote_multi_battalion_env import RemoteMultiBattalionEnv, make_remote
 
 log = logging.getLogger(__name__)
 
-__all__ = ["RolloutResult", "DistributedRolloutRunner", "benchmark"]
+__all__ = ["RolloutResult", "DistributedRolloutRunner", "benchmark", "corps_benchmark"]
 
 
 # ---------------------------------------------------------------------------
@@ -520,6 +520,133 @@ def benchmark(
     }
 
 
+def corps_benchmark(
+    num_workers: int = 8,
+    n_episodes: int = 16,
+    env_kwargs: Optional[Dict[str, Any]] = None,
+    seed: int = 0,
+    ray_init_kwargs: Optional[Dict[str, Any]] = None,
+) -> Dict[str, float]:
+    """Benchmark single-process vs. Ray actor-pool throughput on :class:`~envs.corps_env.CorpsEnv`.
+
+    Measures the wall-clock speedup achieved by running *n_episodes* CorpsEnv
+    episodes in parallel across *num_workers* Ray CPU workers compared to the
+    same workload executed sequentially in a single process.
+
+    .. note::
+        Each worker runs one CorpsEnv episode on its own CPU core.
+        This helper only requests CPU resources for workers; CorpsEnv
+        simulations are CPU-bound and do not use GPU acceleration.
+        To benchmark GPU-backed policy inference, configure Ray's cluster
+        resources and per-task resource requirements separately.
+
+    Parameters
+    ----------
+    num_workers:
+        Number of parallel Ray workers (e.g. 8 to model an 8-core/8-GPU node).
+    n_episodes:
+        Number of episodes per configuration.
+    env_kwargs:
+        Constructor keyword arguments forwarded to
+        :class:`~envs.corps_env.CorpsEnv`.  Defaults to
+        ``{"n_divisions": 3, "n_brigades_per_division": 3, "n_blue_per_brigade": 2}``.
+    seed:
+        Base seed for episode reproducibility.
+    ray_init_kwargs:
+        Extra keyword arguments forwarded to :func:`ray.init` when Ray is not
+        already initialised.  Use this to suppress the dashboard or adjust
+        logging for CI environments (e.g.
+        ``{"include_dashboard": False, "configure_logging": False}``).
+
+    Returns
+    -------
+    dict with keys:
+        ``single_steps_per_sec``, ``ray_steps_per_sec``, ``speedup``,
+        ``num_workers``, ``n_episodes``.
+    """
+    from envs.corps_env import CorpsEnv
+
+    effective_kwargs: Dict[str, Any] = env_kwargs or {
+        "n_divisions": 3,
+        "n_brigades_per_division": 3,
+        "n_blue_per_brigade": 2,
+    }
+
+    # --- Single-process baseline ---
+    t0 = time.perf_counter()
+    single_steps = 0
+    single_env = CorpsEnv(**effective_kwargs)
+    for ep in range(n_episodes):
+        obs, _ = single_env.reset(seed=seed + ep)
+        max_steps = getattr(single_env, "max_steps", 500)
+        for _ in range(max_steps):
+            action = single_env.action_space.sample()
+            obs, _, terminated, truncated, _ = single_env.step(action)
+            single_steps += 1
+            if terminated or truncated:
+                break
+    single_env.close()
+    single_elapsed = time.perf_counter() - t0
+    single_sps = single_steps / single_elapsed if single_elapsed > 0 else 0.0
+
+    # --- Ray actor-pool ---
+    # CorpsEnv is not a PettingZoo env, so we use a simple Ray remote function
+    # rather than DistributedRolloutRunner (which wraps MultiBattalionEnv).
+    if not ray.is_initialized():
+        init_kwargs: Dict[str, Any] = {
+            "num_cpus": num_workers,
+            "ignore_reinit_error": True,
+            "include_dashboard": False,
+            "configure_logging": False,
+            "log_to_driver": False,
+        }
+        init_kwargs.update(ray_init_kwargs or {})
+        ray.init(**init_kwargs)
+
+    @ray.remote(num_cpus=1)
+    def _run_corps_episode(ep_seed: int, kw: Dict[str, Any]) -> int:
+        """Run one CorpsEnv episode; return step count."""
+        from envs.corps_env import CorpsEnv as CorpsEnvRemote  # noqa: PLC0415
+        env = CorpsEnvRemote(**kw)
+        obs, _ = env.reset(seed=ep_seed)
+        steps = 0
+        max_s = getattr(env, "max_steps", 500)
+        for _ in range(max_s):
+            action = env.action_space.sample()
+            obs, _, terminated, truncated, _ = env.step(action)
+            steps += 1
+            if terminated or truncated:
+                break
+        env.close()
+        return steps
+
+    t1 = time.perf_counter()
+    refs = [
+        _run_corps_episode.remote(seed + ep, effective_kwargs)
+        for ep in range(n_episodes)
+    ]
+    ray_steps_list: List[int] = ray.get(refs)
+    ray_elapsed = time.perf_counter() - t1
+    ray_steps = sum(ray_steps_list)
+    ray_sps = ray_steps / ray_elapsed if ray_elapsed > 0 else 0.0
+
+    speedup = ray_sps / single_sps if single_sps > 0 else float("nan")
+
+    print(
+        f"\nCorps benchmark ({n_episodes} episodes, {num_workers} workers):\n"
+        f"  Single process : {single_sps:>10.1f} steps/sec\n"
+        f"  Ray ({num_workers:2d} workers): {ray_sps:>10.1f} steps/sec\n"
+        f"  Speedup        : {speedup:>10.2f}x\n"
+    )
+    return {
+        "single_steps_per_sec": single_sps,
+        "ray_steps_per_sec": ray_sps,
+        "speedup": speedup,
+        "num_workers": num_workers,
+        "n_episodes": n_episodes,
+    }
+
+
 # ---------------------------------------------------------------------------
 # CLI entry-point
 # ---------------------------------------------------------------------------
@@ -538,12 +665,34 @@ def _cli() -> None:  # pragma: no cover
     bench.add_argument("--n-red", type=int, default=2)
     bench.add_argument("--seed", type=int, default=0)
 
+    corps = sub.add_parser(
+        "corps_benchmark",
+        help="Throughput benchmark for CorpsEnv (8-GPU cluster model)",
+    )
+    corps.add_argument("--workers", type=int, default=8)
+    corps.add_argument("--episodes", type=int, default=16)
+    corps.add_argument("--n-divisions", type=int, default=3)
+    corps.add_argument("--n-brigades", type=int, default=3)
+    corps.add_argument("--n-blue", type=int, default=2)
+    corps.add_argument("--seed", type=int, default=0)
+
     args = parser.parse_args()
     if args.command == "benchmark":
         benchmark(
             num_workers=args.workers,
             n_episodes=args.episodes,
             env_kwargs={"n_blue": args.n_blue, "n_red": args.n_red},
+            seed=args.seed,
+        )
+    elif args.command == "corps_benchmark":
+        corps_benchmark(
+            num_workers=args.workers,
+            n_episodes=args.episodes,
+            env_kwargs={
+                "n_divisions": args.n_divisions,
+                "n_brigades_per_division": args.n_brigades,
+                "n_blue_per_brigade": args.n_blue,
+            },
             seed=args.seed,
         )
     else:

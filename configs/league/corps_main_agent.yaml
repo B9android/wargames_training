@@ -1,0 +1,63 @@
+# configs/league/corps_main_agent.yaml
+# Corps-level league main-agent training configuration (E7.3)
+#
+# Extends the battalion-level main_agent.yaml to operate at corps scale.
+# The model is larger, the training run is longer, and corps-specific
+# environment parameters (n_divisions, n_brigades_per_division) are added.
+#
+# Override any value via Hydra CLI, e.g.:
+#   python training/league/train_corps_main_agent.py env.n_divisions=4
+
+# ── W&B experiment tracking ───────────────────────────────────────────────
+wandb:
+  project: "wargames_training"
+  entity: null                         # W&B team/org (null → personal account)
+  tags: ["v7", "league", "corps", "main_agent", "pfsp"]
+  log_freq: 2000                       # log every N timesteps
+
+# ── Environment ───────────────────────────────────────────────────────────
+env:
+  n_divisions: 3                       # Blue divisions (corps scale)
+  n_brigades_per_division: 3           # brigades per division
+  n_blue_per_brigade: 3                # battalions per brigade
+  comm_radius: 3000.0                  # inter-division comm radius (metres)
+  red_random: true                     # Red takes random actions (scripted)
+
+# ── MAPPO training (PPO on single-agent CorpsEnv) ─────────────────────────
+training:
+  total_timesteps: 10_000_000          # 10 M steps (2× battalion baseline)
+  n_steps: 512                         # rollout steps per update
+  n_epochs: 10                         # PPO update epochs per rollout
+  batch_size: 128                      # minibatch size (2× battalion baseline)
+  lr: 3.0e-4                           # Adam learning rate
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2                      # PPO ε clipping
+  vf_coef: 0.5                         # value-function loss coefficient
+  ent_coef: 0.01                       # entropy bonus coefficient
+  max_grad_norm: 0.5
+  # Larger hidden sizes for the corps-scale model
+  actor_hidden_sizes: [256, 128]       # 2× battalion baseline [128, 64]
+  critic_hidden_sizes: [256, 128]
+  device: "cpu"
+  seed: 42
+
+# ── League ────────────────────────────────────────────────────────────────
+league:
+  agent_id: "corps_main_agent_001"     # unique ID for this main agent lineage
+  snapshot_freq: 200000                # steps between snapshots (2× battalion)
+  eval_freq: 100000                    # steps between evaluation rounds
+  n_eval_episodes: 20                  # episodes per evaluation round
+  pfsp_temperature: 1.0                # PFSP temperature (1.0 = hard-first)
+  unknown_win_rate: 0.5                # assumed win rate vs unseen opponents
+  pool_manifest: "checkpoints/league/corps_main_agent/pool.json"
+  match_db_path: "checkpoints/league/corps_main_agent/matches.jsonl"
+  elo_registry_path: "checkpoints/league/corps_main_agent/elo.json"
+  snapshot_dir: "checkpoints/league/corps_main_agent/snapshots"
+  pool_max_size: 200                   # maximum snapshots in the agent pool
+  checkpoint_dir: "checkpoints/league/corps_main_agent"
+  checkpoint_freq: 200000              # steps between trainer checkpoints
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
