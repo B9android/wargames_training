@@ -8,6 +8,7 @@ from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from envs.sim.weapons import WeaponProfile
+    from envs.sim.formations import Formation
 
 @dataclass
 class Battalion:
@@ -34,6 +35,13 @@ class Battalion:
     # Optional weapon profile — when set, enables range-band accuracy and
     # reload-cycle mechanics via envs.sim.weapons.
     weapon_profile: Optional["WeaponProfile"] = field(default=None, repr=False)
+
+    # Formation system — discrete tactical state and transition tracking.
+    # formation is stored as int (Formation enum value) to avoid circular
+    # imports; use Formation(self.formation) to access the enum.
+    formation: int = 0              # Formation.LINE = 0 (default)
+    formation_transition_steps: int = 0   # steps remaining in current transition
+    target_formation: Optional[int] = None  # Formation value being transitioned to
 
     def move(self, vx: float, vy: float, dt: float = 0.1):
         """Apply velocity, clamp to max speed."""

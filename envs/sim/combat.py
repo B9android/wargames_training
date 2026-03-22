@@ -186,6 +186,11 @@ def compute_fire_damage(
     by the historically-calibrated :func:`~envs.sim.weapons.hit_probability`
     function.  The legacy linear falloff is used when no profile is
     attached, preserving backward compatibility.
+
+    Formation modifiers are applied when the ``formation`` field is set on
+    either unit: ``shooter.formation`` scales outgoing damage via the
+    formation's ``firepower_modifier``; ``target.formation`` scales
+    incoming damage via ``vulnerability_modifier``.
     """
     if not shooter.can_fire_at(target):
         return 0.0
@@ -218,6 +223,16 @@ def compute_fire_damage(
 
     base_damage = BASE_FIRE_DAMAGE * float(intensity)
     damage = base_damage * rf * angle_mult * shooter_strength_factor
+
+    # Formation modifiers — only applied when formation system is active
+    # (formation field is non-zero or target formation reduces vulnerability)
+    if shooter.formation != 0 or target.formation != 0:
+        from envs.sim.formations import FORMATION_ATTRIBUTES, Formation  # noqa: PLC0415
+        shooter_attrs = FORMATION_ATTRIBUTES[Formation(shooter.formation)]
+        target_attrs = FORMATION_ATTRIBUTES[Formation(target.formation)]
+        damage *= shooter_attrs.firepower_modifier
+        damage *= target_attrs.vulnerability_modifier
+
     return float(damage)
 
 
