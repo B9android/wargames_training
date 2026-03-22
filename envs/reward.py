@@ -70,6 +70,18 @@ class RewardWeights:
     win_bonus: float = 10.0
     loss_penalty: float = -10.0
     time_penalty: float = -0.01
+    enemy_routed_bonus: float = 0.0
+    """Bonus added each step that the enemy is in a routing state.
+
+    A positive value (e.g. ``2.0``) encourages pursuit of routing enemies and
+    exploitation of broken units.  Set to ``0.0`` (default) to disable.
+    """
+    own_routing_penalty: float = 0.0
+    """Penalty added each step that the agent's own unit is routing.
+
+    A negative value (e.g. ``-2.0``) discourages allowing the agent's
+    battalion to be broken.  Set to ``0.0`` (default) to disable.
+    """
 
 
 @dataclass
@@ -87,6 +99,8 @@ class RewardComponents:
     win_bonus: float = 0.0
     loss_penalty: float = 0.0
     time_penalty: float = 0.0
+    enemy_routed_bonus: float = 0.0
+    own_routing_penalty: float = 0.0
 
     @property
     def total(self) -> float:
@@ -98,6 +112,8 @@ class RewardComponents:
             + self.win_bonus
             + self.loss_penalty
             + self.time_penalty
+            + self.enemy_routed_bonus
+            + self.own_routing_penalty
         )
 
     def as_dict(self) -> dict[str, float]:
@@ -109,6 +125,8 @@ class RewardComponents:
             "reward/win_bonus": self.win_bonus,
             "reward/loss_penalty": self.loss_penalty,
             "reward/time_penalty": self.time_penalty,
+            "reward/enemy_routed_bonus": self.enemy_routed_bonus,
+            "reward/own_routing_penalty": self.own_routing_penalty,
             "reward/total": self.total,
         }
 
@@ -121,6 +139,8 @@ def compute_reward(
     blue_won: bool,
     blue_lost: bool,
     weights: RewardWeights,
+    enemy_routed: bool = False,
+    own_routing: bool = False,
 ) -> RewardComponents:
     """Compute all reward components for a single environment step.
 
@@ -140,6 +160,14 @@ def compute_reward(
         ``True`` when the episode terminates with Blue defeated.
     weights:
         :class:`RewardWeights` multipliers for each component.
+    enemy_routed:
+        ``True`` when the enemy (Red) is currently routing this step.
+        Triggers the ``enemy_routed_bonus`` component when non-zero in
+        *weights*.  Defaults to ``False``.
+    own_routing:
+        ``True`` when the agent's own unit (Blue) is currently routing.
+        Triggers the ``own_routing_penalty`` component when non-zero in
+        *weights*.  Defaults to ``False``.
 
     Returns
     -------
@@ -156,4 +184,8 @@ def compute_reward(
         comps.win_bonus = weights.win_bonus
     if blue_lost:
         comps.loss_penalty = weights.loss_penalty
+    if enemy_routed:
+        comps.enemy_routed_bonus = weights.enemy_routed_bonus
+    if own_routing:
+        comps.own_routing_penalty = weights.own_routing_penalty
     return comps

@@ -41,6 +41,12 @@ from envs.sim.combat import (
     morale_check,
 )
 from envs.sim.engine import DESTROYED_THRESHOLD
+from envs.sim.morale import (
+    MoraleConfig,
+    compute_flank_stressor,
+    rout_velocity,
+    update_morale,
+)
 from envs.sim.terrain import TerrainMap
 from envs.sim.terrain_engine import TerrainEngine
 
@@ -61,6 +67,7 @@ __all__ = [
     "MAP_WIDTH",
     "MAP_HEIGHT",
     "MAX_STEPS",
+    "MoraleConfig",
     "RewardWeights",
     "RedPolicy",
 ]
@@ -214,6 +221,7 @@ class BattalionEnv(gym.Env):
         reward_weights: Optional[RewardWeights] = None,
         red_policy: Optional[RedPolicy] = None,
         render_mode: Optional[str] = None,
+        morale_config: Optional[MoraleConfig] = None,
     ) -> None:
         super().__init__()
 
@@ -251,6 +259,7 @@ class BattalionEnv(gym.Env):
         self.reward_weights: RewardWeights = (
             reward_weights if reward_weights is not None else RewardWeights()
         )
+        self.morale_config: Optional[MoraleConfig] = morale_config
         # When an explicit terrain is supplied, terrain randomisation is
         # disabled so the caller's fixed map is used every episode.
         self.randomize_terrain: bool = bool(randomize_terrain) and (terrain is None)
@@ -375,29 +384,39 @@ class BattalionEnv(gym.Env):
         fire_cmd   = float(np.clip(action[2],  0.0, 1.0))
 
         # --- Apply agent action to Blue ---
-        # Rotation (Battalion.rotate clamps to max_turn_rate internally)
-        self.blue.rotate(rotate_cmd * self.blue.max_turn_rate)
-        # Forward/backward movement along current heading, slowed on hills
-        speed_mod = self.terrain.get_speed_modifier(
-            self.blue.x, self.blue.y, self.hill_speed_factor
-        )
-        vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
-        vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
-        self.blue.move(vx, vy, dt=DT)
+        # Normal movement when not routing, OR when morale_config is not set
+        # (legacy path: agent retains control even while CombatState.is_routing).
+        # When morale_config is set and the unit is already routing, movement is
+        # suppressed here and overridden by rout_velocity() after morale update.
+        if not (self.morale_config is not None and self.blue_state.is_routing):
+            # Rotation (Battalion.rotate clamps to max_turn_rate internally)
+            self.blue.rotate(rotate_cmd * self.blue.max_turn_rate)
+            # Forward/backward movement along current heading, slowed on hills
+            speed_mod = self.terrain.get_speed_modifier(
+                self.blue.x, self.blue.y, self.hill_speed_factor
+            )
+            vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
+            vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
+            self.blue.move(vx, vy, dt=DT)
         # Clamp to map bounds
         self.blue.x = float(np.clip(self.blue.x, 0.0, self.map_width))
         self.blue.y = float(np.clip(self.blue.y, 0.0, self.map_height))
 
         # --- Red opponent (scripted or policy-based) ---
+        # When morale_config is set and Red is already routing, skip scripted/policy
+        # movement; rout_velocity() is applied after morale update instead.
+        red_skip_normal_movement = self.morale_config is not None and self.red_state.is_routing
         if self.red_policy is not None:
             red_obs = self._get_red_obs()
             red_action, _ = self.red_policy.predict(red_obs, deterministic=False)
             red_action = np.asarray(red_action, dtype=np.float32)
             red_fire_cmd = float(np.clip(red_action[2], 0.0, 1.0))
-            self._step_red_policy(red_action)
+            if not red_skip_normal_movement:
+                self._step_red_policy(red_action)
         else:
             red_fire_cmd = self._red_fire_intensity()
-            self._step_red()
+            if not red_skip_normal_movement:
+                self._step_red()
 
         # --- Combat resolution (simultaneous) ---
         self.blue_state.reset_step_accumulators()
@@ -414,15 +433,66 @@ class BattalionEnv(gym.Env):
         dmg_b2r = apply_casualties(self.red, self.red_state, raw_b2r)
         dmg_r2b = apply_casualties(self.blue, self.blue_state, raw_r2b)
 
-        # Morale checks
-        morale_check(self.blue_state, rng=self.np_random)
-        morale_check(self.red_state, rng=self.np_random)
+        # Compute enemy distance for distance-based morale recovery
+        dx = self.blue.x - self.red.x
+        dy = self.blue.y - self.red.y
+        enemy_dist = float(math.sqrt(dx * dx + dy * dy))
+
+        # Morale checks — use enhanced update_morale when a MoraleConfig is
+        # provided, otherwise fall back to the basic morale_check.
+        if self.morale_config is not None:
+            mc = self.morale_config
+            blue_flank = compute_flank_stressor(
+                self.red.x, self.red.y,
+                self.blue.x, self.blue.y, self.blue.theta,
+                dmg_r2b,
+            )
+            red_flank = compute_flank_stressor(
+                self.blue.x, self.blue.y,
+                self.red.x, self.red.y, self.red.theta,
+                dmg_b2r,
+            )
+            update_morale(
+                self.blue_state,
+                enemy_dist=enemy_dist,
+                config=mc,
+                flank_penalty=blue_flank,
+                rng=self.np_random,
+            )
+            update_morale(
+                self.red_state,
+                enemy_dist=enemy_dist,
+                config=mc,
+                flank_penalty=red_flank,
+                rng=self.np_random,
+            )
+        else:
+            morale_check(self.blue_state, rng=self.np_random)
+            morale_check(self.red_state, rng=self.np_random)
 
         # Sync Battalion flags from CombatState
         self.blue.morale = self.blue_state.morale
         self.red.morale  = self.red_state.morale
         self.blue.routed = self.blue_state.is_routing
         self.red.routed  = self.red_state.is_routing
+
+        # --- Post-morale rout movement (morale_config mode only) ---
+        # Applied *after* morale update so that units route on the same step
+        # routing is triggered, not just on subsequent steps.  Also handles
+        # already-routing units whose pre-step movement was suppressed above.
+        if self.morale_config is not None:
+            if self.blue_state.is_routing:
+                vx, vy = rout_velocity(
+                    self.blue.x, self.blue.y,
+                    self.red.x, self.red.y,
+                    self.blue.max_speed,
+                    self.morale_config,
+                )
+                self.blue.move(vx, vy, dt=DT)
+                self.blue.x = float(np.clip(self.blue.x, 0.0, self.map_width))
+                self.blue.y = float(np.clip(self.blue.y, 0.0, self.map_height))
+            if self.red_state.is_routing:
+                self._step_routing_red()
 
         self._step_count += 1
 
@@ -446,6 +516,8 @@ class BattalionEnv(gym.Env):
             blue_won=blue_won,
             blue_lost=blue_lost,
             weights=self.reward_weights,
+            enemy_routed=self.red_state.is_routing,
+            own_routing=self.blue_state.is_routing,
         )
 
         info: dict = {
@@ -693,3 +765,26 @@ class BattalionEnv(gym.Env):
         if level == 4:
             return 0.5
         return 1.0
+
+    def _step_routing_red(self) -> None:
+        """Apply forced rout movement to the Red battalion.
+
+        Called when Red is in a routing state instead of the normal scripted
+        or policy movement.  Red flees directly away from Blue.  Rout
+        movement is only applied when a :class:`MoraleConfig` is set on the
+        environment; otherwise this method is a no-op so that the episode
+        terminates normally.
+        """
+        if self.morale_config is None:
+            return
+        r = self.red
+        b = self.blue
+        vx, vy = rout_velocity(
+            r.x, r.y,
+            b.x, b.y,
+            r.max_speed,
+            self.morale_config,
+        )
+        r.move(vx, vy, dt=DT)
+        r.x = float(np.clip(r.x, 0.0, self.map_width))
+        r.y = float(np.clip(r.y, 0.0, self.map_height))
