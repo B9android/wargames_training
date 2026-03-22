@@ -151,6 +151,34 @@ class WeaponProfile:
     suppression_radius: float = 0.0
     suppression_morale_penalty: float = 0.0
 
+    def __post_init__(self) -> None:
+        if self.max_range <= 0.0:
+            raise ValueError(f"max_range must be positive, got {self.max_range}")
+        if self.close_range <= 0.0:
+            raise ValueError(f"close_range must be positive, got {self.close_range}")
+        if self.effective_range <= self.close_range:
+            raise ValueError(
+                f"effective_range ({self.effective_range}) must exceed "
+                f"close_range ({self.close_range})"
+            )
+        if self.effective_range >= self.max_range:
+            raise ValueError(
+                f"effective_range ({self.effective_range}) must be less than "
+                f"max_range ({self.max_range})"
+            )
+        if self.base_accuracy <= 0.0:
+            raise ValueError(f"base_accuracy must be positive, got {self.base_accuracy}")
+        if self.decay_rate <= 0.0:
+            raise ValueError(f"decay_rate must be positive, got {self.decay_rate}")
+        if self.reload_steps < 1:
+            raise ValueError(f"reload_steps must be >= 1, got {self.reload_steps}")
+        if self.fire_steps < 1:
+            raise ValueError(f"fire_steps must be >= 1, got {self.fire_steps}")
+        if self.suppression_radius < 0.0:
+            raise ValueError(
+                f"suppression_radius must be >= 0, got {self.suppression_radius}"
+            )
+
 
 # ---------------------------------------------------------------------------
 # Pre-defined weapon profiles
@@ -228,7 +256,6 @@ def hit_probability(
     weapon: WeaponProfile,
     distance: float,
     formation_modifier: float = 1.0,
-    rng: np.random.Generator | None = None,
 ) -> float:
     """Return the probability of a hit at *distance* metres.
 
@@ -245,8 +272,6 @@ def hit_probability(
         External formation modifier (e.g. from cohesion state).  This is
         *multiplied* by ``weapon.formation_accuracy_bonus`` to get the
         effective modifier.  Defaults to 1.0.
-    rng:
-        Unused; reserved for future stochastic overloads.
 
     Returns
     -------

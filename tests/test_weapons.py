@@ -11,8 +11,6 @@ import sys
 import unittest
 from pathlib import Path
 
-import numpy as np
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -481,6 +479,201 @@ class TestEdgeCases(unittest.TestCase):
         """WeaponProfile is frozen; mutations should raise."""
         with self.assertRaises((AttributeError, TypeError)):
             MUSKET.max_range = 500.0  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# WeaponProfile __post_init__ validation
+# ---------------------------------------------------------------------------
+
+
+class TestWeaponProfileValidation(unittest.TestCase):
+    """WeaponProfile.__post_init__ rejects invalid field combinations."""
+
+    def _base_kwargs(self) -> dict:
+        return dict(
+            weapon_type=WeaponType.MUSKET,
+            max_range=300.0,
+            close_range=75.0,
+            effective_range=150.0,
+            base_accuracy=0.8,
+            decay_rate=0.008,
+            reload_steps=3,
+            fire_steps=1,
+        )
+
+    def test_zero_max_range_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["max_range"] = 0.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_negative_max_range_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["max_range"] = -10.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_zero_close_range_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["close_range"] = 0.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_effective_range_equal_to_close_range_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["effective_range"] = kw["close_range"]
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_effective_range_less_than_close_range_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["effective_range"] = kw["close_range"] - 1.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_effective_range_equal_to_max_range_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["effective_range"] = kw["max_range"]
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_effective_range_greater_than_max_range_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["effective_range"] = kw["max_range"] + 1.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_zero_base_accuracy_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["base_accuracy"] = 0.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_zero_decay_rate_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["decay_rate"] = 0.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_zero_reload_steps_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["reload_steps"] = 0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_zero_fire_steps_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["fire_steps"] = 0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_negative_suppression_radius_raises(self) -> None:
+        kw = self._base_kwargs()
+        kw["suppression_radius"] = -1.0
+        with self.assertRaises(ValueError):
+            WeaponProfile(**kw)
+
+    def test_valid_profile_does_not_raise(self) -> None:
+        kw = self._base_kwargs()
+        profile = WeaponProfile(**kw)
+        self.assertEqual(profile.max_range, 300.0)
+
+
+# ---------------------------------------------------------------------------
+# Combat path integration
+# ---------------------------------------------------------------------------
+
+
+class TestCombatIntegration(unittest.TestCase):
+    """Verify that Battalion.weapon_profile and CombatState.reload_machine
+    wire into the combat simulation path correctly."""
+
+    def test_weapon_profile_attribute_on_battalion(self) -> None:
+        from envs.sim.battalion import Battalion
+        b = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0,
+                      weapon_profile=MUSKET)
+        self.assertIs(b.weapon_profile, MUSKET)
+
+    def test_battalion_default_weapon_profile_is_none(self) -> None:
+        from envs.sim.battalion import Battalion
+        b = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0)
+        self.assertIsNone(b.weapon_profile)
+
+    def test_reload_machine_on_combat_state(self) -> None:
+        from envs.sim.combat import CombatState
+        machine = ReloadMachine(MUSKET)
+        state = CombatState(reload_machine=machine)
+        self.assertIs(state.reload_machine, machine)
+
+    def test_combat_state_default_reload_machine_is_none(self) -> None:
+        from envs.sim.combat import CombatState
+        state = CombatState()
+        self.assertIsNone(state.reload_machine)
+
+    def test_resolve_volley_with_reload_machine_fires_first_shot(self) -> None:
+        from envs.sim.battalion import Battalion
+        from envs.sim.combat import CombatState, resolve_volley
+        shooter = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0,
+                            weapon_profile=MUSKET, fire_range=MUSKET.max_range)
+        target = Battalion(x=50.0, y=0.0, theta=3.14159, strength=1.0, team=1)
+        machine = ReloadMachine(MUSKET)
+        s_state = CombatState(reload_machine=machine)
+        t_state = CombatState()
+
+        result = resolve_volley(shooter, s_state, target, t_state, intensity=1.0)
+        self.assertTrue(result["fired"])
+        self.assertGreater(result["damage_dealt"], 0.0)
+
+    def test_resolve_volley_blocked_during_reload(self) -> None:
+        """Reload state machine must prevent damage during reload cycle."""
+        from envs.sim.battalion import Battalion
+        from envs.sim.combat import CombatState, resolve_volley
+        shooter = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0,
+                            weapon_profile=MUSKET, fire_range=MUSKET.max_range)
+        target = Battalion(x=50.0, y=0.0, theta=3.14159, strength=1.0, team=1)
+        machine = ReloadMachine(MUSKET)
+        s_state = CombatState(reload_machine=machine)
+        t_state = CombatState()
+
+        # First shot fires successfully
+        resolve_volley(shooter, s_state, target, t_state, intensity=1.0)
+
+        # Subsequent shots during reload must deal 0 damage
+        for _ in range(MUSKET.reload_steps):
+            result = resolve_volley(shooter, s_state, target, t_state, intensity=1.0)
+            self.assertFalse(result["fired"])
+            self.assertEqual(result["damage_dealt"], 0.0)
+
+    def test_resolve_volley_no_reload_machine_legacy_behaviour(self) -> None:
+        """Without a reload machine, resolve_volley uses legacy damage path."""
+        from envs.sim.battalion import Battalion
+        from envs.sim.combat import CombatState, resolve_volley
+        shooter = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0,
+                            fire_range=200.0)
+        target = Battalion(x=50.0, y=0.0, theta=3.14159, strength=1.0, team=1)
+        s_state = CombatState()
+        t_state = CombatState()
+
+        result = resolve_volley(shooter, s_state, target, t_state, intensity=1.0)
+        # Legacy path always fires (no reload machine)
+        self.assertTrue(result["fired"])
+        self.assertGreater(result["damage_dealt"], 0.0)
+
+    def test_compute_fire_damage_uses_weapon_profile(self) -> None:
+        """When weapon_profile is set, range factor uses hit_probability."""
+        from envs.sim.battalion import Battalion
+        from envs.sim.combat import compute_fire_damage
+        shooter_profiled = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0,
+                                     weapon_profile=MUSKET, fire_range=MUSKET.max_range)
+        shooter_legacy = Battalion(x=0.0, y=0.0, theta=0.0, strength=1.0, team=0,
+                                   fire_range=MUSKET.max_range)
+        target = Battalion(x=50.0, y=0.0, theta=3.14159, strength=1.0, team=1)
+
+        dmg_profiled = compute_fire_damage(shooter_profiled, target, intensity=1.0)
+        dmg_legacy = compute_fire_damage(shooter_legacy, target, intensity=1.0)
+        # Both should produce positive damage at 50 m; the exact values differ.
+        self.assertGreater(dmg_profiled, 0.0)
+        self.assertGreater(dmg_legacy, 0.0)
 
 
 if __name__ == "__main__":

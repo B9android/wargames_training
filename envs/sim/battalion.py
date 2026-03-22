@@ -1,7 +1,13 @@
 # envs/sim/battalion.py
 
+from __future__ import annotations
+
 import numpy as np
 from dataclasses import dataclass, field
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from envs.sim.weapons import WeaponProfile
 
 @dataclass
 class Battalion:
@@ -24,6 +30,10 @@ class Battalion:
     max_turn_rate: float = 0.1   # radians per step
     fire_range: float = 200.0    # meters
     fire_arc: float = np.pi / 4  # ±45° frontal arc
+
+    # Optional weapon profile — when set, enables range-band accuracy and
+    # reload-cycle mechanics via envs.sim.weapons.
+    weapon_profile: Optional["WeaponProfile"] = field(default=None, repr=False)
 
     def move(self, vx: float, vy: float, dt: float = 0.1):
         """Apply velocity, clamp to max speed."""
