@@ -41,6 +41,7 @@ from envs.sim.morale import (
     rout_velocity,
     update_morale,
 )
+from envs.battalion_env import BattalionEnv
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +102,30 @@ class TestMoraleConfig(unittest.TestCase):
     def test_negative_recovery_rate_raises(self) -> None:
         with self.assertRaises(ValueError):
             MoraleConfig(base_recovery_rate=-0.01)
+
+    def test_negative_distance_recovery_bonus_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            MoraleConfig(distance_recovery_bonus=-0.01)
+
+    def test_negative_friendly_support_bonus_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            MoraleConfig(friendly_support_bonus=-0.01)
+
+    def test_negative_commander_proximity_bonus_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            MoraleConfig(commander_proximity_bonus=-0.01)
+
+    def test_negative_rally_threshold_multiplier_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            MoraleConfig(rally_threshold_multiplier=-1.0)
+
+    def test_rally_probability_above_one_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            MoraleConfig(rally_probability=1.5)
+
+    def test_rally_probability_below_zero_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            MoraleConfig(rally_probability=-0.1)
 
     def test_zero_rout_speed_multiplier_raises(self) -> None:
         with self.assertRaises(ValueError):
@@ -209,6 +234,14 @@ class TestComputeRecovery(unittest.TestCase):
         c = MoraleConfig()
         recovery = compute_recovery(enemy_dist=0.0, config=c)
         self.assertGreaterEqual(recovery, c.base_recovery_rate)
+
+    def test_negative_enemy_dist_clamped_to_zero(self) -> None:
+        """Negative enemy_dist should be clamped and not produce negative recovery."""
+        c = MoraleConfig()
+        recovery_zero = compute_recovery(enemy_dist=0.0, config=c)
+        recovery_negative = compute_recovery(enemy_dist=-100.0, config=c)
+        self.assertAlmostEqual(recovery_zero, recovery_negative, places=6)
+        self.assertGreaterEqual(recovery_negative, 0.0)
 
     def test_distant_enemy_increases_recovery(self) -> None:
         c = MoraleConfig()
@@ -665,6 +698,39 @@ class TestMoraleIntegration(unittest.TestCase):
             state_without_co.morale,
             "Commander proximity should accelerate morale recovery",
         )
+
+    def test_rout_movement_occurs_on_routing_step_in_env(self) -> None:
+        """In BattalionEnv with morale_config, rout movement must occur on the
+        same step routing is triggered (not just on subsequent steps)."""
+        config = MoraleConfig(rout_speed_multiplier=2.0)
+        env = BattalionEnv(
+            morale_config=config,
+            randomize_terrain=False,
+            curriculum_level=1,  # Red stationary, does not fire
+        )
+        env.reset(seed=42)
+
+        # Force Blue into routing state on first step of the episode
+        env.blue_state.is_routing = True
+        env.blue.routed = True
+        env.blue_state.morale = 0.1  # low but non-zero
+
+        blue_x_before = env.blue.x
+        blue_y_before = env.blue.y
+        red_x = env.red.x
+        red_y = env.red.y
+
+        action = np.array([0.0, 0.0, 0.0], dtype=np.float32)
+        env.step(action)
+
+        # After the step, Blue must have moved away from Red
+        dist_before = math.sqrt((blue_x_before - red_x) ** 2 + (blue_y_before - red_y) ** 2)
+        dist_after = math.sqrt((env.blue.x - red_x) ** 2 + (env.blue.y - red_y) ** 2)
+        self.assertGreater(
+            dist_after, dist_before,
+            "Routing Blue should move away from Red in the same step routing is set",
+        )
+        env.close()
 
 
 if __name__ == "__main__":

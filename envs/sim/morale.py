@@ -139,6 +139,26 @@ class MoraleConfig:
             )
         if self.base_recovery_rate < 0:
             raise ValueError(f"base_recovery_rate must be >= 0, got {self.base_recovery_rate}")
+        if self.distance_recovery_bonus < 0:
+            raise ValueError(
+                f"distance_recovery_bonus must be >= 0, got {self.distance_recovery_bonus}"
+            )
+        if self.friendly_support_bonus < 0:
+            raise ValueError(
+                f"friendly_support_bonus must be >= 0, got {self.friendly_support_bonus}"
+            )
+        if self.commander_proximity_bonus < 0:
+            raise ValueError(
+                f"commander_proximity_bonus must be >= 0, got {self.commander_proximity_bonus}"
+            )
+        if self.rally_threshold_multiplier < 0:
+            raise ValueError(
+                f"rally_threshold_multiplier must be >= 0, got {self.rally_threshold_multiplier}"
+            )
+        if not (0.0 <= self.rally_probability <= 1.0):
+            raise ValueError(
+                f"rally_probability must be in [0, 1], got {self.rally_probability}"
+            )
         if self.rout_speed_multiplier <= 0:
             raise ValueError(
                 f"rout_speed_multiplier must be > 0, got {self.rout_speed_multiplier}"
@@ -248,8 +268,10 @@ def compute_recovery(
     """
     bonus = config.base_recovery_rate
 
-    # Distance-based recovery: scales from 0 at contact to full at safe_distance
-    dist_factor = min(enemy_dist / config.safe_distance, 1.0)
+    # Distance-based recovery: scales from 0 at contact to full at safe_distance.
+    # Clamp enemy_dist to avoid negative recovery from invalid inputs.
+    clamped_enemy_dist = max(enemy_dist, 0.0)
+    dist_factor = min(clamped_enemy_dist / config.safe_distance, 1.0)
     bonus += config.distance_recovery_bonus * dist_factor
 
     # Friendly support bonus

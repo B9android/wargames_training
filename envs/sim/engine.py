@@ -51,6 +51,10 @@ from envs.sim.terrain import TerrainMap
 #: is not triggered (e.g., in very short-range point-blank scenarios).
 DESTROYED_THRESHOLD: float = 0.01
 
+#: Simulation time step used for rout movement (seconds).
+#: Matches the DT constant in :mod:`envs.battalion_env`.
+DT: float = 0.1
+
 
 # ---------------------------------------------------------------------------
 # Episode result
@@ -248,7 +252,7 @@ class SimEngine:
                     self.blue.max_speed,
                     self.morale_config,
                 )
-                self.blue.move(vx, vy, dt=0.1)
+                self.blue.move(vx, vy, dt=DT)
             if red_routing:
                 vx, vy = rout_velocity(
                     self.red.x, self.red.y,
@@ -256,7 +260,7 @@ class SimEngine:
                     self.red.max_speed,
                     self.morale_config,
                 )
-                self.red.move(vx, vy, dt=0.1)
+                self.red.move(vx, vy, dt=DT)
 
         # Keep Battalion.morale and Battalion.routed in sync with CombatState
         self.blue.morale = self.blue_state.morale

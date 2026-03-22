@@ -383,8 +383,12 @@ class BattalionEnv(gym.Env):
         rotate_cmd = float(np.clip(action[1], -1.0, 1.0))
         fire_cmd   = float(np.clip(action[2],  0.0, 1.0))
 
-        # --- Apply agent action to Blue (unless Blue is routing) ---
-        if not self.blue_state.is_routing:
+        # --- Apply agent action to Blue ---
+        # Normal movement when not routing, OR when morale_config is not set
+        # (legacy path: agent retains control even while CombatState.is_routing).
+        # When morale_config is set and the unit is already routing, movement is
+        # suppressed here and overridden by rout_velocity() after morale update.
+        if not (self.morale_config is not None and self.blue_state.is_routing):
             # Rotation (Battalion.rotate clamps to max_turn_rate internally)
             self.blue.rotate(rotate_cmd * self.blue.max_turn_rate)
             # Forward/backward movement along current heading, slowed on hills
@@ -394,36 +398,25 @@ class BattalionEnv(gym.Env):
             vx = math.cos(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             vy = math.sin(self.blue.theta) * move_cmd * self.blue.max_speed * speed_mod
             self.blue.move(vx, vy, dt=DT)
-        else:
-            # Routing: Blue flees away from Red regardless of agent action
-            if self.morale_config is not None:
-                vx, vy = rout_velocity(
-                    self.blue.x, self.blue.y,
-                    self.red.x, self.red.y,
-                    self.blue.max_speed,
-                    self.morale_config,
-                )
-                self.blue.move(vx, vy, dt=DT)
         # Clamp to map bounds
         self.blue.x = float(np.clip(self.blue.x, 0.0, self.map_width))
         self.blue.y = float(np.clip(self.blue.y, 0.0, self.map_height))
 
         # --- Red opponent (scripted or policy-based) ---
+        # When morale_config is set and Red is already routing, skip scripted/policy
+        # movement; rout_velocity() is applied after morale update instead.
+        red_skip_normal_movement = self.morale_config is not None and self.red_state.is_routing
         if self.red_policy is not None:
             red_obs = self._get_red_obs()
             red_action, _ = self.red_policy.predict(red_obs, deterministic=False)
             red_action = np.asarray(red_action, dtype=np.float32)
             red_fire_cmd = float(np.clip(red_action[2], 0.0, 1.0))
-            if not self.red_state.is_routing:
+            if not red_skip_normal_movement:
                 self._step_red_policy(red_action)
-            else:
-                self._step_routing_red()
         else:
             red_fire_cmd = self._red_fire_intensity()
-            if not self.red_state.is_routing:
+            if not red_skip_normal_movement:
                 self._step_red()
-            else:
-                self._step_routing_red()
 
         # --- Combat resolution (simultaneous) ---
         self.blue_state.reset_step_accumulators()
@@ -482,6 +475,24 @@ class BattalionEnv(gym.Env):
         self.red.morale  = self.red_state.morale
         self.blue.routed = self.blue_state.is_routing
         self.red.routed  = self.red_state.is_routing
+
+        # --- Post-morale rout movement (morale_config mode only) ---
+        # Applied *after* morale update so that units route on the same step
+        # routing is triggered, not just on subsequent steps.  Also handles
+        # already-routing units whose pre-step movement was suppressed above.
+        if self.morale_config is not None:
+            if self.blue_state.is_routing:
+                vx, vy = rout_velocity(
+                    self.blue.x, self.blue.y,
+                    self.red.x, self.red.y,
+                    self.blue.max_speed,
+                    self.morale_config,
+                )
+                self.blue.move(vx, vy, dt=DT)
+                self.blue.x = float(np.clip(self.blue.x, 0.0, self.map_width))
+                self.blue.y = float(np.clip(self.blue.y, 0.0, self.map_height))
+            if self.red_state.is_routing:
+                self._step_routing_red()
 
         self._step_count += 1
 
