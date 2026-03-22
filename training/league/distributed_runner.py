@@ -591,8 +591,8 @@ def corps_benchmark(
     @ray.remote(num_cpus=1)
     def _run_corps_episode(ep_seed: int, kw: Dict[str, Any]) -> int:
         """Run one CorpsEnv episode; return step count."""
-        from envs.corps_env import CorpsEnv as _CorpsEnv  # noqa: PLC0415
-        env = _CorpsEnv(**kw)
+        from envs.corps_env import CorpsEnv as CorpsEnvRemote  # noqa: PLC0415
+        env = CorpsEnvRemote(**kw)
         obs, _ = env.reset(seed=ep_seed)
         steps = 0
         max_s = getattr(env, "max_steps", 500)

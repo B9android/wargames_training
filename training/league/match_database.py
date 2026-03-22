@@ -443,7 +443,8 @@ class MatchDatabase:
         ]
         if not relevant:
             return None
-        return sum(r.territory_control for r in relevant) / len(relevant)  # type: ignore[misc]
+        tc_values: List[float] = [r.territory_control for r in relevant]  # type: ignore[misc]
+        return sum(tc_values) / len(tc_values)
 
     def mean_casualties(
         self,
@@ -487,7 +488,8 @@ class MatchDatabase:
         ]
         if not relevant:
             return None
-        return sum(r.supply_consumed for r in relevant) / len(relevant)  # type: ignore[misc]
+        sc_values: List[float] = [r.supply_consumed for r in relevant]  # type: ignore[misc]
+        return sum(sc_values) / len(sc_values)
 
     # ------------------------------------------------------------------
     # Persistence helpers

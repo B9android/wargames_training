@@ -340,7 +340,7 @@ class _RolloutBuffer:
         batches = []
         # Compute returns / advantages will be called before this by the trainer.
         for start in range(0, n, batch_size):
-            idx = indices[start: start + batch_size]
+            idx = indices[start:start + batch_size]
             batches.append((
                 obs_t[idx],
                 actions_t[idx],
@@ -709,7 +709,7 @@ class CorpsMainAgentTrainer:
             indices = np.random.permutation(self._n_steps)
             for start in range(0, self._n_steps, self._batch_size):
                 idx = torch.tensor(
-                    indices[start: start + self._batch_size],
+                    indices[start:start + self._batch_size],
                     dtype=torch.long,
                     device=self._device,
                 )
