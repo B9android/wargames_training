@@ -84,7 +84,7 @@ function drawTerrain(ctx, grid) {
   }
 }
 
-export default function GameCanvas({ frame }) {
+export default function GameCanvas({ frame, onMapClick }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -144,12 +144,29 @@ export default function GameCanvas({ frame }) {
     }
   }, [frame]);
 
+  const handleClick = (e) => {
+    if (!onMapClick) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const normX = (e.clientX - rect.left) / rect.width;
+    const normY = (e.clientY - rect.top) / rect.height;
+    onMapClick(normX, normY);
+  };
+
   return (
     <canvas
       ref={canvasRef}
       width={CANVAS_W}
       height={CANVAS_H}
-      style={{ width: '100%', height: 'auto', borderRadius: 8, border: '1px solid #0f3460' }}
+      onClick={handleClick}
+      style={{
+        width: '100%',
+        height: 'auto',
+        borderRadius: 8,
+        border: '1px solid #0f3460',
+        cursor: onMapClick ? 'crosshair' : 'default',
+      }}
     />
   );
 }

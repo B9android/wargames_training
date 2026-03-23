@@ -80,15 +80,18 @@ class Replay:
             If required keys are missing.
         """
         meta_raw = data["metadata"]
-        meta = ReplayMetadata(
-            scenario=meta_raw["scenario"],
-            difficulty=int(meta_raw["difficulty"]),
-            map_width=float(meta_raw["map_width"]),
-            map_height=float(meta_raw["map_height"]),
-            recorded_at=meta_raw.get("recorded_at", ""),
-            outcome=meta_raw.get("outcome", "unknown"),
-            total_steps=int(meta_raw.get("total_steps", 0)),
-        )
+        meta_kwargs: dict[str, Any] = {
+            "scenario": meta_raw["scenario"],
+            "difficulty": int(meta_raw["difficulty"]),
+            "map_width": float(meta_raw["map_width"]),
+            "map_height": float(meta_raw["map_height"]),
+            "outcome": meta_raw.get("outcome", "unknown"),
+            "total_steps": int(meta_raw.get("total_steps", 0)),
+        }
+        recorded_at = meta_raw.get("recorded_at")
+        if recorded_at is not None:
+            meta_kwargs["recorded_at"] = recorded_at
+        meta = ReplayMetadata(**meta_kwargs)
         return cls(metadata=meta, frames=list(data.get("frames", [])))
 
     @classmethod

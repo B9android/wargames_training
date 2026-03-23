@@ -161,6 +161,37 @@ class TestReplay(unittest.TestCase):
         self.assertEqual(replay.metadata.outcome, "unknown")
         self.assertEqual(replay.metadata.total_steps, 0)
 
+    def test_from_dict_missing_recorded_at_uses_default(self) -> None:
+        d = {
+            "metadata": {
+                "scenario": "open_field",
+                "difficulty": 5,
+                "map_width": 1000.0,
+                "map_height": 1000.0,
+                # no "recorded_at" key
+            },
+            "frames": [],
+        }
+        replay = Replay.from_dict(d)
+        # Should not be empty string — should be a valid timestamp.
+        self.assertGreater(len(replay.metadata.recorded_at), 0)
+        self.assertNotEqual(replay.metadata.recorded_at, "")
+
+    def test_from_dict_preserves_recorded_at_when_provided(self) -> None:
+        ts = "2026-01-01T00:00:00Z"
+        d = {
+            "metadata": {
+                "scenario": "open_field",
+                "difficulty": 5,
+                "map_width": 1000.0,
+                "map_height": 1000.0,
+                "recorded_at": ts,
+            },
+            "frames": [],
+        }
+        replay = Replay.from_dict(d)
+        self.assertEqual(replay.metadata.recorded_at, ts)
+
     def test_frames_not_shared_with_input(self) -> None:
         meta = ReplayMetadata(scenario="open_field", difficulty=5, map_width=1000.0, map_height=1000.0)
         original_frames = [{"step": 0}]
@@ -274,26 +305,42 @@ class TestClamp(unittest.TestCase):
 
 
 class TestDetermineOutcome(unittest.TestCase):
-    def test_blue_wins(self) -> None:
+    def test_blue_wins_when_red_routed(self) -> None:
+        info = {"blue_routed": False, "red_routed": True}
+        self.assertEqual(_determine_outcome(info), "blue_wins")
+
+    def test_red_wins_when_blue_routed(self) -> None:
+        info = {"blue_routed": True, "red_routed": False}
+        self.assertEqual(_determine_outcome(info), "red_wins")
+
+    def test_draw_when_neither_routed(self) -> None:
+        info = {"blue_routed": False, "red_routed": False}
+        self.assertEqual(_determine_outcome(info), "draw")
+
+    def test_draw_when_both_routed(self) -> None:
+        info = {"blue_routed": True, "red_routed": True}
+        self.assertEqual(_determine_outcome(info), "draw")
+
+    def test_fallback_blue_wins_via_strength(self) -> None:
         info = {"blue_strength": 0.5, "red_strength": 0.0}
         self.assertEqual(_determine_outcome(info), "blue_wins")
 
-    def test_red_wins(self) -> None:
+    def test_fallback_red_wins_via_strength(self) -> None:
         info = {"blue_strength": 0.0, "red_strength": 0.8}
         self.assertEqual(_determine_outcome(info), "red_wins")
 
-    def test_draw_both_alive(self) -> None:
+    def test_fallback_draw_via_strength(self) -> None:
         info = {"blue_strength": 0.5, "red_strength": 0.5}
         self.assertEqual(_determine_outcome(info), "draw")
 
-    def test_draw_both_dead(self) -> None:
-        info = {"blue_strength": 0.0, "red_strength": 0.0}
-        self.assertEqual(_determine_outcome(info), "draw")
-
-    def test_missing_keys_defaults_alive(self) -> None:
-        # Missing keys default to 1.0 (alive) → draw (both assumed alive).
+    def test_missing_keys_returns_unknown(self) -> None:
         info: dict = {}
-        self.assertEqual(_determine_outcome(info), "draw")
+        self.assertEqual(_determine_outcome(info), "unknown")
+
+    def test_numpy_bool_routed_flag(self) -> None:
+        import numpy as np
+        info = {"blue_routed": np.bool_(False), "red_routed": np.bool_(True)}
+        self.assertEqual(_determine_outcome(info), "blue_wins")
 
 
 class TestPolicyClient(unittest.TestCase):
@@ -337,6 +384,44 @@ class TestPolicyClient(unittest.TestCase):
 
         with patch("urllib.request.urlopen", return_value=mock_resp):
             self.assertTrue(self.client.is_available())
+
+
+class TestOnnxRedPolicy(unittest.TestCase):
+    """Tests for the _OnnxRedPolicy adapter."""
+
+    def test_predict_wraps_client(self) -> None:
+        import numpy as np
+        from server.game_server import PolicyClient, _OnnxRedPolicy
+
+        client = PolicyClient(url="http://localhost:8080")
+        policy = _OnnxRedPolicy(client)
+
+        obs = np.zeros(22, dtype=np.float32)
+        with patch("urllib.request.urlopen", side_effect=Exception("refused")):
+            action, state = policy.predict(obs, deterministic=True)
+
+        self.assertIsNone(state)
+        # Falls back to zeros.
+        self.assertTrue((action == 0).all())
+
+    def test_predict_returns_action_on_success(self) -> None:
+        import numpy as np
+        from server.game_server import PolicyClient, _OnnxRedPolicy
+
+        client = PolicyClient(url="http://localhost:8080")
+        policy = _OnnxRedPolicy(client)
+
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"output": [[0.5, -0.3, 0.9]]}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        obs = np.zeros(22, dtype=np.float32)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            action, state = policy.predict(obs)
+
+        self.assertIsNone(state)
+        self.assertAlmostEqual(float(action[0]), 0.5, places=5)
 
 
 # ---------------------------------------------------------------------------
@@ -481,6 +566,50 @@ class TestGameSession(unittest.TestCase):
         session = GameSession(scenario="nonexistent_xyz", difficulty=3)
         frame = session.reset(seed=0)
         self.assertEqual(frame["type"], "frame")
+
+    def test_difficulty_clamped_low(self) -> None:
+        from server.game_server import GameSession
+
+        session = GameSession(scenario="open_field", difficulty=-99)
+        self.assertEqual(session._difficulty, 1)
+
+    def test_difficulty_clamped_high(self) -> None:
+        from server.game_server import GameSession
+
+        session = GameSession(scenario="open_field", difficulty=999)
+        self.assertEqual(session._difficulty, 5)
+
+    def test_weather_condition_accepted(self) -> None:
+        from server.game_server import GameSession
+
+        # Should not raise; weather enables fine.
+        session = GameSession(scenario="open_field", difficulty=3, weather_condition="RAIN")
+        frame = session.reset(seed=0)
+        self.assertEqual(frame["type"], "frame")
+
+    def test_invalid_weather_condition_graceful(self) -> None:
+        from server.game_server import GameSession
+
+        # Invalid condition name should not crash.
+        session = GameSession(scenario="open_field", difficulty=3, weather_condition="TORNADO")
+        frame = session.reset(seed=0)
+        self.assertEqual(frame["type"], "frame")
+
+    def test_randomize_terrain_override(self) -> None:
+        from server.game_server import GameSession
+
+        session = GameSession(scenario="open_field", difficulty=3, randomize_terrain=True)
+        frame = session.reset(seed=0)
+        self.assertEqual(frame["type"], "frame")
+
+    def test_onnx_policy_wired_as_red_policy(self) -> None:
+        """_OnnxRedPolicy should be set on the inner env when policy_url given."""
+        from server.game_server import GameSession, _OnnxRedPolicy
+
+        # Use a non-existent URL; we just check the red_policy type, not behaviour.
+        session = GameSession(scenario="open_field", difficulty=3, policy_url="http://localhost:19999")
+        inner_env = session._env._env  # BattalionEnv
+        self.assertIsInstance(inner_env.red_policy, _OnnxRedPolicy)
 
 
 class TestGameServerInit(unittest.TestCase):

@@ -139,6 +139,7 @@ class HumanEnv(gym.Env):
         scenario: str = "open_field",
         difficulty: Optional[int] = None,
         red_policy: Optional[RedPolicy] = None,
+        **extra_env_kwargs: Any,
     ) -> None:
         super().__init__()
 
@@ -158,6 +159,10 @@ class HumanEnv(gym.Env):
         # Allow difficulty to override the scenario's curriculum_level.
         if difficulty is not None:
             cfg["curriculum_level"] = int(difficulty)
+
+        # Allow callers to override individual env parameters (e.g. from the
+        # scenario editor: randomize_terrain, enable_weather, weather_config).
+        cfg.update(extra_env_kwargs)
 
         self._env = BattalionEnv(
             render_mode="human",

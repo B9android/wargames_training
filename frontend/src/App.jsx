@@ -78,6 +78,8 @@ function reducer(state, action) {
       return { ...state, mode: 'replay', replayMeta: action.meta, replayIndex: 0, replayTotal: action.total, replayFrame: null };
     case 'REPLAY_FRAME':
       return { ...state, replayFrame: action.frame, replayIndex: action.index };
+    case 'REPLAY_DONE':
+      return { ...state };  // keep current frame; let the viewer disable play
     default:
       return state;
   }
@@ -118,6 +120,10 @@ export default function App() {
         dispatch({ type: 'REPLAY_FRAME', frame: msg.frame, index: msg.index });
         break;
 
+      case 'replay_done':
+        dispatch({ type: 'REPLAY_DONE' });
+        break;
+
       case 'error':
         console.error('[server error]', msg.message);
         break;
@@ -144,7 +150,9 @@ export default function App() {
       const rotate = keys['KeyA'] || keys['ArrowLeft'] ? 1 : keys['KeyD'] || keys['ArrowRight'] ? -1 : 0;
       const fire = keys['Space'] ? 1 : 0;
       if (move !== 0 || rotate !== 0 || fire !== 0) {
-        send({ type: 'action', move, rotate, fire });
+        // Include the currently selected formation so the order is
+        // self-describing (formation changes are queued alongside movement).
+        send({ type: 'action', move, rotate, fire, formation: state.formation });
       }
     }, 100);
 
@@ -153,7 +161,16 @@ export default function App() {
       window.removeEventListener('keyup', onKeyUp);
       clearInterval(interval);
     };
-  }, [state.mode, send]);
+  }, [state.mode, state.formation, send]);
+
+  // ── Order queue: canvas click enqueues a "move-here" order ───────────────
+  const handleMapClick = (normX, normY) => {
+    if (state.mode !== 'playing') return;
+    dispatch({
+      type: 'ENQUEUE_ORDER',
+      order: { move: normX > 0.5 ? 1 : -1, rotate: 0, fire: 0, formation: state.formation },
+    });
+  };
 
   // ── Action helpers ────────────────────────────────────────────────────────
   const startGame = () => {
@@ -242,9 +259,9 @@ export default function App() {
         <div style={styles.gameLayout}>
           {/* Left: map canvas */}
           <div style={styles.canvasWrapper}>
-            <GameCanvas frame={state.frame} />
+            <GameCanvas frame={state.frame} onMapClick={handleMapClick} />
             <div style={styles.controls}>
-              <span style={{ fontSize: 12, opacity: 0.7 }}>WASD / Arrows to move · Space to fire</span>
+              <span style={{ fontSize: 12, opacity: 0.7 }}>WASD / Arrows to move · Space to fire · Click map to queue move order</span>
             </div>
           </div>
 

@@ -52,6 +52,7 @@ export default function ReplayViewer({
   const handlePlay = () => {
     if (playing) {
       clearInterval(playIntervalRef.current);
+      playIntervalRef.current = null;
       setPlaying(false);
     } else {
       setPlaying(true);
@@ -60,6 +61,15 @@ export default function ReplayViewer({
       }, 150);
     }
   };
+
+  // Clear the play timer on unmount to prevent leaks.
+  useEffect(() => {
+    return () => {
+      if (playIntervalRef.current != null) {
+        clearInterval(playIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleSeek = (e) => {
     const idx = Number(e.target.value);

@@ -92,6 +92,8 @@ export default function ScenarioEditor({ onLaunch, onCancel }) {
       difficulty,
       weather_condition: weather,
       randomize_terrain: randomizeTerrain,
+      blue_pos: bluePos,
+      red_pos: redPos,
     });
   };
 

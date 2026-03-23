@@ -126,14 +126,43 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 
 def _determine_outcome(info: dict[str, Any]) -> str:
-    """Map the BattalionEnv step-info dict to an outcome string."""
-    blue_alive = info.get("blue_strength", 1.0) > 0.0
-    red_alive = info.get("red_strength", 1.0) > 0.0
-    if blue_alive and not red_alive:
-        return "blue_wins"
-    if red_alive and not blue_alive:
-        return "red_wins"
-    return "draw"
+    """Map the BattalionEnv step-info dict to an outcome string.
+
+    Prefer routed flags when available; fall back to explicit strength values.
+    If neither is available, return ``"unknown"`` rather than assuming a draw.
+    """
+    # 1. Prefer routed flags provided by BattalionEnv.step().
+    blue_routed = info.get("blue_routed")
+    red_routed = info.get("red_routed")
+
+    has_blue_routed = isinstance(blue_routed, (bool, np.bool_))
+    has_red_routed = isinstance(red_routed, (bool, np.bool_))
+
+    if has_blue_routed or has_red_routed:
+        blue_routed_flag = bool(blue_routed) if has_blue_routed else False
+        red_routed_flag = bool(red_routed) if has_red_routed else False
+
+        if blue_routed_flag and not red_routed_flag:
+            return "red_wins"
+        if red_routed_flag and not blue_routed_flag:
+            return "blue_wins"
+        return "draw"
+
+    # 2. Fall back to explicit strength values if present in info.
+    blue_strength = info.get("blue_strength")
+    red_strength = info.get("red_strength")
+
+    if isinstance(blue_strength, (int, float)) and isinstance(red_strength, (int, float)):
+        blue_alive = blue_strength > 0.0
+        red_alive = red_strength > 0.0
+        if blue_alive and not red_alive:
+            return "blue_wins"
+        if red_alive and not blue_alive:
+            return "red_wins"
+        return "draw"
+
+    # 3. Insufficient information to determine the outcome.
+    return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +233,37 @@ class PolicyClient:
 
 
 # ---------------------------------------------------------------------------
+# RedPolicy adapter that calls the ONNX policy server
+# ---------------------------------------------------------------------------
+
+
+class _OnnxRedPolicy:
+    """Wraps :class:`PolicyClient` as a :class:`~envs.battalion_env.RedPolicy`.
+
+    BattalionEnv's ``red_policy`` interface requires::
+
+        predict(obs, deterministic) -> (action, state)
+
+    This adapter forwards ``obs`` to the policy server and returns the
+    resulting action array with a ``None`` state.  The HTTP call is made
+    synchronously on the calling thread; because :meth:`GameSession.step`
+    is already run in a thread-pool executor, this never blocks the asyncio
+    event loop.
+    """
+
+    def __init__(self, client: PolicyClient) -> None:
+        self._client = client
+
+    def predict(
+        self,
+        obs: np.ndarray,
+        deterministic: bool = True,
+    ) -> tuple[np.ndarray, None]:
+        action = self._client.predict(obs)
+        return action, None
+
+
+# ---------------------------------------------------------------------------
 # Game session
 # ---------------------------------------------------------------------------
 
@@ -216,18 +276,24 @@ class GameSession:
     * A :class:`~envs.human_env.HumanEnv` environment.
     * A :class:`~envs.rendering.web_renderer.WebRenderer` for JSON frames.
     * A :class:`~server.replay.ReplayRecorder` that logs every frame.
-    * An optional :class:`PolicyClient` for ONNX-backed AI.
+    * An optional :class:`PolicyClient` for ONNX-backed AI wired as ``red_policy``.
 
     Parameters
     ----------
     scenario:
         Built-in scenario name (key in :data:`~envs.human_env.SCENARIOS`).
     difficulty:
-        Red opponent difficulty level (1–5).
+        Red opponent difficulty level (1–5).  Clamped to ``[1, 5]``.
     policy_url:
-        Optional base URL of the ONNX policy server.  When provided and the
-        server is reachable, the AI policy will be driven by ONNX; otherwise
-        the scripted heuristic is used.
+        Optional base URL of the ONNX policy server.  When provided the Red
+        side is driven by the remote policy; otherwise the scripted heuristic
+        is used.
+    randomize_terrain:
+        Override the scenario's terrain-randomisation setting.
+    weather_condition:
+        Optional weather condition name (``"CLEAR"``, ``"OVERCAST"``,
+        ``"RAIN"``, ``"FOG"``, ``"SNOW"``).  When provided, the env is
+        created with ``enable_weather=True`` and the fixed condition set.
     """
 
     def __init__(
@@ -235,6 +301,8 @@ class GameSession:
         scenario: str = _DEFAULT_SCENARIO,
         difficulty: int = _DEFAULT_DIFFICULTY,
         policy_url: Optional[str] = None,
+        randomize_terrain: Optional[bool] = None,
+        weather_condition: Optional[str] = None,
     ) -> None:
         from envs.human_env import HumanEnv, SCENARIOS
         from envs.rendering.web_renderer import WebRenderer
@@ -243,9 +311,35 @@ class GameSession:
         if scenario not in SCENARIOS:
             scenario = _DEFAULT_SCENARIO
         self._scenario = scenario
-        self._difficulty = int(difficulty)
+        self._difficulty = max(1, min(5, int(difficulty)))
 
-        self._env = HumanEnv(scenario=scenario, difficulty=self._difficulty)
+        # Build optional red policy adapter from ONNX server.
+        self._policy_client: Optional[PolicyClient] = None
+        red_policy: Optional[Any] = None
+        if policy_url:
+            self._policy_client = PolicyClient(url=policy_url)
+            red_policy = _OnnxRedPolicy(self._policy_client)
+
+        # Build optional weather config.
+        env_kwargs: dict[str, Any] = {}
+        if weather_condition:
+            try:
+                from envs.sim.weather import WeatherCondition, WeatherConfig  # noqa: PLC0415
+                cond = WeatherCondition[weather_condition.upper()]
+                env_kwargs["enable_weather"] = True
+                env_kwargs["weather_config"] = WeatherConfig(fixed_condition=cond)
+            except (KeyError, ImportError):
+                logger.warning("Unknown weather condition %r — ignoring.", weather_condition)
+
+        if randomize_terrain is not None:
+            env_kwargs["randomize_terrain"] = bool(randomize_terrain)
+
+        self._env = HumanEnv(
+            scenario=scenario,
+            difficulty=self._difficulty,
+            red_policy=red_policy,
+            **env_kwargs,
+        )
         self._renderer = WebRenderer(
             map_width=self._env.map_width,
             map_height=self._env.map_height,
@@ -256,10 +350,6 @@ class GameSession:
             map_width=self._env.map_width,
             map_height=self._env.map_height,
         )
-
-        self._policy_client: Optional[PolicyClient] = None
-        if policy_url:
-            self._policy_client = PolicyClient(url=policy_url)
 
         # Latest human action (updated by handle_message).
         self._human_action: np.ndarray = np.zeros(3, dtype=np.float32)
@@ -504,7 +594,19 @@ class GameServer:
     async def _handle_connection(self, ws: Any) -> None:
         """Manage one client connection (one :class:`GameSession`)."""
         session: Optional[GameSession] = None
+        loop_task: Optional[asyncio.Task] = None  # tracks the active game loop
         logger.info("Client connected: %s", ws.remote_address)
+
+        async def _cancel_loop() -> None:
+            """Cancel and await any running game loop for this connection."""
+            nonlocal loop_task
+            if loop_task is not None and not loop_task.done():
+                loop_task.cancel()
+                try:
+                    await loop_task
+                except asyncio.CancelledError:
+                    pass
+            loop_task = None
 
         try:
             async for raw_msg in ws:
@@ -518,11 +620,12 @@ class GameServer:
                     await self._send_error(ws, "Message must be a JSON object.")
                     continue
 
-                session = await self._dispatch(ws, msg, session)
+                session, loop_task = await self._dispatch(ws, msg, session, loop_task, _cancel_loop)
 
         except Exception as exc:  # noqa: BLE001
             logger.exception("Unhandled error in connection handler: %s", exc)
         finally:
+            await _cancel_loop()
             logger.info("Client disconnected: %s", ws.remote_address)
 
     # ------------------------------------------------------------------
@@ -534,35 +637,49 @@ class GameServer:
         ws: Any,
         msg: dict[str, Any],
         session: Optional[GameSession],
-    ) -> Optional[GameSession]:
+        loop_task: Optional[asyncio.Task],
+        cancel_loop: Any,
+    ) -> tuple[Optional[GameSession], Optional[asyncio.Task]]:
         """Route an incoming client message to the appropriate handler.
 
-        Returns the (possibly updated) session.
+        Returns ``(session, loop_task)`` — both may be updated.
         """
         msg_type = msg.get("type", "")
 
         if msg_type == "start":
-            scenario = str(msg.get("scenario", _DEFAULT_SCENARIO))
-            difficulty = int(msg.get("difficulty", _DEFAULT_DIFFICULTY))
-            session = GameSession(
-                scenario=scenario,
-                difficulty=difficulty,
-                policy_url=self._policy_url,
-            )
+            try:
+                scenario = str(msg.get("scenario", _DEFAULT_SCENARIO))
+                difficulty = int(msg.get("difficulty", _DEFAULT_DIFFICULTY))
+            except (TypeError, ValueError) as exc:
+                await self._send_error(ws, f"Invalid 'start' fields: {exc}")
+                return session, loop_task
+
+            await cancel_loop()
+            try:
+                session = GameSession(
+                    scenario=scenario,
+                    difficulty=difficulty,
+                    policy_url=self._policy_url,
+                )
+            except Exception as exc:  # noqa: BLE001
+                await self._send_error(ws, f"Failed to create session: {exc}")
+                return None, None
             frame = session.reset()
             await ws.send(json.dumps(frame))
-            # Kick off the game loop as a background task.
-            asyncio.create_task(self._game_loop(ws, session))
+            loop_task = asyncio.create_task(self._game_loop(ws, session))
 
         elif msg_type == "action":
             if session is None:
                 await self._send_error(ws, "No active session. Send 'start' first.")
             else:
-                session.apply_action(
-                    move=float(msg.get("move", 0.0)),
-                    rotate=float(msg.get("rotate", 0.0)),
-                    fire=float(msg.get("fire", 0.0)),
-                )
+                try:
+                    session.apply_action(
+                        move=float(msg.get("move", 0.0)),
+                        rotate=float(msg.get("rotate", 0.0)),
+                        fire=float(msg.get("fire", 0.0)),
+                    )
+                except (TypeError, ValueError) as exc:
+                    await self._send_error(ws, f"Invalid 'action' fields: {exc}")
 
         elif msg_type == "reset":
             if session is None:
@@ -572,17 +689,39 @@ class GameServer:
                 await ws.send(json.dumps(frame))
 
         elif msg_type == "load_scenario":
-            # Re-create the session with the requested scenario / difficulty.
-            scenario = str(msg.get("scenario", _DEFAULT_SCENARIO))
-            difficulty = int(msg.get("difficulty", _DEFAULT_DIFFICULTY))
-            session = GameSession(
-                scenario=scenario,
-                difficulty=difficulty,
-                policy_url=self._policy_url,
-            )
+            # Re-create session; parse all scenario-editor fields.
+            try:
+                scenario = str(msg.get("scenario", _DEFAULT_SCENARIO))
+                difficulty = int(msg.get("difficulty", _DEFAULT_DIFFICULTY))
+            except (TypeError, ValueError) as exc:
+                await self._send_error(ws, f"Invalid 'load_scenario' fields: {exc}")
+                return session, loop_task
+
+            randomize_terrain: Optional[bool] = None
+            raw_rt = msg.get("randomize_terrain")
+            if isinstance(raw_rt, bool):
+                randomize_terrain = raw_rt
+
+            weather_condition: Optional[str] = None
+            raw_wc = msg.get("weather_condition")
+            if isinstance(raw_wc, str) and raw_wc:
+                weather_condition = raw_wc
+
+            await cancel_loop()
+            try:
+                session = GameSession(
+                    scenario=scenario,
+                    difficulty=difficulty,
+                    policy_url=self._policy_url,
+                    randomize_terrain=randomize_terrain,
+                    weather_condition=weather_condition,
+                )
+            except Exception as exc:  # noqa: BLE001
+                await self._send_error(ws, f"Failed to create session: {exc}")
+                return None, None
             frame = session.reset()
             await ws.send(json.dumps(frame))
-            asyncio.create_task(self._game_loop(ws, session))
+            loop_task = asyncio.create_task(self._game_loop(ws, session))
 
         elif msg_type == "export_replay":
             if session is None:
@@ -605,7 +744,12 @@ class GameServer:
                 if not ok:
                     await self._send_error(ws, "Failed to load replay (invalid format).")
                 else:
-                    await ws.send(json.dumps({"type": "replay_loaded", "total": session._replay_player.total_frames if session._replay_player else 0}))
+                    player = session._replay_player
+                    total = player.total_frames if player else 0
+                    meta = player.metadata.__dict__ if player else {}
+                    await ws.send(
+                        json.dumps({"type": "replay_loaded", "total": total, "meta": meta})
+                    )
 
         elif msg_type == "replay_step":
             if session is None:
@@ -621,7 +765,11 @@ class GameServer:
             if session is None:
                 await self._send_error(ws, "No active session.")
             else:
-                index = int(msg.get("index", 0))
+                try:
+                    index = int(msg.get("index", 0))
+                except (TypeError, ValueError) as exc:
+                    await self._send_error(ws, f"Invalid 'index': {exc}")
+                    return session, loop_task
                 result = session.replay_seek(index)
                 if result is None:
                     await self._send_error(ws, "No replay loaded or index out of range.")
@@ -631,7 +779,7 @@ class GameServer:
         else:
             await self._send_error(ws, f"Unknown message type: {msg_type!r}")
 
-        return session
+        return session, loop_task
 
     # ------------------------------------------------------------------
     # Game loop
