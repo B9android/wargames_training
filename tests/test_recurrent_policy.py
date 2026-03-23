@@ -20,7 +20,6 @@ Coverage
 
 from __future__ import annotations
 
-import os
 import sys
 import tempfile
 import unittest
@@ -525,6 +524,25 @@ class TestRecurrentRolloutBufferBasic(unittest.TestCase):
         np.testing.assert_allclose(buf.hx_h[0], h_val[:, 0, :].numpy(), rtol=1e-5)
         np.testing.assert_allclose(buf.hx_c[0], c_val[:, 0, :].numpy(), rtol=1e-5)
 
+    def test_add_raises_for_batched_hx(self):
+        """add() must raise ValueError when the hidden state has batch_size > 1."""
+        buf = _make_buffer(4)
+        tokens = np.zeros((N_ENTITIES, TOKEN_DIM), dtype=np.float32)
+        hx_batched = LSTMHiddenState.zeros(LSTM_LAYERS, LSTM_HIDDEN, batch_size=3)
+        with self.assertRaises(ValueError):
+            buf.add(tokens, hx_batched, np.zeros(ACTION_DIM), 0.0, 0.0, False, 0.0)
+
+    def test_add_raises_for_wrong_hx_dims(self):
+        """add() must raise ValueError when hidden state tensors have wrong number of dims."""
+        buf = _make_buffer(4)
+        tokens = np.zeros((N_ENTITIES, TOKEN_DIM), dtype=np.float32)
+        bad_hx = LSTMHiddenState(
+            h=torch.zeros(LSTM_LAYERS, LSTM_HIDDEN),  # missing batch dim
+            c=torch.zeros(LSTM_LAYERS, LSTM_HIDDEN),
+        )
+        with self.assertRaises(ValueError):
+            buf.add(tokens, bad_hx, np.zeros(ACTION_DIM), 0.0, 0.0, False, 0.0)
+
 
 class TestRecurrentRolloutBufferGAE(unittest.TestCase):
 
@@ -542,26 +560,27 @@ class TestRecurrentRolloutBufferGAE(unittest.TestCase):
         self.assertEqual(buf.advantages.shape, (16,))
 
     def test_terminal_bootstrap_zero(self):
-        """When last_done=True, last_value is not used in bootstrapping."""
+        """When the last step is terminal (dones[T-1]=True), last_value is not bootstrapped."""
+        # Use episode_len=4 so dones = [F, F, F, T] — last step is terminal
         buf = _make_buffer(4)
-        _fill_buffer(buf)
+        _fill_buffer(buf, episode_len=4)
         buf.compute_returns_and_advantages(last_value=0.0, last_done=True)
-        adv_done = buf.advantages.copy()
+        adv_zero = buf.advantages.copy()
 
         buf2 = _make_buffer(4)
-        _fill_buffer(buf2)
-        # Copy the same data
-        buf2.tokens[:] = buf.tokens
+        _fill_buffer(buf2, episode_len=4)
+        # Copy the same rewards/values/dones so only last_value differs
         buf2.rewards[:] = buf.rewards
         buf2.values[:] = buf.values
         buf2.dones[:] = buf.dones
         buf2._ptr = buf.n_steps
         buf2._full = True
         buf2.compute_returns_and_advantages(last_value=999.0, last_done=True)
-        adv_nodone = buf2.advantages.copy()
+        adv_large = buf2.advantages.copy()
 
-        # When last_done=True, last_value=999 should not change anything
-        np.testing.assert_allclose(adv_done, adv_nodone, rtol=1e-5)
+        # When the last step is terminal (dones[T-1]=True), last_value should
+        # be multiplied by 0 and have no effect on the computed advantages.
+        np.testing.assert_allclose(adv_zero, adv_large, rtol=1e-5)
 
     def test_returns_equals_advantages_plus_values(self):
         buf = _make_buffer(16)

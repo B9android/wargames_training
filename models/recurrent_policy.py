@@ -62,7 +62,6 @@ Rollout buffer usage::
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -696,8 +695,12 @@ class RecurrentRolloutBuffer:
     updates can re-run the LSTM through consecutive sequences (truncated BPTT)
     starting from the exact hidden state present during collection.
 
-    When ``done=True`` at step *t*, the hidden state stored at step *t+1* is
-    set to zeros — correctly resetting memory at episode boundaries.
+    Note
+    ----
+    This buffer does not automatically reset LSTM hidden states at episode
+    boundaries.  When ``done=True`` at step *t*, the caller is responsible for
+    providing an appropriately reset (typically zeroed) hidden state for
+    step *t+1* via :meth:`~models.recurrent_policy.RecurrentActorCriticPolicy.initial_state`.
 
     Parameters
     ----------
@@ -813,8 +816,10 @@ class RecurrentRolloutBuffer:
         value:
             Critic value estimate for this step.
         pad_mask:
-            Boolean padding mask of shape ``(N_obs,)``.  Inferred as all-False
-            if omitted.
+            Boolean padding mask of shape ``(N_obs,)``.  When omitted, valid
+            positions (``[:n_obs]``) are left unmasked (``False``) and any
+            remaining padded positions (``[n_obs:]``) are set to ``True``
+            (ignored by attention).
         """
         if self._full:
             raise RuntimeError(
@@ -831,7 +836,24 @@ class RecurrentRolloutBuffer:
         else:
             self.pad_masks[t, n_obs:] = True
 
-        # LSTM hidden state at start of this step (squeeze batch dim = 1)
+        # LSTM hidden state at start of this step (squeeze batch dim = 1).
+        # NOTE: RecurrentRolloutBuffer currently assumes a single environment
+        # (batch size = 1) for the LSTM hidden state. If a batched hidden state
+        # is passed in (e.g., from multiple parallel envs), we raise explicitly
+        # to avoid silently dropping all but the first environment.
+        if hx.h.dim() != 3 or hx.c.dim() != 3:
+            raise ValueError(
+                f"Expected hx.h and hx.c to have 3 dimensions "
+                f"(num_layers, batch_size, hidden_size); "
+                f"got hx.h.dim()={hx.h.dim()}, hx.c.dim()={hx.c.dim()}."
+            )
+        if hx.h.size(1) != 1 or hx.c.size(1) != 1:
+            raise ValueError(
+                "RecurrentRolloutBuffer.add currently supports only a single "
+                "environment (batch_size=1) for LSTM hidden state. "
+                f"Got hx.h.shape={tuple(hx.h.shape)}, "
+                f"hx.c.shape={tuple(hx.c.shape)}."
+            )
         self.hx_h[t] = hx.h[:, 0, :].detach().cpu().numpy()
         self.hx_c[t] = hx.c[:, 0, :].detach().cpu().numpy()
 
@@ -873,10 +895,13 @@ class RecurrentRolloutBuffer:
             )
         gae = 0.0
         next_value = last_value
-        next_done = float(last_done)
 
         for t in reversed(range(self.n_steps)):
-            not_terminal = 1.0 - next_done
+            # Use the stored done flag for the *current* step to decide whether
+            # to bootstrap from the next value.  Using dones[t] directly avoids
+            # the off-by-one error that would arise from carrying next_done
+            # across iterations.
+            not_terminal = 1.0 - self.dones[t]
             delta = (
                 self.rewards[t]
                 + self.gamma * next_value * not_terminal
@@ -887,7 +912,6 @@ class RecurrentRolloutBuffer:
             self.returns[t] = gae + self.values[t]
 
             next_value = self.values[t]
-            next_done = self.dones[t]
 
     # ------------------------------------------------------------------
     # Sequence batching for BPTT
