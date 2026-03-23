@@ -467,6 +467,11 @@ class CorpsEnv(gym.Env):
         # ── Observation space ───────────────────────────────────────
         self._obs_dim: int = _corps_obs_dim(self.n_divisions)
         obs_low, obs_high = self._build_obs_bounds()
+        # Store base corps bounds for use in _get_corps_obs() — subclasses
+        # may override observation_space, so clipping must use these stored
+        # bounds rather than self.observation_space.
+        self._corps_obs_low: np.ndarray = obs_low
+        self._corps_obs_high: np.ndarray = obs_high
         self.observation_space = spaces.Box(
             low=obs_low, high=obs_high, dtype=np.float32
         )
@@ -812,6 +817,19 @@ class CorpsEnv(gym.Env):
         return bonus, details
 
     # ------------------------------------------------------------------
+    # Fog-of-war radius hook
+    # ------------------------------------------------------------------
+
+    def _get_fog_radius(self) -> float:
+        """Return the effective fog-of-war comm radius for threat vectors.
+
+        Subclasses may override this method to implement cavalry
+        reconnaissance or other intelligence assets that extend the
+        effective communication range for threat vector building.
+        """
+        return self.comm_radius
+
+    # ------------------------------------------------------------------
     # Corps observation construction
     # ------------------------------------------------------------------
 
@@ -888,8 +906,8 @@ class CorpsEnv(gym.Env):
 
             assert best_centroid is not None
 
-            # Apply comm_radius gating
-            if best_dist > self.comm_radius:
+            # Apply comm_radius gating (subclasses may override via _get_fog_radius)
+            if best_dist > self._get_fog_radius():
                 # Enemy beyond communication range — sentinel
                 parts.extend([1.0, 0.0, 0.0, 0.0, 0.0])
                 continue
@@ -939,7 +957,7 @@ class CorpsEnv(gym.Env):
         parts.append(min(inner._step_count / self.max_steps, 1.0))
 
         obs = np.array(parts, dtype=np.float32)
-        return np.clip(obs, self.observation_space.low, self.observation_space.high)
+        return np.clip(obs, self._corps_obs_low, self._corps_obs_high)
 
     # ------------------------------------------------------------------
     # Division centroid helpers
