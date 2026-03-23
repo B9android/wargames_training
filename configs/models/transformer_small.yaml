@@ -1,0 +1,46 @@
+# configs/models/transformer_small.yaml
+# E8.3 — "Small" transformer configuration.
+#
+# Design target: CPU inference ≤ 5 ms for a 32-entity batch (batch_size=1).
+#
+# Architecture summary
+# --------------------
+#   Transformer depth  : 2 encoder layers
+#   Hidden dimension   : 64
+#   Attention heads    : 2  (32 dims per head)
+#   FFN width          : 256  (4 × d_model)
+#   Parameter count    : ~150 K (encoder only)
+#
+# Recommended use-cases
+# ---------------------
+#   * Edge deployment / CPU-only inference
+#   * Rapid iteration / ablation sweeps where throughput matters
+#   * Curriculum stage 1–3 (simple scripted opponents)
+#
+# See also
+# --------
+#   docs/model_configs.md — Pareto-frontier comparison table
+#   configs/models/transformer_medium.yaml
+#   configs/models/transformer_large.yaml
+
+model:
+  name: transformer_small
+
+  # ── Entity Encoder ────────────────────────────────────────────────────
+  encoder:
+    d_model: 64            # transformer hidden dimension
+    n_heads: 2             # attention heads  (d_model / n_heads = 32)
+    n_layers: 2            # number of TransformerEncoderLayer blocks
+    dim_feedforward: 256   # FFN sublayer width (4 × d_model)
+    dropout: 0.0           # dropout inside transformer (off for deployment)
+    use_spatial_pe: true   # 2-D Fourier positional encoding
+    n_freq_bands: 8        # Fourier frequency bands for spatial PE
+
+  # ── Actor-Critic MLP heads ────────────────────────────────────────────
+  actor_hidden_sizes: [64, 32]
+  critic_hidden_sizes: [64, 32]
+  shared_encoder: true     # share encoder weights between actor and critic
+
+  # ── Deployment metadata ───────────────────────────────────────────────
+  latency_target_ms: 5     # CPU inference budget (ms) — E8.3 acceptance criterion
+  param_count_approx: 150_000
