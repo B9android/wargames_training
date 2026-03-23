@@ -306,7 +306,7 @@ class TestSmallModelLatency(unittest.TestCase):
             n_freq_bands=enc_cfg["n_freq_bands"],
         )
         latency = _median_latency_ms(enc)
-        self.assertLess(
+        self.assertLessEqual(
             latency, 5.0,
             f"Small model latency {latency:.2f} ms exceeds 5 ms target",
         )
@@ -330,7 +330,7 @@ class TestLargeModelLatency(unittest.TestCase):
             n_freq_bands=enc_cfg["n_freq_bands"],
         )
         latency = _median_latency_ms(enc)
-        self.assertLess(
+        self.assertLessEqual(
             latency, 20.0,
             f"Large model latency {latency:.2f} ms exceeds 20 ms target",
         )
@@ -339,7 +339,7 @@ class TestLargeModelLatency(unittest.TestCase):
 @unittest.skipUnless(_TORCH_AVAILABLE, "torch not installed")
 @unittest.skipUnless(_RUN_LATENCY, _LATENCY_SKIP_MSG)
 class TestMediumModelLatency(unittest.TestCase):
-    """Medium model CPU inference must be strictly between small and large targets."""
+    """Medium model CPU inference must be within [5 ms, 20 ms]."""
 
     def test_medium_latency_bounds(self):
         data = _load_yaml(_CONFIGS_DIR / "transformer_medium.yaml")
@@ -354,7 +354,11 @@ class TestMediumModelLatency(unittest.TestCase):
             n_freq_bands=enc_cfg["n_freq_bands"],
         )
         latency = _median_latency_ms(enc)
-        self.assertLess(
+        self.assertGreater(
+            latency, 5.0,
+            f"Medium model latency {latency:.2f} ms is unexpectedly fast (≤ small tier bound of 5 ms)",
+        )
+        self.assertLessEqual(
             latency, 20.0,
             f"Medium model latency {latency:.2f} ms exceeds 20 ms upper bound",
         )

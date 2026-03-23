@@ -1,8 +1,10 @@
 # Model Configurations — E8.3 Scaling Study
 
 This document records the recommended transformer model configurations
-identified by the E8.3 scaling study, together with the measured Pareto
-frontier of win-rate vs. CPU inference latency across the 4v4 scenario.
+identified by the E8.3 scaling study, together with the intended Pareto
+tradeoffs of win-rate vs. CPU inference latency across the 4v4 scenario.
+Empirical measurements of the resulting Pareto frontier will be added as they
+are collected.
 
 ---
 
@@ -38,11 +40,11 @@ heads share the encoder by default (`shared_encoder: true`).
 
 | Tier   | `n_layers` | `d_model` | `n_heads` | FFN width | Params (enc.) | Latency target |
 |--------|------------|-----------|-----------|-----------|---------------|----------------|
-| Small  | 2          | 64        | 2         | 256       | ~150 K        | **< 5 ms** CPU |
-| Medium | 4          | 256       | 8         | 1024      | ~2.5 M        | < 10 ms CPU    |
-| Large  | 8          | 512       | 16        | 2048      | ~25 M         | **< 20 ms** CPU|
+| Small  | 2          | 64        | 2         | 256       | ~150 K        | **≤ 5 ms** CPU |
+| Medium | 4          | 256       | 8         | 1024      | ~2.5 M        | **≤ 10 ms** CPU|
+| Large  | 8          | 512       | 16        | 2048      | ~25 M         | **≤ 20 ms** CPU|
 
-> **E8.3 acceptance criteria**: "Small" CPU inference < 5 ms; "Large" CPU inference < 20 ms.
+> **E8.3 acceptance criteria**: "Small" CPU inference ≤ 5 ms; "Large" CPU inference ≤ 20 ms.
 > Both measured on a single forward pass with 32-entity input, `batch_size = 1`.
 
 ### Tier details

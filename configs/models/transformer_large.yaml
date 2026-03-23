@@ -1,7 +1,7 @@
 # configs/models/transformer_large.yaml
 # E8.3 — "Large" transformer configuration.
 #
-# Design target: CPU inference < 20 ms for a 32-entity batch (batch_size=1).
+# Design target: CPU inference ≤ 20 ms for a 32-entity batch (batch_size=1).
 #
 # Architecture summary
 # --------------------

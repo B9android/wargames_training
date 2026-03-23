@@ -1,7 +1,7 @@
 # configs/models/transformer_medium.yaml
 # E8.3 — "Medium" transformer configuration.
 #
-# Design target: CPU inference < 10 ms for a 32-entity batch (batch_size=1).
+# Design target: CPU inference ≤ 10 ms for a 32-entity batch (batch_size=1).
 #
 # Architecture summary
 # --------------------

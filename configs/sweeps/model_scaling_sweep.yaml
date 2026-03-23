@@ -28,9 +28,11 @@
 #   wandb sweep configs/sweeps/model_scaling_sweep.yaml
 #   wandb agent <sweep_id>  [--count 64]
 #
-# Each agent run invokes training/train_entity.py with the transformer
-# hyperparameters injected as Hydra CLI overrides.  The sweep agent sets
+# Each agent run invokes training/train.py with the transformer hyperparameters
+# injected as Hydra CLI overrides.  The sweep agent sets
 # model.encoder.d_model, model.encoder.n_heads, and model.encoder.n_layers.
+# The 4v4 scenario is selected via the env.* overrides below (matching
+# configs/scenarios/4v4.yaml).
 #
 # See also
 # --------
@@ -39,7 +41,7 @@
 #   configs/models/transformer_large.yaml  — recommended "large" config
 #   docs/model_configs.md                  — full results & Pareto analysis
 
-program: training/train_entity.py
+program: training/train.py
 method: grid
 
 project: wargames_training
@@ -61,9 +63,19 @@ parameters:
   model.encoder.n_heads:
     values: [2, 4, 8, 16]
 
-  # Fixed parameters across all runs
-  scenario:
-    value: "4v4"
+  # Fixed parameters — 4v4 symmetric scenario (mirrors configs/scenarios/4v4.yaml)
+  env.n_blue:
+    value: 4
+  env.n_red:
+    value: 4
+  env.map_width:
+    value: 1000.0
+  env.map_height:
+    value: 1000.0
+  env.max_steps:
+    value: 500
+  env.visibility_radius:
+    value: 500.0
 
   training.total_timesteps:
     value: 500_000
