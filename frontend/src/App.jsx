@@ -1,5 +1,5 @@
 /**
- * App.jsx — top-level wargame interface (E9.1).
+ * App.jsx — top-level wargame interface (E9.1 / E9.2).
  *
  * Panels:
  *  - GameCanvas     : WebGL/Canvas 2D map renderer
@@ -8,6 +8,7 @@
  *  - OrderQueue     : Queued orders
  *  - ScenarioEditor : Drag-and-drop scenario setup
  *  - ReplayViewer   : Step-through replay
+ *  - COAPanel       : AI-Assisted Course of Action planning (E9.2)
  */
 
 import React, { useEffect, useReducer, useRef, useState } from 'react';
@@ -18,12 +19,14 @@ import FormationSelector from './components/FormationSelector.jsx';
 import OrderQueue from './components/OrderQueue.jsx';
 import ScenarioEditor from './components/ScenarioEditor.jsx';
 import ReplayViewer from './components/ReplayViewer.jsx';
+import COAPanel from './components/COAPanel.jsx';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8765';
+const COA_API_BASE = import.meta.env.VITE_COA_API_URL || 'http://localhost:5000';
 
 const SCENARIOS = ['open_field', 'mountain_pass', 'last_stand'];
 
@@ -31,7 +34,7 @@ const SCENARIOS = ['open_field', 'mountain_pass', 'last_stand'];
 // Reducer
 // ---------------------------------------------------------------------------
 
-/** @typedef {'lobby'|'playing'|'episode_end'|'replay'|'editor'} AppMode */
+/** @typedef {'lobby'|'playing'|'episode_end'|'replay'|'editor'|'coa_planner'} AppMode */
 
 const initialState = {
   /** @type {AppMode} */
@@ -54,6 +57,8 @@ const initialState = {
   replayTotal: 0,
   /** @type {object|null} Current replay frame dict. */
   replayFrame: null,
+  /** @type {object|null} COA selected by the human planner. */
+  activeCoa: null,
 };
 
 function reducer(state, action) {
@@ -80,6 +85,8 @@ function reducer(state, action) {
       return { ...state, replayFrame: action.frame, replayIndex: action.index };
     case 'REPLAY_DONE':
       return { ...state };  // keep current frame; let the viewer disable play
+    case 'ACTIVATE_COA':
+      return { ...state, activeCoa: action.coa };
     default:
       return state;
   }
@@ -205,6 +212,19 @@ export default function App() {
     dispatch({ type: 'SET_MODE', mode: 'editor' });
   };
 
+  const openCoaPlanner = () => {
+    dispatch({ type: 'SET_MODE', mode: 'coa_planner' });
+  };
+
+  const handleCoaActivate = (coa) => {
+    dispatch({ type: 'ACTIVATE_COA', coa });
+    // NOTE: Do not send an `activate_coa` message over the WebSocket yet.
+    // The current server protocol does not define a handler for this type and
+    // will treat it as an error. Once the protocol is extended, reintroduce a
+    // properly supported message here (or piggyback on `load_scenario` / `start`).
+    dispatch({ type: 'SET_MODE', mode: 'lobby' });
+  };
+
   const loadScenarioFromEditor = (scenarioCfg) => {
     send({ type: 'load_scenario', ...scenarioCfg });
     dispatch({ type: 'SET_MODE', mode: 'playing' });
@@ -239,6 +259,7 @@ export default function App() {
           <div style={{ ...styles.row, marginTop: 20, gap: 12 }}>
             <button onClick={startGame} style={styles.btn}>▶ Start Game</button>
             <button onClick={openEditor} style={styles.btnSecondary}>🗺 Scenario Editor</button>
+            <button onClick={openCoaPlanner} style={styles.btnSecondary}>🎯 COA Planner</button>
           </div>
           <div style={{ marginTop: 16 }}>
             <ReplayViewer
@@ -251,6 +272,12 @@ export default function App() {
               mode="load_only"
             />
           </div>
+          {state.activeCoa && (
+            <div style={{ marginTop: 12, padding: '8px 12px', background: '#0f3460', borderRadius: 8, border: '1px solid #e94560', fontSize: 12 }}>
+              🎯 Active COA: <strong>{state.activeCoa.label.replace(/_/g, ' ')}</strong>
+              {' '}(composite: {(state.activeCoa.score.composite * 100).toFixed(1)})
+            </div>
+          )}
         </div>
       )}
 
@@ -324,6 +351,26 @@ export default function App() {
           onLaunch={loadScenarioFromEditor}
           onCancel={() => dispatch({ type: 'SET_MODE', mode: 'lobby' })}
         />
+      )}
+
+      {/* ── COA Planner (E9.2) ── */}
+      {state.mode === 'coa_planner' && (
+        <div style={styles.coaPlannerLayout}>
+          <div style={styles.coaPlannerHeader}>
+            <span style={{ fontWeight: 700, color: '#e94560', fontSize: 18 }}>🎯 COA Planning Tool</span>
+            <button
+              onClick={() => dispatch({ type: 'SET_MODE', mode: 'lobby' })}
+              style={styles.btnSecondary}
+            >
+              🏠 Lobby
+            </button>
+          </div>
+          <COAPanel
+            apiBase={COA_API_BASE}
+            envKwargs={{ n_divisions: 3 }}
+            onActivate={handleCoaActivate}
+          />
+        </div>
       )}
     </div>
   );
@@ -439,5 +486,24 @@ const styles = {
     background: '#0f3460',
     borderRadius: 8,
     border: '1px solid #e94560',
+  },
+  coaPlannerLayout: {
+    flex: 1,
+    maxWidth: 720,
+    margin: '24px auto',
+    padding: 24,
+    background: '#16213e',
+    borderRadius: 12,
+    border: '1px solid #0f3460',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+    overflowY: 'auto',
+    width: '100%',
+  },
+  coaPlannerHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 };

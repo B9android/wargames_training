@@ -1,5 +1,5 @@
 # tests/test_coa_generator.py
-"""Tests for analysis/coa_generator.py and api/coa_endpoint.py (Epic E5.2).
+"""Tests for analysis/coa_generator.py and api/coa_endpoint.py (Epics E5.2 / E9.2).
 
 Coverage
 --------
@@ -10,6 +10,13 @@ Coverage
 * COAGenerator — construction, generate(), ranking, n_coas variants
 * generate_coas() — convenience wrapper
 * Flask /health and /coas endpoints — happy path and error paths
+* CorpsCOAScore / CorpsCourseOfAction / COAExplanation / COAModification data classes
+* _CorpsStrategyPolicy — action bias for MultiDiscrete actions
+* _run_corps_rollout — shape / type checks
+* _aggregate_corps_rollouts — statistics correctness
+* CorpsCOAGenerator — construction, generate(), explain_coa(), modify_and_evaluate()
+* generate_corps_coas() — convenience wrapper
+* Flask /corps/coas, /corps/coas/modify, /corps/coas/explain endpoints
 """
 
 from __future__ import annotations
@@ -34,6 +41,17 @@ from analysis.coa_generator import (
     _aggregate_rollouts,
     _run_single_rollout,
     generate_coas,
+    # Corps (E9.2)
+    CorpsCOAGenerator,
+    CorpsCOAScore,
+    CorpsCourseOfAction,
+    COAExplanation,
+    COAModification,
+    CORPS_STRATEGY_LABELS,
+    _CorpsStrategyPolicy,
+    _run_corps_rollout,
+    _aggregate_corps_rollouts,
+    generate_corps_coas,
 )
 from envs.battalion_env import BattalionEnv
 
@@ -546,6 +564,839 @@ class TestCOAEndpoint(unittest.TestCase):
     def test_health_method_not_allowed(self) -> None:
         resp = self.client.post("/health")
         self.assertEqual(resp.status_code, 405)
+
+
+# ===========================================================================
+# Corps-level tests (E9.2)
+# ===========================================================================
+
+_N_CORPS_ROLLOUTS = 2   # minimal for speed
+_N_CORPS_COAS     = 3
+
+
+def _make_corps_env(**kwargs):
+    from envs.corps_env import CorpsEnv
+    return CorpsEnv(n_divisions=2, max_steps=5, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# 8. CorpsCOAScore data class
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCOAScore(unittest.TestCase):
+    def _make(self, **overrides) -> CorpsCOAScore:
+        defaults = dict(
+            win_rate=0.5, draw_rate=0.2, loss_rate=0.3,
+            blue_casualties=0.1, red_casualties=0.4,
+            objective_completion=0.6, supply_efficiency=0.7,
+            composite=0.55, n_rollouts=4,
+        )
+        defaults.update(overrides)
+        return CorpsCOAScore(**defaults)
+
+    def test_as_dict_has_all_keys(self) -> None:
+        d = self._make().as_dict()
+        for k in ("win_rate", "draw_rate", "loss_rate", "blue_casualties",
+                  "red_casualties", "objective_completion", "supply_efficiency",
+                  "composite", "n_rollouts"):
+            self.assertIn(k, d)
+
+    def test_rates_stored(self) -> None:
+        score = self._make(win_rate=0.6)
+        self.assertAlmostEqual(score.win_rate, 0.6)
+
+
+# ---------------------------------------------------------------------------
+# 9. CorpsCourseOfAction data class
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCourseOfAction(unittest.TestCase):
+    def _make_score(self) -> CorpsCOAScore:
+        return CorpsCOAScore(
+            win_rate=0.5, draw_rate=0.2, loss_rate=0.3,
+            blue_casualties=0.1, red_casualties=0.4,
+            objective_completion=0.5, supply_efficiency=0.7,
+            composite=0.48, n_rollouts=2,
+        )
+
+    def test_as_dict_without_explanation(self) -> None:
+        coa = CorpsCourseOfAction(
+            label="full_advance", rank=1,
+            score=self._make_score(), action_summary={}, seed=42,
+        )
+        d = coa.as_dict()
+        for k in ("label", "rank", "score", "action_summary", "seed"):
+            self.assertIn(k, d)
+        self.assertNotIn("explanation", d)
+
+    def test_as_dict_with_explanation(self) -> None:
+        expl = COAExplanation(
+            coa_label="full_advance",
+            key_decisions=["d1", "d2", "d3"],
+            command_frequency={},
+            winning_patterns=[],
+            objective_timeline={"q1": 0.1, "q2": 0.2, "q3": 0.1, "q4": 0.0},
+        )
+        coa = CorpsCourseOfAction(
+            label="full_advance", rank=1,
+            score=self._make_score(), action_summary={}, seed=42,
+            explanation=expl,
+        )
+        d = coa.as_dict()
+        self.assertIn("explanation", d)
+        self.assertEqual(len(d["explanation"]["key_decisions"]), 3)
+
+
+# ---------------------------------------------------------------------------
+# 10. COAExplanation data class
+# ---------------------------------------------------------------------------
+
+
+class TestCOAExplanation(unittest.TestCase):
+    def test_as_dict_keys(self) -> None:
+        expl = COAExplanation(
+            coa_label="pincer_attack",
+            key_decisions=["k1", "k2", "k3"],
+            command_frequency={"advance_sector": 0.5},
+            winning_patterns=[["advance_sector", "flank_left"]],
+            objective_timeline={"q1": 0.0, "q2": 0.1, "q3": 0.2, "q4": 0.3},
+        )
+        d = expl.as_dict()
+        for k in ("coa_label", "key_decisions", "command_frequency",
+                  "winning_patterns", "objective_timeline"):
+            self.assertIn(k, d)
+        self.assertEqual(d["coa_label"], "pincer_attack")
+        self.assertGreaterEqual(len(d["key_decisions"]), 3)
+
+
+# ---------------------------------------------------------------------------
+# 11. COAModification data class
+# ---------------------------------------------------------------------------
+
+
+class TestCOAModification(unittest.TestCase):
+    def test_defaults(self) -> None:
+        mod = COAModification()
+        self.assertIsNone(mod.strategy_override)
+        self.assertIsNone(mod.n_rollouts)
+        self.assertIsNone(mod.division_command_overrides)
+
+    def test_set_fields(self) -> None:
+        mod = COAModification(
+            strategy_override="pincer_attack",
+            n_rollouts=3,
+            division_command_overrides={0: 2},
+        )
+        self.assertEqual(mod.strategy_override, "pincer_attack")
+        self.assertEqual(mod.n_rollouts, 3)
+        self.assertEqual(mod.division_command_overrides, {0: 2})
+
+
+# ---------------------------------------------------------------------------
+# 12. _CorpsStrategyPolicy
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsStrategyPolicy(unittest.TestCase):
+    def _make(self, strategy: str = "full_advance", n_div: int = 3) -> _CorpsStrategyPolicy:
+        return _CorpsStrategyPolicy(
+            n_divisions=n_div,
+            n_corps_options=6,
+            strategy=strategy,
+            rng=np.random.default_rng(0),
+        )
+
+    def test_predict_shape(self) -> None:
+        pol = self._make(n_div=3)
+        action, state = pol.predict(np.zeros(10))
+        self.assertEqual(action.shape, (3,))
+        self.assertIsNone(state)
+
+    def test_predict_valid_range(self) -> None:
+        pol = self._make(strategy="pincer_attack", n_div=4)
+        for _ in range(20):
+            action, _ = pol.predict(np.zeros(10))
+            self.assertTrue(np.all(action >= 0))
+            self.assertTrue(np.all(action < 6))
+
+    def test_biased_toward_strategy(self) -> None:
+        """With bias_strength=1.0 every action should be the preferred command."""
+        pol = _CorpsStrategyPolicy(
+            n_divisions=3, n_corps_options=6,
+            strategy="full_advance",
+            rng=np.random.default_rng(0),
+            bias_strength=1.0,
+        )
+        for _ in range(10):
+            action, _ = pol.predict(np.zeros(10))
+            # "full_advance" prefers command 0 for all divisions.
+            self.assertTrue(np.all(action == 0))
+
+    def test_division_command_override(self) -> None:
+        pol = _CorpsStrategyPolicy(
+            n_divisions=3, n_corps_options=6,
+            strategy="full_advance",
+            rng=np.random.default_rng(0),
+            bias_strength=1.0,
+            division_command_overrides={1: 5},
+        )
+        for _ in range(5):
+            action, _ = pol.predict(np.zeros(10))
+            self.assertEqual(action[1], 5)
+
+    def test_unknown_strategy_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            _CorpsStrategyPolicy(
+                n_divisions=2, n_corps_options=6,
+                strategy="does_not_exist",
+                rng=np.random.default_rng(0),
+            )
+
+    def test_all_strategies_are_valid(self) -> None:
+        for strategy in CORPS_STRATEGY_LABELS:
+            pol = self._make(strategy=strategy)
+            action, _ = pol.predict(np.zeros(10))
+            self.assertEqual(action.shape, (3,))
+
+
+# ---------------------------------------------------------------------------
+# 13. CORPS_STRATEGY_LABELS
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsStrategyLabels(unittest.TestCase):
+    def test_has_10_labels(self) -> None:
+        self.assertEqual(len(CORPS_STRATEGY_LABELS), 10)
+
+    def test_all_unique(self) -> None:
+        self.assertEqual(len(set(CORPS_STRATEGY_LABELS)), 10)
+
+
+# ---------------------------------------------------------------------------
+# 14. _run_corps_rollout
+# ---------------------------------------------------------------------------
+
+
+class TestRunCorpsRollout(unittest.TestCase):
+    def setUp(self) -> None:
+        self.env = _make_corps_env()
+
+    def tearDown(self) -> None:
+        self.env.close()
+
+    def _make_policy(self, strategy: str = "full_advance") -> _CorpsStrategyPolicy:
+        return _CorpsStrategyPolicy(
+            n_divisions=self.env.n_divisions,
+            n_corps_options=self.env.n_corps_options,
+            strategy=strategy,
+            rng=np.random.default_rng(0),
+        )
+
+    def test_returns_expected_keys(self) -> None:
+        pol = self._make_policy()
+        result = _run_corps_rollout(self.env, pol, seed=0)
+        for key in ("outcome", "blue_units_start", "red_units_start",
+                    "blue_units_end", "red_units_end", "steps", "actions",
+                    "objective_rewards", "supply_levels", "mean_supply",
+                    "total_reward", "blue_frac_lost", "red_frac_lost"):
+            self.assertIn(key, result, msg=f"Missing key '{key}'")
+
+    def test_outcome_is_valid(self) -> None:
+        pol = self._make_policy()
+        result = _run_corps_rollout(self.env, pol, seed=1)
+        self.assertIn(result["outcome"], {-1, 0, 1})
+
+    def test_actions_shape(self) -> None:
+        pol = self._make_policy()
+        result = _run_corps_rollout(self.env, pol, seed=2)
+        n_div = self.env.n_divisions
+        if result["steps"] > 0:
+            self.assertEqual(result["actions"].shape, (result["steps"], n_div))
+
+    def test_fractions_in_unit_range(self) -> None:
+        pol = self._make_policy()
+        result = _run_corps_rollout(self.env, pol, seed=3)
+        self.assertGreaterEqual(result["blue_frac_lost"], 0.0)
+        self.assertLessEqual(result["blue_frac_lost"], 1.0)
+        self.assertGreaterEqual(result["red_frac_lost"], 0.0)
+        self.assertLessEqual(result["red_frac_lost"], 1.0)
+
+
+# ---------------------------------------------------------------------------
+# 15. _aggregate_corps_rollouts
+# ---------------------------------------------------------------------------
+
+
+class TestAggregateCorpsRollouts(unittest.TestCase):
+    def _make_result(self, outcome: int, steps: int = 4) -> dict:
+        n_div, n_opt = 2, 6
+        T = steps
+        return {
+            "outcome": outcome,
+            "blue_units_start": 6, "red_units_start": 6,
+            "blue_units_end": 3, "red_units_end": 2,
+            "steps": T,
+            "actions": np.zeros((T, n_div), dtype=np.int64),
+            "objective_rewards": np.ones(T, dtype=np.float32) * 0.1,
+            "supply_levels": [[0.8, 0.7]] * T,
+            "mean_supply": 0.75,
+            "total_reward": 1.0,
+            "blue_frac_lost": 0.5,
+            "red_frac_lost": 0.667,
+        }
+
+    def test_win_rate_correct(self) -> None:
+        results = [
+            self._make_result(1),
+            self._make_result(1),
+            self._make_result(-1),
+        ]
+        score, _ = _aggregate_corps_rollouts(results, n_divisions=2, n_options=6)
+        self.assertAlmostEqual(score.win_rate, 2 / 3, places=3)
+        self.assertAlmostEqual(score.loss_rate, 1 / 3, places=3)
+
+    def test_composite_in_range(self) -> None:
+        results = [self._make_result(o) for o in (1, 0, -1, 1, 0)]
+        score, _ = _aggregate_corps_rollouts(results, n_divisions=2, n_options=6)
+        self.assertGreaterEqual(score.composite, 0.0)
+        self.assertLessEqual(score.composite, 1.0)
+
+    def test_action_summary_has_divisions(self) -> None:
+        results = [self._make_result(1) for _ in range(3)]
+        _, action_summary = _aggregate_corps_rollouts(results, n_divisions=2, n_options=6)
+        self.assertIn("div_0", action_summary)
+        self.assertIn("div_1", action_summary)
+
+    def test_action_summary_has_quartiles(self) -> None:
+        results = [self._make_result(1) for _ in range(3)]
+        _, action_summary = _aggregate_corps_rollouts(results, n_divisions=2, n_options=6)
+        for qi in ("q1", "q2", "q3", "q4"):
+            self.assertIn(qi, action_summary["div_0"])
+
+    def test_n_rollouts_correct(self) -> None:
+        results = [self._make_result(0) for _ in range(5)]
+        score, _ = _aggregate_corps_rollouts(results, n_divisions=2, n_options=6)
+        self.assertEqual(score.n_rollouts, 5)
+
+
+# ---------------------------------------------------------------------------
+# 16. CorpsCOAGenerator — construction
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCOAGeneratorConstruction(unittest.TestCase):
+    def setUp(self) -> None:
+        self.env = _make_corps_env()
+
+    def tearDown(self) -> None:
+        self.env.close()
+
+    def test_valid_construction(self) -> None:
+        gen = CorpsCOAGenerator(env=self.env, n_rollouts=2, n_coas=3)
+        self.assertEqual(gen.n_rollouts, 2)
+        self.assertEqual(gen.n_coas, 3)
+
+    def test_default_n_coas_is_10(self) -> None:
+        gen = CorpsCOAGenerator(env=self.env)
+        self.assertEqual(gen.n_coas, 10)
+
+    def test_n_coas_too_large_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            CorpsCOAGenerator(env=self.env, n_coas=99)
+
+    def test_n_rollouts_zero_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            CorpsCOAGenerator(env=self.env, n_rollouts=0)
+
+    def test_custom_strategies(self) -> None:
+        strategies = ["full_advance", "fortress_defense", "pincer_attack"]
+        gen = CorpsCOAGenerator(env=self.env, n_coas=3, strategies=strategies)
+        self.assertEqual(gen._strategies, strategies)
+
+    def test_unknown_strategy_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            CorpsCOAGenerator(env=self.env, n_coas=1, strategies=["not_a_strategy"])
+
+    def test_insufficient_strategies_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            CorpsCOAGenerator(env=self.env, n_coas=3, strategies=["full_advance"])
+
+
+# ---------------------------------------------------------------------------
+# 17. CorpsCOAGenerator.generate()
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCOAGeneratorGenerate(unittest.TestCase):
+    def setUp(self) -> None:
+        self.env = _make_corps_env()
+        self.gen = CorpsCOAGenerator(
+            env=self.env,
+            n_rollouts=_N_CORPS_ROLLOUTS,
+            n_coas=_N_CORPS_COAS,
+            seed=42,
+        )
+
+    def tearDown(self) -> None:
+        self.env.close()
+
+    def test_returns_correct_count(self) -> None:
+        coas = self.gen.generate()
+        self.assertEqual(len(coas), _N_CORPS_COAS)
+
+    def test_returns_corps_course_of_action_instances(self) -> None:
+        for coa in self.gen.generate():
+            self.assertIsInstance(coa, CorpsCourseOfAction)
+
+    def test_ranks_are_1_based_contiguous(self) -> None:
+        coas = self.gen.generate()
+        ranks = [c.rank for c in coas]
+        self.assertEqual(sorted(ranks), list(range(1, _N_CORPS_COAS + 1)))
+
+    def test_sorted_descending_by_composite(self) -> None:
+        coas = self.gen.generate()
+        composites = [c.score.composite for c in coas]
+        self.assertEqual(composites, sorted(composites, reverse=True))
+
+    def test_labels_are_unique(self) -> None:
+        coas = self.gen.generate()
+        labels = [c.label for c in coas]
+        self.assertEqual(len(labels), len(set(labels)))
+
+    def test_coa_as_dict_has_corps_score_fields(self) -> None:
+        coa = self.gen.generate()[0]
+        d = coa.as_dict()
+        for k in ("label", "rank", "score", "action_summary", "seed"):
+            self.assertIn(k, d)
+        score_d = d["score"]
+        for k in ("win_rate", "objective_completion", "supply_efficiency", "composite"):
+            self.assertIn(k, score_d)
+
+    def test_rollout_results_stored(self) -> None:
+        self.gen.generate()
+        self.assertGreater(len(self.gen._last_rollout_results), 0)
+
+
+# ---------------------------------------------------------------------------
+# 18. CorpsCOAGenerator.explain_coa()
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCOAGeneratorExplain(unittest.TestCase):
+    def setUp(self) -> None:
+        self.env = _make_corps_env()
+        self.gen = CorpsCOAGenerator(
+            env=self.env,
+            n_rollouts=_N_CORPS_ROLLOUTS,
+            n_coas=_N_CORPS_COAS,
+            seed=7,
+        )
+        self.coas = self.gen.generate()
+
+    def tearDown(self) -> None:
+        self.env.close()
+
+    def test_returns_coa_explanation(self) -> None:
+        expl = self.gen.explain_coa(self.coas[0])
+        self.assertIsInstance(expl, COAExplanation)
+
+    def test_at_least_3_key_decisions(self) -> None:
+        expl = self.gen.explain_coa(self.coas[0])
+        self.assertGreaterEqual(len(expl.key_decisions), 3)
+
+    def test_coa_label_matches(self) -> None:
+        coa = self.coas[0]
+        expl = self.gen.explain_coa(coa)
+        self.assertEqual(expl.coa_label, coa.label)
+
+    def test_objective_timeline_has_4_phases(self) -> None:
+        expl = self.gen.explain_coa(self.coas[0])
+        self.assertEqual(set(expl.objective_timeline.keys()), {"q1", "q2", "q3", "q4"})
+
+    def test_explain_from_scratch_fallback(self) -> None:
+        """explain_coa on a COA with no stored rollouts uses fallback path."""
+        fake_score = CorpsCOAScore(
+            win_rate=0.5, draw_rate=0.2, loss_rate=0.3,
+            blue_casualties=0.1, red_casualties=0.4,
+            objective_completion=0.5, supply_efficiency=0.7,
+            composite=0.48, n_rollouts=2,
+        )
+        orphan_coa = CorpsCourseOfAction(
+            label="full_advance", rank=1, score=fake_score,
+            action_summary={}, seed=0,
+        )
+        expl = self.gen.explain_coa(orphan_coa)
+        self.assertGreaterEqual(len(expl.key_decisions), 3)
+
+    def test_command_frequency_keys_are_command_names(self) -> None:
+        expl = self.gen.explain_coa(self.coas[0])
+        expected = {
+            "advance_sector", "defend_position", "flank_left",
+            "flank_right", "withdraw", "concentrate_fire",
+        }
+        self.assertTrue(set(expl.command_frequency.keys()).issubset(expected))
+
+
+# ---------------------------------------------------------------------------
+# 19. CorpsCOAGenerator.modify_and_evaluate()
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCOAGeneratorModify(unittest.TestCase):
+    def setUp(self) -> None:
+        self.env = _make_corps_env()
+        self.gen = CorpsCOAGenerator(
+            env=self.env,
+            n_rollouts=_N_CORPS_ROLLOUTS,
+            n_coas=_N_CORPS_COAS,
+            seed=11,
+        )
+        self.coas = self.gen.generate()
+
+    def tearDown(self) -> None:
+        self.env.close()
+
+    def test_returns_corps_course_of_action(self) -> None:
+        mod = COAModification(n_rollouts=2)
+        result = self.gen.modify_and_evaluate(self.coas[0], mod)
+        self.assertIsInstance(result, CorpsCourseOfAction)
+
+    def test_strategy_override_changes_label(self) -> None:
+        original_label = self.coas[0].label
+        other_label = next(
+            s for s in CORPS_STRATEGY_LABELS if s != original_label
+        )
+        mod = COAModification(strategy_override=other_label, n_rollouts=2)
+        result = self.gen.modify_and_evaluate(self.coas[0], mod)
+        self.assertEqual(result.label, other_label)
+
+    def test_no_override_keeps_original_label(self) -> None:
+        mod = COAModification(n_rollouts=2)
+        result = self.gen.modify_and_evaluate(self.coas[0], mod)
+        self.assertEqual(result.label, self.coas[0].label)
+
+    def test_invalid_strategy_raises(self) -> None:
+        mod = COAModification(strategy_override="not_real")
+        with self.assertRaises(ValueError):
+            self.gen.modify_and_evaluate(self.coas[0], mod)
+
+    def test_negative_n_rollouts_raises(self) -> None:
+        """n_rollouts < 1 in a COAModification must raise ValueError."""
+        mod = COAModification(n_rollouts=0)
+        with self.assertRaises(ValueError):
+            self.gen.modify_and_evaluate(self.coas[0], mod)
+
+    def test_negative_n_rollouts_also_raises(self) -> None:
+        """Negative n_rollouts in COAModification must also raise ValueError."""
+        mod = COAModification(n_rollouts=-5)
+        with self.assertRaises(ValueError):
+            self.gen.modify_and_evaluate(self.coas[0], mod)
+
+    def test_division_overrides_applied(self) -> None:
+        """Using division overrides should not crash and produce a valid COA."""
+        mod = COAModification(
+            n_rollouts=2,
+            division_command_overrides={0: 1},
+        )
+        result = self.gen.modify_and_evaluate(self.coas[0], mod)
+        self.assertIsNotNone(result.score)
+
+    def test_result_has_valid_score(self) -> None:
+        mod = COAModification(n_rollouts=2)
+        result = self.gen.modify_and_evaluate(self.coas[0], mod)
+        self.assertGreaterEqual(result.score.composite, 0.0)
+        self.assertLessEqual(result.score.composite, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# 20. generate_corps_coas() convenience wrapper
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateCorpsCoas(unittest.TestCase):
+    def test_returns_list_of_corps_coas(self) -> None:
+        from envs.corps_env import CorpsEnv
+        env = CorpsEnv(n_divisions=2, max_steps=5)
+        try:
+            coas = generate_corps_coas(
+                env=env,
+                n_rollouts=_N_CORPS_ROLLOUTS,
+                n_coas=_N_CORPS_COAS,
+                seed=99,
+            )
+        finally:
+            env.close()
+        self.assertEqual(len(coas), _N_CORPS_COAS)
+        for coa in coas:
+            self.assertIsInstance(coa, CorpsCourseOfAction)
+
+    def test_creates_own_env_when_none(self) -> None:
+        coas = generate_corps_coas(
+            n_rollouts=_N_CORPS_ROLLOUTS,
+            n_coas=2,
+            seed=100,
+            env_kwargs={"n_divisions": 2, "max_steps": 5},
+        )
+        self.assertEqual(len(coas), 2)
+
+    def test_explain_flag_populates_explanations(self) -> None:
+        coas = generate_corps_coas(
+            n_rollouts=_N_CORPS_ROLLOUTS,
+            n_coas=2,
+            seed=101,
+            env_kwargs={"n_divisions": 2, "max_steps": 5},
+            explain=True,
+        )
+        for coa in coas:
+            self.assertIsNotNone(coa.explanation)
+            self.assertGreaterEqual(len(coa.explanation.key_decisions), 3)
+
+    def test_explain_false_leaves_explanations_none(self) -> None:
+        coas = generate_corps_coas(
+            n_rollouts=_N_CORPS_ROLLOUTS,
+            n_coas=2,
+            seed=102,
+            env_kwargs={"n_divisions": 2, "max_steps": 5},
+            explain=False,
+        )
+        for coa in coas:
+            self.assertIsNone(coa.explanation)
+
+
+# ---------------------------------------------------------------------------
+# 21. Flask /corps/coas endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCOAsEndpoint(unittest.TestCase):
+    def setUp(self) -> None:
+        from api.coa_endpoint import app
+        app.config["TESTING"] = True
+        self.client = app.test_client()
+
+    def test_health_still_works(self) -> None:
+        resp = self.client.get("/health")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_corps_coas_happy_path(self) -> None:
+        resp = self.client.post(
+            "/corps/coas",
+            json={
+                "n_rollouts": _N_CORPS_ROLLOUTS,
+                "n_coas": _N_CORPS_COAS,
+                "seed": 1,
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("coas", data)
+        self.assertEqual(data["n_coas"], _N_CORPS_COAS)
+        coa = data["coas"][0]
+        for field in ("label", "rank", "score", "action_summary", "seed"):
+            self.assertIn(field, coa)
+        score = coa["score"]
+        for metric in ("win_rate", "objective_completion", "supply_efficiency", "composite"):
+            self.assertIn(metric, score)
+
+    def test_corps_coas_ranked_ascending(self) -> None:
+        resp = self.client.post(
+            "/corps/coas",
+            json={
+                "n_rollouts": _N_CORPS_ROLLOUTS,
+                "n_coas": _N_CORPS_COAS,
+                "seed": 2,
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        data = resp.get_json()
+        ranks = [c["rank"] for c in data["coas"]]
+        self.assertEqual(ranks, sorted(ranks))
+
+    def test_corps_coas_n_coas_too_large_400(self) -> None:
+        resp = self.client.post("/corps/coas", json={"n_coas": 99})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_corps_coas_invalid_strategy_400(self) -> None:
+        resp = self.client.post(
+            "/corps/coas",
+            json={"n_coas": 1, "strategies": ["does_not_exist"]},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_corps_coas_unknown_env_kwargs_400(self) -> None:
+        resp = self.client.post("/corps/coas", json={"env_kwargs": {"bad_key": 1}})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_corps_coas_non_dict_body_400(self) -> None:
+        resp = self.client.post(
+            "/corps/coas", data=b"[1,2]", content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+
+
+# ---------------------------------------------------------------------------
+# 22. Flask /corps/coas/modify endpoint
+# ---------------------------------------------------------------------------
+
+def _sample_coa_dict() -> dict:
+    return {
+        "label": "full_advance",
+        "rank": 1,
+        "score": {
+            "win_rate": 0.5, "draw_rate": 0.2, "loss_rate": 0.3,
+            "blue_casualties": 0.1, "red_casualties": 0.4,
+            "objective_completion": 0.5, "supply_efficiency": 0.7,
+            "composite": 0.48, "n_rollouts": 2,
+        },
+        "action_summary": {},
+        "seed": 37,
+    }
+
+
+class TestCorpsCOAsModifyEndpoint(unittest.TestCase):
+    def setUp(self) -> None:
+        from api.coa_endpoint import app
+        app.config["TESTING"] = True
+        self.client = app.test_client()
+
+    def test_modify_happy_path(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={
+                "coa": _sample_coa_dict(),
+                "modification": {
+                    "strategy_override": "pincer_attack",
+                    "n_rollouts": _N_CORPS_ROLLOUTS,
+                },
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("coa", data)
+        self.assertEqual(data["coa"]["label"], "pincer_attack")
+
+    def test_modify_no_override_keeps_label(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={
+                "coa": _sample_coa_dict(),
+                "modification": {"n_rollouts": _N_CORPS_ROLLOUTS},
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()["coa"]["label"], "full_advance")
+
+    def test_modify_missing_coa_400(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={"modification": {}, "env_kwargs": {}},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_modify_invalid_strategy_400(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={
+                "coa": _sample_coa_dict(),
+                "modification": {"strategy_override": "not_real"},
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_modify_non_dict_body_400(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/modify", data=b"null", content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_modify_negative_n_rollouts_400(self) -> None:
+        """modification.n_rollouts=0 must return 400."""
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={
+                "coa": _sample_coa_dict(),
+                "modification": {"n_rollouts": 0},
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_modify_div_overrides_non_dict_400(self) -> None:
+        """division_command_overrides as a list must return 400."""
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={
+                "coa": _sample_coa_dict(),
+                "modification": {"division_command_overrides": [1, 2]},
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+
+
+# ---------------------------------------------------------------------------
+# 23. Flask /corps/coas/explain endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestCorpsCOAsExplainEndpoint(unittest.TestCase):
+    def setUp(self) -> None:
+        from api.coa_endpoint import app
+        app.config["TESTING"] = True
+        self.client = app.test_client()
+
+    def test_explain_happy_path(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/explain",
+            json={
+                "coa": _sample_coa_dict(),
+                "n_rollouts": _N_CORPS_ROLLOUTS,
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("explanation", data)
+        expl = data["explanation"]
+        for k in ("coa_label", "key_decisions", "command_frequency",
+                  "winning_patterns", "objective_timeline"):
+            self.assertIn(k, expl)
+        self.assertGreaterEqual(len(expl["key_decisions"]), 3)
+
+    def test_explain_missing_coa_400(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/explain",
+            json={"n_rollouts": 2, "env_kwargs": {}},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_explain_non_dict_body_400(self) -> None:
+        resp = self.client.post(
+            "/corps/coas/explain", data=b"[]", content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_explain_string_explain_flag_400(self) -> None:
+        """'explain' field as a string should return 400 from /corps/coas."""
+        from api.coa_endpoint import app
+        app.config["TESTING"] = True
+        client = app.test_client()
+        resp = client.post(
+            "/corps/coas",
+            json={
+                "n_rollouts": 2, "n_coas": 2,
+                "explain": "false",  # string, not bool
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.get_json())
 
 
 # ---------------------------------------------------------------------------
