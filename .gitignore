@@ -16,3 +16,6 @@ env/
 .coverage
 htmlcov/
 .pytest_cache/
+server/__pycache__/
+frontend/node_modules/
+frontend/dist/
