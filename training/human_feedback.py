@@ -62,9 +62,10 @@ Typical usage — DAgger
     expert = PPO("MlpPolicy", env, verbose=0)  # pre-trained expert
 
     trainer = DAggerTrainer(
-        policy=policy,
         env=env,
         buffer=buffer,
+        obs_dim=17,
+        action_dim=3,
         lr=1e-3,
         batch_size=64,
     )
@@ -414,9 +415,12 @@ class DemonstrationBuffer:
         Returns
         -------
         Path
-            Resolved path of the written file.
+            Resolved path of the written file (always ends with ``.npz``).
         """
         p = Path(path)
+        # Normalise extension so the returned path matches the file on disk.
+        if p.suffix != ".npz":
+            p = p.with_suffix(".npz")
         p.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
             str(p),
@@ -657,6 +661,8 @@ class DAggerTrainer:
         # Training state
         self.total_grad_steps: int = 0
         self.last_bc_loss: float = float("nan")
+        # Episode counter for DAgger rollouts (independent of buffer internals).
+        self._dagger_episode_counter: int = 0
 
     # ------------------------------------------------------------------
     # Policy interface (SB3-compatible)
@@ -723,7 +729,8 @@ class DAggerTrainer:
         """
         obs, _ = self._env.reset(seed=seed)
         n_collected = 0
-        episode_id = self._buffer._episode_ids.max() + 1 if len(self._buffer) > 0 else 0
+        episode_id = self._dagger_episode_counter
+        self._dagger_episode_counter += 1
         step_id = 0
 
         while True:
@@ -772,8 +779,18 @@ class DAggerTrainer:
         Raises
         ------
         ValueError
-            If the buffer has fewer than ``batch_size`` entries.
+            If the buffer is empty.
+
+        Notes
+        -----
+        When the buffer contains fewer than ``batch_size`` entries the entire
+        buffer is used as the mini-batch.
         """
+        if len(self._buffer) == 0:
+            raise ValueError(
+                "DAggerTrainer.train_step() called on an empty buffer. "
+                "Collect at least one demonstration before calling train_step()."
+            )
         actual_batch = min(self.batch_size, len(self._buffer))
         obs_b, actions_b, _ = self._buffer.sample(actual_batch, rng=rng)
 
@@ -972,9 +989,10 @@ class GAILDiscriminator(nn.Module):
                 device=self._device,
             )
             logit = self.forward(obs_t, act_t).squeeze(-1)
-            # r = −log(1 − σ(logit))  = log(σ(logit))  (numerically stable via logsigmoid)
-            # Using softplus: log(1 + exp(-logit)) = softplus(-logit)
-            reward = -torch.nn.functional.softplus(-logit)
+            # r = −log(1 − σ(logit))
+            # Since 1 − σ(x) = σ(−x), we have:
+            #   −log(σ(−logit)) = log(1 + exp(logit)) = softplus(logit)  ≥ 0
+            reward = torch.nn.functional.softplus(logit)
         reward_np = reward.cpu().numpy()
         # Return scalar when input was 1-D
         if obs_t.shape[0] == 1 and np.ndim(obs) == 1:
@@ -1128,18 +1146,29 @@ class GAILRewardWrapper:
         self.observation_space = env.observation_space
         self.action_space = env.action_space
 
+        # Cached pre-action observation; set by reset() and updated each step.
+        self._prev_obs: Optional[np.ndarray] = None
+
     # Expose underlying env attributes transparently.
     def __getattr__(self, name: str) -> Any:
         return getattr(self._env, name)
 
     def reset(self, **kwargs: Any) -> Any:
-        """Reset the wrapped environment."""
-        return self._env.reset(**kwargs)
+        """Reset the wrapped environment and cache the initial observation."""
+        result = self._env.reset(**kwargs)
+        # result may be (obs, info) or just obs depending on the env version.
+        obs = result[0] if isinstance(result, tuple) else result
+        self._prev_obs = np.array(obs, dtype=np.float32)
+        return result
 
     def step(
         self, action: np.ndarray
     ) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         """Step the environment and replace reward with GAIL reward.
+
+        The GAIL discriminator is evaluated on ``(prev_obs, action)`` — the
+        pre-action state and the chosen action — which is the correct input
+        for ``D(s, a)``.
 
         Parameters
         ----------
@@ -1150,16 +1179,20 @@ class GAILRewardWrapper:
         -------
         obs, reward, terminated, truncated, info
         """
+        prev_obs = self._prev_obs
         obs, env_reward, terminated, truncated, info = self._env.step(action)
-        gail_reward = float(
-            self._disc.compute_reward(
-                info.get("_gail_prev_obs", obs),
-                action,
-            )
-        )
+
+        # Evaluate D on the pre-action state (or fall back to post-step obs
+        # if reset() was never called and _prev_obs is not yet set).
+        disc_obs = prev_obs if prev_obs is not None else obs
+        gail_reward = float(self._disc.compute_reward(disc_obs, action))
+
         combined = self.gail_coef * gail_reward + self.env_coef * float(env_reward)
         info["gail_reward"] = gail_reward
         info["env_reward"] = float(env_reward)
+
+        # Advance the cached observation for the next step.
+        self._prev_obs = np.array(obs, dtype=np.float32)
         return obs, combined, terminated, truncated, info
 
     def close(self) -> None:

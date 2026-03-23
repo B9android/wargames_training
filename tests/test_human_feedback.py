@@ -109,11 +109,13 @@ class _FakeEnv:
         self._step_count = 0
         if seed is not None:
             self._rng = np.random.default_rng(seed)
-        return self._rng.random(OBS_DIM).astype(np.float32), {}
+        obs_dim = self.observation_space.shape[0]
+        return self._rng.random(obs_dim).astype(np.float32), {}
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, dict]:
         self._step_count += 1
-        obs = self._rng.random(OBS_DIM).astype(np.float32)
+        obs_dim = self.observation_space.shape[0]
+        obs = self._rng.random(obs_dim).astype(np.float32)
         reward = float(self._rng.random())
         terminated = self._step_count >= self._max_steps
         return obs, reward, terminated, False, {}
@@ -297,8 +299,9 @@ class TestDemonstrationBufferPersistence(unittest.TestCase):
     def test_save_creates_file(self) -> None:
         buf = _make_buffer(n=5)
         saved = buf.save(self.save_path)
-        # np.savez_compressed appends .npz automatically
-        self.assertTrue(saved.exists() or saved.with_suffix(".npz").exists())
+        # save() now always normalises to .npz and returns the resolved path.
+        self.assertEqual(saved.suffix, ".npz")
+        self.assertTrue(saved.exists())
 
     def test_save_and_load_roundtrip(self) -> None:
         buf = _make_buffer(n=10)
@@ -467,6 +470,16 @@ class TestDAggerTrainerCollectRollout(unittest.TestCase):
             acts, np.full_like(acts, 0.3), decimal=5
         )
 
+    def test_episode_ids_increment_across_rollouts(self) -> None:
+        """Each rollout should receive a distinct episode_id."""
+        self.trainer.collect_dagger_rollout(self.expert, seed=0)
+        n_first = len(self.buf)
+        self.trainer.collect_dagger_rollout(self.expert, seed=1)
+        # Episode IDs in the second rollout should be > those in the first.
+        ids_first = set(self.buf._episode_ids[:n_first])
+        ids_second = set(self.buf._episode_ids[n_first:len(self.buf)])
+        self.assertTrue(ids_second.isdisjoint(ids_first))
+
 
 class TestDAggerTrainerTrainStep(unittest.TestCase):
     def setUp(self) -> None:
@@ -495,6 +508,16 @@ class TestDAggerTrainerTrainStep(unittest.TestCase):
         for _ in range(5):
             self.trainer.train_step()
         self.assertEqual(self.trainer.total_grad_steps, 5)
+
+    def test_train_step_on_empty_buffer_raises(self) -> None:
+        """train_step() on an empty buffer should raise ValueError, not produce NaN."""
+        empty_buf = DemonstrationBuffer(obs_dim=OBS_DIM, action_dim=ACTION_DIM)
+        trainer = DAggerTrainer(
+            env=self.env, buffer=empty_buf,
+            obs_dim=OBS_DIM, action_dim=ACTION_DIM, device="cpu",
+        )
+        with self.assertRaises(ValueError):
+            trainer.train_step()
 
 
 class TestDAggerTrainerTrain(unittest.TestCase):
@@ -592,12 +615,12 @@ class TestGAILDiscriminatorComputeReward(unittest.TestCase):
         r = self.disc.compute_reward(obs, act)
         self.assertTrue(np.all(np.isfinite(r)))
 
-    def test_compute_reward_is_non_positive_for_untrained(self) -> None:
-        """GAIL reward r = log σ(D) ≤ 0 always."""
+    def test_compute_reward_is_non_negative_for_untrained(self) -> None:
+        """GAIL reward r = −log(1 − D) = softplus(logit) ≥ 0 always."""
         obs = np.random.default_rng(2).random((10, OBS_DIM)).astype(np.float32)
         act = np.random.default_rng(3).random((10, ACTION_DIM)).astype(np.float32)
         r = self.disc.compute_reward(obs, act)
-        self.assertTrue(np.all(r <= 0.0))
+        self.assertTrue(np.all(r >= 0.0))
 
 
 class TestGAILDiscriminatorTrainStep(unittest.TestCase):
@@ -720,6 +743,41 @@ class TestGAILRewardWrapper(unittest.TestCase):
 
     def test_close_does_not_raise(self) -> None:
         self.wrapper.close()
+
+    def test_reset_caches_prev_obs(self) -> None:
+        """After reset(), _prev_obs should be set and match the initial obs."""
+        obs, _ = self.wrapper.reset(seed=0)
+        self.assertIsNotNone(self.wrapper._prev_obs)
+        np.testing.assert_array_almost_equal(self.wrapper._prev_obs, obs)
+
+    def test_gail_reward_uses_pre_action_obs(self) -> None:
+        """The discriminator should be evaluated on the pre-step observation."""
+        from unittest.mock import patch, MagicMock
+        obs, _ = self.wrapper.reset(seed=0)
+        prev = self.wrapper._prev_obs.copy()
+        action = self.env.action_space.sample()
+
+        captured: list = []
+
+        def _fake_compute_reward(o, a):
+            captured.append(np.array(o, dtype=np.float32))
+            return 0.5
+
+        with patch.object(self.disc, "compute_reward", side_effect=_fake_compute_reward):
+            self.wrapper.step(action)
+
+        self.assertEqual(len(captured), 1)
+        np.testing.assert_array_almost_equal(captured[0], prev)
+
+    def test_gail_reward_is_non_negative(self) -> None:
+        """GAIL reward = softplus(logit) ≥ 0 for any input."""
+        self.wrapper.reset(seed=0)
+        for _ in range(5):
+            action = self.env.action_space.sample()
+            _, combined, terminated, truncated, info = self.wrapper.step(action)
+            self.assertGreaterEqual(info["gail_reward"], 0.0)
+            if terminated or truncated:
+                break
 
 
 # ===========================================================================
