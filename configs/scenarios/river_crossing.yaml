@@ -15,7 +15,7 @@ map:
 
 coastal:
   sea_cols: 0           # no open sea — river scenario
-  beach_col: 0          # no beach
+  beach_col: -1         # no beach (disabled via sentinel -1)
   river_row_start: 13   # river cuts across the middle (rows 13–17)
   river_row_end: 17
   ford_col: 20          # ford crossing at column 20 (~2000 m)

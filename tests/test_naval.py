@@ -276,6 +276,18 @@ class TestCanTile(unittest.TestCase):
         v = _gunboat()
         self.assertTrue(v.can_tile(WaterTileType.RIVER))
 
+    def test_gunboat_can_enter_coastal_shallow(self) -> None:
+        v = _gunboat()
+        self.assertTrue(v.can_tile(WaterTileType.COASTAL_SHALLOW))
+
+    def test_gunboat_can_enter_coastal_deep(self) -> None:
+        v = _gunboat()
+        self.assertTrue(v.can_tile(WaterTileType.COASTAL_DEEP))
+
+    def test_gunboat_can_enter_sea(self) -> None:
+        v = _gunboat()
+        self.assertTrue(v.can_tile(WaterTileType.SEA))
+
     def test_no_ship_can_enter_land(self) -> None:
         for ship in (_sol(), _frigate(), _gunboat()):
             self.assertFalse(ship.can_tile(WaterTileType.LAND))
@@ -472,6 +484,24 @@ class TestCanBombard(unittest.TestCase):
         ship = _frigate(x=500.0, y=500.0, theta=0.0)
         self.assertFalse(
             can_bombard(ship, 500.0, 600.0, cmap, require_water_tile=True)
+        )
+
+    def test_require_water_tile_ship_on_beach_blocked(self) -> None:
+        """When require_water_tile=True and ship is on a BEACH tile, cannot bombard.
+
+        A ship cannot legally occupy a BEACH tile (can_tile returns False for BEACH),
+        so require_water_tile should block firing from there.
+        """
+        cmap = CoastalMap(width=1_000.0, height=1_000.0, rows=5, cols=5)
+        cmap.set_tile(2, 2, WaterTileType.BEACH)
+        # Surrounding tiles need to be something navigable so the LOS check passes
+        for r in range(5):
+            for c in range(5):
+                if (r, c) != (2, 2):
+                    cmap.set_tile(r, c, WaterTileType.SEA)
+        ship = _frigate(x=500.0, y=500.0, theta=0.0)  # ship is on the BEACH tile
+        self.assertFalse(
+            can_bombard(ship, 500.0, 700.0, cmap, require_water_tile=True)
         )
 
     def test_require_water_tile_ship_on_sea_ok(self) -> None:
@@ -880,6 +910,15 @@ class TestRiverCrossing(unittest.TestCase):
                 coastal_map=cmap, team=0,
             )
 
+    def test_invalid_team_raises(self) -> None:
+        cmap = self._ford_cmap()
+        with self.assertRaises(ValueError):
+            RiverCrossing(
+                unit_x=300.0, unit_y=500.0,
+                crossing_x=500.0, crossing_y=500.0,
+                coastal_map=cmap, team=2,
+            )
+
 
 # ---------------------------------------------------------------------------
 # 13. generate_coastal_map
@@ -921,6 +960,18 @@ class TestGenerateCoastalMap(unittest.TestCase):
 
     def test_river_present(self) -> None:
         found = (self.cmap._grid == int(WaterTileType.RIVER)).any()
+        self.assertTrue(found)
+
+    def test_beach_col_negative_sentinel_disables_beach(self) -> None:
+        """beach_col=-1 should produce no BEACH tiles in the map."""
+        cmap = generate_coastal_map(beach_col=-1, sea_cols=5)
+        found = (cmap._grid == int(WaterTileType.BEACH)).any()
+        self.assertFalse(found, "beach_col=-1 should disable beach strip generation")
+
+    def test_beach_col_negative_sentinel_river_still_present(self) -> None:
+        """River tiles are still generated when beach_col=-1."""
+        cmap = generate_coastal_map(beach_col=-1, sea_cols=5)
+        found = (cmap._grid == int(WaterTileType.RIVER)).any()
         self.assertTrue(found)
 
 

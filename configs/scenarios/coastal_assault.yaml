@@ -15,10 +15,10 @@ map:
 coastal:
   sea_cols: 10         # columns of open sea from x=0
   beach_col: 10        # column index of the beach landing zone
-  river_row_start: 13  # no river in this scenario
+  river_row_start: 13  # thin river band at row 13 (landward of the beach)
   river_row_end: 13
-  ford_col: 0
-  bridge_col: 0
+  ford_col: 0          # no ford: column 0 is in the sea band, never active as crossing
+  bridge_col: 0        # no bridge: column 0 is in the sea band, never active as crossing
 
 # ── Blue forces ───────────────────────────────────────────────────────────
 blue:

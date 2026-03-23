@@ -203,7 +203,7 @@ class NavalVesselConfig:
         Damage multiplier relative to :data:`BASE_NAVAL_DAMAGE`.  The
         ship-of-the-line has the largest broadside; the gunboat the smallest.
     max_speed:
-        Maximum movement speed in metres per simulation step (before any
+        Maximum movement speed in metres per second (before any
         terrain modifier).
     can_enter_river:
         ``True`` if the vessel can navigate :attr:`WaterTileType.RIVER` tiles.
@@ -244,7 +244,7 @@ SHIP_CONFIGS: dict[ShipType, NavalVesselConfig] = {
         broadside_damage=0.5,   # 0.5× base — few light cannon
         max_speed=40.0,
         can_enter_river=True,
-        min_tile=int(WaterTileType.RIVER),
+        min_tile=int(WaterTileType.COASTAL_SHALLOW),
     ),
 }
 
@@ -602,7 +602,7 @@ def can_bombard(
 
     if require_water_tile:
         vessel_tile = coastal_map.get_tile(vessel.x, vessel.y)
-        if vessel_tile == WaterTileType.LAND:
+        if not vessel.can_tile(vessel_tile):
             return False
 
     if not coastal_map.has_line_of_sight(vessel.x, vessel.y, target_x, target_y):
@@ -860,6 +860,8 @@ class RiverCrossing:
     crossing_type: WaterTileType = field(default=WaterTileType.FORD, init=False)
 
     def __post_init__(self) -> None:
+        if self.team not in (0, 1):
+            raise ValueError(f"team must be 0 or 1, got {self.team!r}")
         tile = self.coastal_map.get_tile(self.crossing_x, self.crossing_y)
         if tile not in (WaterTileType.FORD, WaterTileType.BRIDGE):
             raise ValueError(
@@ -951,7 +953,8 @@ def generate_coastal_map(
     Layout (left → right):
     * Columns 0 to *sea_cols*-1: open sea (:attr:`WaterTileType.SEA`).
     * Column *beach_col*: beach landing strip (:attr:`WaterTileType.BEACH`),
-      flanked by shallow coastal water.
+      flanked by shallow coastal water.  Pass ``beach_col=-1`` to omit the
+      beach strip entirely (useful for pure river or naval scenarios).
     * Columns *sea_cols* to *beach_col*-1: coastal shallow water.
     * Columns *beach_col*+1 to *ford_col*-1: land.
     * Rows *river_row_start*–*river_row_end*, columns *beach_col*+1 to end:
@@ -974,26 +977,29 @@ def generate_coastal_map(
     bridge_col:
         Column index for the river bridge crossing point.
     beach_col:
-        Column index for the beach landing strip.
+        Column index for the beach landing strip.  Pass ``-1`` (or any
+        negative integer) to disable beach generation entirely.
 
     Returns
     -------
     :class:`CoastalMap`
     """
     cmap = CoastalMap(width=width, height=height, rows=rows, cols=cols)
+    # Negative beach_col is a sentinel meaning "no beach strip"
+    has_beach = beach_col >= 0
 
     for r in range(rows):
         for c in range(cols):
             # Open sea band
             if c < sea_cols:
                 tile = WaterTileType.SEA
-            # Coastal shallow — between sea and beach
-            elif c < beach_col:
+            # Coastal shallow — between sea and beach (only when beach is enabled)
+            elif has_beach and c < beach_col:
                 tile = WaterTileType.COASTAL_SHALLOW
-            # Beach strip
-            elif c == beach_col:
+            # Beach strip (only when enabled and not already in sea band)
+            elif has_beach and c == beach_col:
                 tile = WaterTileType.BEACH
-            # Land — but check if within river band
+            # Landward side — but check if within river band
             elif river_row_start <= r <= river_row_end:
                 if c == ford_col:
                     tile = WaterTileType.FORD

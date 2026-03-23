@@ -14,11 +14,12 @@ map:
 
 coastal:
   sea_cols: 20          # wide sea zone for manoeuvre
-  beach_col: 20         # port-side beach
+  beach_col: 0          # port-side beach at col 0 — absorbed into sea band (sea_cols=20),
+                        # so no beach strip blocks the sea–estuary route
   river_row_start: 12   # river estuary in the middle rows
   river_row_end: 18
-  ford_col: 25          # estuary shallows (ford-level depth)
-  bridge_col: 30        # estuary narrows with bridge
+  ford_col: 35          # upriver estuary shallows (ford-level depth), away from breakout route
+  bridge_col: 40        # upriver estuary narrows with bridge, away from breakout route
 
 # ── Blue forces (blockading squadron) ────────────────────────────────────
 blue:
