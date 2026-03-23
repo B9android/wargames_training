@@ -218,9 +218,10 @@ export default function App() {
 
   const handleCoaActivate = (coa) => {
     dispatch({ type: 'ACTIVATE_COA', coa });
-    // Send the selected COA strategy to the game server so it can influence
-    // AI behaviour; the server may choose to honour it or ignore it.
-    send({ type: 'activate_coa', label: coa.label, seed: coa.seed });
+    // NOTE: Do not send an `activate_coa` message over the WebSocket yet.
+    // The current server protocol does not define a handler for this type and
+    // will treat it as an error. Once the protocol is extended, reintroduce a
+    // properly supported message here (or piggyback on `load_scenario` / `start`).
     dispatch({ type: 'SET_MODE', mode: 'lobby' });
   };
 

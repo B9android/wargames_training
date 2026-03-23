@@ -43,6 +43,13 @@ function COACard({ coa, selected, onSelect, onExplain, onModify }) {
       onClick={() => onSelect(coa)}
       role="button"
       aria-pressed={selected}
+      tabIndex={0}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(coa);
+        }
+      }}
     >
       <div style={styles.cardHeader}>
         <span style={{ ...styles.rankBadge, color: rankColor }}>#{coa.rank}</span>
@@ -214,6 +221,8 @@ export default function COAPanel({ apiBase = 'http://localhost:5000', envKwargs 
     setError(null);
     setExplanation(null);
     setModifyCoa(null);
+    setSelectedCoa(null);
+    setCoas([]);
     try {
       const res = await fetch(`${apiBase}/corps/coas`, {
         method: 'POST',
@@ -239,6 +248,7 @@ export default function COAPanel({ apiBase = 'http://localhost:5000', envKwargs 
 
   // ── Explain a COA ─────────────────────────────────────────────────────────
   const handleExplain = useCallback(async (coa) => {
+    setError(null);
     setExplanation(null);
     setModifyCoa(null);
     try {
@@ -280,12 +290,20 @@ export default function COAPanel({ apiBase = 'http://localhost:5000', envKwargs 
         const updated = data.coa;
         setCoas(prev => {
           const idx = prev.findIndex(c => c.label === coa.label && c.seed === coa.seed);
+          let next;
           if (idx >= 0) {
-            const copy = [...prev];
-            copy[idx] = { ...updated, rank: idx + 1 };
-            return copy;
+            next = [...prev];
+            next[idx] = { ...updated };
+          } else {
+            next = [updated, ...prev];
           }
-          return [updated, ...prev];
+          // Re-sort by composite score (descending) and recompute contiguous ranks.
+          const sorted = [...next].sort((a, b) => {
+            const aScore = (a.score && typeof a.score.composite === 'number') ? a.score.composite : 0;
+            const bScore = (b.score && typeof b.score.composite === 'number') ? b.score.composite : 0;
+            return bScore - aScore;
+          });
+          return sorted.map((c, i) => ({ ...c, rank: i + 1 }));
         });
         setModifyCoa(null);
       }

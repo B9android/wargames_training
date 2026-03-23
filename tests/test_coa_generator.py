@@ -1082,6 +1082,18 @@ class TestCorpsCOAGeneratorModify(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.gen.modify_and_evaluate(self.coas[0], mod)
 
+    def test_negative_n_rollouts_raises(self) -> None:
+        """n_rollouts < 1 in a COAModification must raise ValueError."""
+        mod = COAModification(n_rollouts=0)
+        with self.assertRaises(ValueError):
+            self.gen.modify_and_evaluate(self.coas[0], mod)
+
+    def test_negative_n_rollouts_also_raises(self) -> None:
+        """Negative n_rollouts in COAModification must also raise ValueError."""
+        mod = COAModification(n_rollouts=-5)
+        with self.assertRaises(ValueError):
+            self.gen.modify_and_evaluate(self.coas[0], mod)
+
     def test_division_overrides_applied(self) -> None:
         """Using division overrides should not crash and produce a valid COA."""
         mod = COAModification(
@@ -1303,6 +1315,30 @@ class TestCorpsCOAsModifyEndpoint(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
+    def test_modify_negative_n_rollouts_400(self) -> None:
+        """modification.n_rollouts=0 must return 400."""
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={
+                "coa": _sample_coa_dict(),
+                "modification": {"n_rollouts": 0},
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_modify_div_overrides_non_dict_400(self) -> None:
+        """division_command_overrides as a list must return 400."""
+        resp = self.client.post(
+            "/corps/coas/modify",
+            json={
+                "coa": _sample_coa_dict(),
+                "modification": {"division_command_overrides": [1, 2]},
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+
 
 # ---------------------------------------------------------------------------
 # 23. Flask /corps/coas/explain endpoint
@@ -1345,6 +1381,22 @@ class TestCorpsCOAsExplainEndpoint(unittest.TestCase):
             "/corps/coas/explain", data=b"[]", content_type="application/json"
         )
         self.assertEqual(resp.status_code, 400)
+
+    def test_explain_string_explain_flag_400(self) -> None:
+        """'explain' field as a string should return 400 from /corps/coas."""
+        from api.coa_endpoint import app
+        app.config["TESTING"] = True
+        client = app.test_client()
+        resp = client.post(
+            "/corps/coas",
+            json={
+                "n_rollouts": 2, "n_coas": 2,
+                "explain": "false",  # string, not bool
+                "env_kwargs": {"n_divisions": 2, "max_steps": 5},
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.get_json())
 
 
 # ---------------------------------------------------------------------------

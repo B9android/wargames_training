@@ -918,8 +918,20 @@ def _run_corps_rollout(
     done = False
 
     # Capture initial unit counts for casualty computation.
-    initial_blue = int(info.get("blue_units_alive", getattr(env, "n_divisions", 1)))
-    initial_red = int(info.get("red_units_alive", getattr(env, "n_divisions", 1)))
+    # Prefer explicit per-side unit counts (e.g., env.n_blue / env.n_red for CorpsEnv),
+    # falling back to n_divisions and finally 1 if nothing else is available.
+    initial_blue = int(
+        info.get(
+            "blue_units_alive",
+            getattr(env, "n_blue", getattr(env, "n_divisions", 1)),
+        )
+    )
+    initial_red = int(
+        info.get(
+            "red_units_alive",
+            getattr(env, "n_red", getattr(env, "n_divisions", 1)),
+        )
+    )
 
     actions_list: List[np.ndarray] = []
     obj_rewards_list: List[float] = []
@@ -1403,7 +1415,15 @@ class CorpsCOAGenerator:
                 f"Unknown strategy override '{strategy}'.  "
                 f"Valid: {sorted(_CORPS_STRATEGY_PATTERNS)}"
             )
-        n_rollouts = modification.n_rollouts or self.n_rollouts
+        raw_n_rollouts = modification.n_rollouts
+        if raw_n_rollouts is None:
+            n_rollouts = self.n_rollouts
+        else:
+            if raw_n_rollouts < 1:
+                raise ValueError(
+                    f"n_rollouts must be at least 1, got {raw_n_rollouts!r}"
+                )
+            n_rollouts = raw_n_rollouts
         overrides  = modification.division_command_overrides or {}
 
         rng = np.random.default_rng(coa.seed + 999)  # distinct seed from original

@@ -300,7 +300,15 @@ def corps_coas() -> Any:
         else:
             seed = None
         strategies_raw  = body.get("strategies", None)
-        explain: bool   = bool(body.get("explain", False))
+        explain_raw     = body.get("explain", False)
+        if isinstance(explain_raw, bool):
+            explain: bool = explain_raw
+        elif isinstance(explain_raw, int) and explain_raw in (0, 1):
+            explain = bool(explain_raw)
+        else:
+            raise ValueError(
+                "'explain' must be a boolean (true/false) or an integer (0 or 1)."
+            )
         env_kwargs      = _parse_corps_env_kwargs(body.get("env_kwargs", {}))
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -421,9 +429,11 @@ def corps_coas_modify() -> Any:
     div_overrides_raw = mod_dict.get("division_command_overrides", None)
     div_overrides: dict | None = None
     if div_overrides_raw is not None:
+        if not isinstance(div_overrides_raw, dict):
+            return jsonify({"error": "'division_command_overrides' must be a JSON object."}), 400
         try:
             div_overrides = {int(k): int(v) for k, v in div_overrides_raw.items()}
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, AttributeError) as exc:
             return jsonify({"error": f"Invalid division_command_overrides: {exc}"}), 400
 
     n_rollouts_mod_raw = mod_dict.get("n_rollouts", None)
@@ -431,6 +441,8 @@ def corps_coas_modify() -> Any:
         n_rollouts_mod = int(n_rollouts_mod_raw) if n_rollouts_mod_raw is not None else None
     except (TypeError, ValueError) as exc:
         return jsonify({"error": f"Invalid modification n_rollouts: {exc}"}), 400
+    if n_rollouts_mod is not None and n_rollouts_mod < 1:
+        return jsonify({"error": "Invalid modification n_rollouts: must be at least 1"}), 400
 
     modification = COAModification(
         strategy_override=mod_dict.get("strategy_override", None),
@@ -438,15 +450,18 @@ def corps_coas_modify() -> Any:
         division_command_overrides=div_overrides,
     )
 
+    env = None
     try:
         env = CorpsEnv(**(env_kwargs or {}))
         generator = CorpsCOAGenerator(env=env, n_rollouts=10, n_coas=1)
         result = generator.modify_and_evaluate(coa, modification)
-        env.close()
     except (ValueError, TypeError) as exc:
         return jsonify({"error": f"Invalid request parameters: {exc}"}), 400
     except RuntimeError as exc:
         return jsonify({"error": f"COA modification failed: {exc}"}), 500
+    finally:
+        if env is not None:
+            env.close()
 
     return jsonify({"coa": result.as_dict()}), 200
 
@@ -511,6 +526,7 @@ def corps_coas_explain() -> Any:
     except (KeyError, TypeError, ValueError) as exc:
         return jsonify({"error": f"Invalid 'coa' structure: {exc}"}), 400
 
+    env = None
     try:
         env = CorpsEnv(**(env_kwargs or {}))
         # We need fresh rollouts for explain if none are cached.
@@ -520,11 +536,13 @@ def corps_coas_explain() -> Any:
         )
         generator.generate()  # populate _last_rollout_results
         explanation = generator.explain_coa(coa)
-        env.close()
     except (ValueError, TypeError) as exc:
         return jsonify({"error": f"Invalid request parameters: {exc}"}), 400
     except RuntimeError as exc:
         return jsonify({"error": f"COA explanation failed: {exc}"}), 500
+    finally:
+        if env is not None:
+            env.close()
 
     return jsonify({"explanation": explanation.as_dict()}), 200
 
