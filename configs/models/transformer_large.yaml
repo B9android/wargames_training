@@ -1,0 +1,46 @@
+# configs/models/transformer_large.yaml
+# E8.3 — "Large" transformer configuration.
+#
+# Design target: CPU inference < 20 ms for a 32-entity batch (batch_size=1).
+#
+# Architecture summary
+# --------------------
+#   Transformer depth  : 8 encoder layers
+#   Hidden dimension   : 512
+#   Attention heads    : 16  (32 dims per head)
+#   FFN width          : 2048  (4 × d_model)
+#   Parameter count    : ~25 M (encoder only)
+#
+# Recommended use-cases
+# ---------------------
+#   * GPU-accelerated training where sample quality is paramount
+#   * Final league / tournament evaluation
+#   * Curriculum stage 5 (full-combat opponents)
+#
+# See also
+# --------
+#   docs/model_configs.md — Pareto-frontier comparison table
+#   configs/models/transformer_small.yaml
+#   configs/models/transformer_medium.yaml
+
+model:
+  name: transformer_large
+
+  # ── Entity Encoder ────────────────────────────────────────────────────
+  encoder:
+    d_model: 512           # transformer hidden dimension
+    n_heads: 16            # attention heads  (d_model / n_heads = 32)
+    n_layers: 8            # number of TransformerEncoderLayer blocks
+    dim_feedforward: 2048  # FFN sublayer width (4 × d_model)
+    dropout: 0.0           # dropout inside transformer (off for deployment)
+    use_spatial_pe: true   # 2-D Fourier positional encoding
+    n_freq_bands: 8        # Fourier frequency bands for spatial PE
+
+  # ── Actor-Critic MLP heads ────────────────────────────────────────────
+  actor_hidden_sizes: [512, 256]
+  critic_hidden_sizes: [512, 256]
+  shared_encoder: true     # share encoder weights between actor and critic
+
+  # ── Deployment metadata ───────────────────────────────────────────────
+  latency_target_ms: 20    # CPU inference budget (ms) — E8.3 acceptance criterion
+  param_count_approx: 25_000_000

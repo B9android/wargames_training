@@ -1,0 +1,76 @@
+# configs/sweeps/model_scaling_sweep.yaml
+# E8.3 — Model Scaling & Hyperparameter Study sweep configuration.
+#
+# Systematically varies transformer depth (n_layers), width (d_model), and
+# attention heads (n_heads) on the 4v4 symmetric scenario to identify the
+# Pareto frontier of win-rate vs. CPU inference latency.
+#
+# Grid coverage
+# -------------
+# n_layers : [2, 4, 6, 8]           →  4 values
+# d_model  : [64, 128, 256, 512]    →  4 values
+# n_heads  : [2, 4, 8, 16]          →  4 values (all divide every d_model above)
+# ─────────────────────────────────────────────
+# Total grid size: 4 × 4 × 4 = 64 configurations
+#   (≥ 18 satisfies the E8.3 acceptance criterion)
+#
+# The dim_feedforward is derived automatically as 4 × d_model by
+# EntityEncoder when left as null / omitted.
+#
+# Metrics collected per run
+# -------------------------
+#   model/win_rate           — fraction of 4v4 episodes won against scripted Red
+#   model/convergence_steps  — timesteps to reach 60 % win-rate threshold
+#   model/inference_latency_ms — median CPU forward-pass time (32-entity input, batch=1)
+#
+# Usage
+# -----
+#   wandb sweep configs/sweeps/model_scaling_sweep.yaml
+#   wandb agent <sweep_id>  [--count 64]
+#
+# Each agent run invokes training/train_entity.py with the transformer
+# hyperparameters injected as Hydra CLI overrides.  The sweep agent sets
+# model.encoder.d_model, model.encoder.n_heads, and model.encoder.n_layers.
+#
+# See also
+# --------
+#   configs/models/transformer_small.yaml  — recommended "small" config
+#   configs/models/transformer_medium.yaml — recommended "medium" config
+#   configs/models/transformer_large.yaml  — recommended "large" config
+#   docs/model_configs.md                  — full results & Pareto analysis
+
+program: training/train_entity.py
+method: grid
+
+project: wargames_training
+name: e8.3_model_scaling_sweep
+
+# ── Metric to optimise ────────────────────────────────────────────────────
+metric:
+  name: model/win_rate
+  goal: maximize
+
+# ── Sweep parameters ─────────────────────────────────────────────────────
+parameters:
+  model.encoder.n_layers:
+    values: [2, 4, 6, 8]
+
+  model.encoder.d_model:
+    values: [64, 128, 256, 512]
+
+  model.encoder.n_heads:
+    values: [2, 4, 8, 16]
+
+  # Fixed parameters across all runs
+  scenario:
+    value: "4v4"
+
+  training.total_timesteps:
+    value: 500_000
+    # Note: a uniform budget is used here as an initial screening pass to
+    # rank architectures by early convergence speed. Small models may plateau
+    # before 500 K steps while large models may not fully converge. A follow-up
+    # study should rerun the top-N candidates with extended budgets (≥2 M steps).
+
+  training.seed:
+    value: 42
