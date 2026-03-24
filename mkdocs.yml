@@ -1,0 +1,85 @@
+site_name: Wargames Training
+site_description: >
+  Reinforcement learning research platform for Napoleonic-era battalion simulation.
+  Includes WargamesBench — the standardised benchmark suite for reproducible
+  comparison of wargame AI methods.
+site_url: https://b9android.github.io/wargames_training
+repo_url: https://github.com/B9android/wargames_training
+repo_name: B9android/wargames_training
+
+copyright: "Copyright &copy; Wargames Training Contributors"
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - tutorials/quickstart.md
+      - tutorials/training.md
+      - tutorials/benchmark.md
+  - API Reference:
+      - api/index.md
+      - api/envs.md
+      - api/training.md
+      - api/analysis.md
+      - api/benchmarks.md
+  - Benchmark Leaderboard: wargames_bench_leaderboard.md
+  - Guides:
+      - TRAINING_GUIDE.md
+      - ENVIRONMENT_SPEC.md
+      - ROADMAP.md
+  - Contributing:
+      - CONTRIBUTING.md
+      - CODE_OF_CONDUCT.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/B9android/wargames_training
