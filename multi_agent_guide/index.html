@@ -1,0 +1,2105 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reinforcement learning research platform for Napoleonic-era battalion simulation. Includes WargamesBench — the standardised benchmark suite for reproducible comparison of wargame AI methods.
+">
+      
+      
+      
+        <link rel="canonical" href="https://b9android.github.io/wargames_training/multi_agent_guide/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Multi-Agent Guide — v2 MAPPO & Curriculum - Wargames Training</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#multi-agent-guide-v2-mappo-curriculum" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Wargames Training" class="md-header__button md-logo" aria-label="Wargames Training" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wargames Training
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Multi-Agent Guide — v2 MAPPO &amp; Curriculum
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/B9android/wargames_training" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    B9android/wargames_training
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/quickstart/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../wargames_bench_leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmark Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../TRAINING_GUIDE/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../CONTRIBUTING.md" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Wargames Training" class="md-nav__button md-logo" aria-label="Wargames Training" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Wargames Training
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/B9android/wargames_training" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    B9android/wargames_training
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick-Start Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WargamesBench Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/envs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environments API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wargames_bench_leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TRAINING_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Training Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ENVIRONMENT_SPEC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Environment Specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Project Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRIBUTING.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    None
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_OF_CONDUCT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    None
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-multibattalionenv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment: MultiBattalionEnv
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Environment: MultiBattalionEnv">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#instantiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instantiation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent IDs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#global-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global State
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pettingzoo-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PettingZoo Compliance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observation-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observation Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Observation Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-agent-local-observation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Agent Local Observation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dimensionality-by-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dimensionality by Scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#global-state-centralized-critic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global State (Centralized Critic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mappo-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MAPPO Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MAPPO Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#training-hyperparameters-2v2-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Training Hyperparameters (2v2 defaults)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#launching-training" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Launching Training
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#swapping-the-red-policy-at-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swapping the Red Policy at Runtime
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-stage-curriculum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three-Stage Curriculum
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Three-Stage Curriculum">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enabling-the-curriculum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling the Curriculum
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weight-transfer-from-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weight Transfer from v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#win-rate-promotion-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Win-Rate Promotion Logic
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-agent-self-play" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Agent Self-Play
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-Agent Self-Play">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enabling-self-play-in-mappo-training" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling Self-Play in MAPPO Training
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluating-against-the-pool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluating Against the Pool
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coordination-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coordination Metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-an-experiment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running an Experiment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running an Experiment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-start-2v2-no-curriculum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick-Start (2v2, no curriculum)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#curriculum-training-1v1-2v1-2v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curriculum Training (1v1 → 2v1 → 2v2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nvn-scaling-3v3-4v4-6v6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NvN Scaling (3v3, 4v4, 6v6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="multi-agent-guide-v2-mappo-curriculum">Multi-Agent Guide — v2 MAPPO &amp; Curriculum<a class="headerlink" href="#multi-agent-guide-v2-mappo-curriculum" title="Permanent link">&para;</a></h1>
+<p>This guide covers the v2 multi-agent components: the <code>MultiBattalionEnv</code>
+PettingZoo environment, the MAPPO algorithm, the three-stage curriculum,
+multi-agent self-play, and coordination metrics.</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#environment-multibattalionenv">Environment: MultiBattalionEnv</a></li>
+<li><a href="#observation-design">Observation Design</a></li>
+<li><a href="#mappo-setup">MAPPO Setup</a></li>
+<li><a href="#three-stage-curriculum">Three-Stage Curriculum</a></li>
+<li><a href="#multi-agent-self-play">Multi-Agent Self-Play</a></li>
+<li><a href="#coordination-metrics">Coordination Metrics</a></li>
+<li><a href="#running-an-experiment">Running an Experiment</a></li>
+<li><a href="#configuration-reference">Configuration Reference</a></li>
+</ol>
+<hr />
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>v2 extends the v1 1v1 framework to <strong>NvN multi-agent combat</strong> using
+Multi-Agent Proximal Policy Optimization (MAPPO).  The design follows the
+Centralized Training with Decentralized Execution (CTDE) paradigm:</p>
+<ul>
+<li><strong>Decentralized execution</strong> — each battalion agent acts using only its
+  local observation (fog-of-war, partial visibility).</li>
+<li><strong>Centralized training</strong> — the critic receives the full global state
+  tensor during training to reduce variance.</li>
+</ul>
+<hr />
+<h2 id="environment-multibattalionenv">Environment: MultiBattalionEnv<a class="headerlink" href="#environment-multibattalionenv" title="Permanent link">&para;</a></h2>
+<p><code>MultiBattalionEnv</code> is a <a href="https://pettingzoo.farama.org/">PettingZoo</a>
+<code>ParallelEnv</code> located at <code>envs/multi_battalion_env.py</code>.</p>
+<h3 id="instantiation">Instantiation<a class="headerlink" href="#instantiation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">envs.multi_battalion_env</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiBattalionEnv</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">env</span> <span class="o">=</span> <span class="n">MultiBattalionEnv</span><span class="p">(</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">n_blue</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>                 <span class="c1"># Blue (learning) agents</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">n_red</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>                  <span class="c1"># Red (scripted/opponent) agents</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">map_width</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span>         <span class="c1"># metres</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">map_height</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">max_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">visibility_radius</span><span class="o">=</span><span class="mf">600.0</span><span class="p">,</span>  <span class="c1"># fog-of-war radius (metres)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">randomize_terrain</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">obs</span><span class="p">,</span> <span class="n">infos</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="agent-ids">Agent IDs<a class="headerlink" href="#agent-ids" title="Permanent link">&para;</a></h3>
+<p>Agents are identified by strings of the form <code>"blue_0"</code>, <code>"blue_1"</code>, …,
+<code>"red_0"</code>, <code>"red_1"</code>, ….  Only Blue agents are controlled by the learned
+policy; Red agents are driven by a scripted or opponent-pool policy.</p>
+<h3 id="global-state">Global State<a class="headerlink" href="#global-state" title="Permanent link">&para;</a></h3>
+<p>The centralized critic accesses the full global state via:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">state</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">state</span><span class="p">()</span>  <span class="c1"># np.ndarray, shape (state_dim,)</span>
+</code></pre></div>
+<p>See <a href="#observation-design">Observation Design</a> for dimensionality.</p>
+<h3 id="pettingzoo-compliance">PettingZoo Compliance<a class="headerlink" href="#pettingzoo-compliance" title="Permanent link">&para;</a></h3>
+<p>The environment passes <code>pettingzoo.test.parallel_api_test</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pettingzoo.test</span><span class="w"> </span><span class="kn">import</span> <span class="n">parallel_api_test</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">parallel_api_test</span><span class="p">(</span><span class="n">MultiBattalionEnv</span><span class="p">(),</span> <span class="n">num_cycles</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="observation-design">Observation Design<a class="headerlink" href="#observation-design" title="Permanent link">&para;</a></h2>
+<h3 id="per-agent-local-observation">Per-Agent Local Observation<a class="headerlink" href="#per-agent-local-observation" title="Permanent link">&para;</a></h3>
+<p>Each agent receives a local observation vector of dimension:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>obs_dim = 6 + 5 * (n_total - 1) + 1
+</code></pre></div>
+<p>where <code>n_total = n_blue + n_red</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Dimensions</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Self state</td>
+<td>6</td>
+<td><code>(x/W, y/H, cos θ, sin θ, strength, morale)</code></td>
+</tr>
+<tr>
+<td>Other units</td>
+<td>5 × (n_total−1)</td>
+<td>Per other unit: <code>(dist/map_diagonal, cos(bearing), sin(bearing), strength, morale)</code>; hidden units use sentinel <code>[1.0, 0, 0, 0, 0]</code></td>
+</tr>
+<tr>
+<td>Step</td>
+<td>1</td>
+<td>Normalized step count <code>t/max_steps ∈ [0, 1]</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key conventions:</strong>
+- Positions normalized by map dimensions (<code>W</code>, <code>H</code>) → <code>[0, 1]</code>.
+- Angles encoded as <code>(cos θ, sin θ)</code> — never raw radians.
+- Strength and morale normalized to <code>[0, 1]</code>.
+- Units outside <code>visibility_radius</code> use a sentinel block:
+  <code>dist = 1.0</code>, all other fields <code>0</code> (known-far, unknown state).</p>
+<h3 id="dimensionality-by-scenario">Dimensionality by Scenario<a class="headerlink" href="#dimensionality-by-scenario" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>n_total</th>
+<th>obs_dim</th>
+<th>state_dim</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1v1</td>
+<td>2</td>
+<td>12</td>
+<td>13</td>
+</tr>
+<tr>
+<td>2v2</td>
+<td>4</td>
+<td>22</td>
+<td>25</td>
+</tr>
+<tr>
+<td>3v3</td>
+<td>6</td>
+<td>32</td>
+<td>37</td>
+</tr>
+<tr>
+<td>4v4</td>
+<td>8</td>
+<td>42</td>
+<td>49</td>
+</tr>
+<tr>
+<td>6v6</td>
+<td>12</td>
+<td>62</td>
+<td>73</td>
+</tr>
+</tbody>
+</table>
+<h3 id="global-state-centralized-critic">Global State (Centralized Critic)<a class="headerlink" href="#global-state-centralized-critic" title="Permanent link">&para;</a></h3>
+<p>The global state has dimension <code>state_dim = 6 * n_total + 1</code> and contains
+the full, unobscured state of every unit plus the normalized step count.
+The critic receives this vector during training regardless of
+<code>visibility_radius</code>.</p>
+<hr />
+<h2 id="mappo-setup">MAPPO Setup<a class="headerlink" href="#mappo-setup" title="Permanent link">&para;</a></h2>
+<h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>MAPPOActor
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  Input : obs_dim
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  Hidden: actor_hidden_sizes  (default [128, 64], ReLU)
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  Output: action_dim (3) × 2  (mean, log_std for Gaussian)
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>MAPPOCritic
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>  Input : state_dim
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>  Hidden: critic_hidden_sizes (default [128, 64], ReLU)
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>  Output: 1 (scalar value estimate)
+</code></pre></div>
+<p>With <code>share_parameters=True</code> (default) all Blue agents share a single
+<code>MAPPOActor</code>.  Setting <code>share_parameters=False</code> gives each agent its own
+actor but they still share the centralized critic.</p>
+<h3 id="training-hyperparameters-2v2-defaults">Training Hyperparameters (2v2 defaults)<a class="headerlink" href="#training-hyperparameters-2v2-defaults" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>total_timesteps</code></td>
+<td>200 000</td>
+<td>Increase for larger scenarios</td>
+</tr>
+<tr>
+<td><code>n_steps</code></td>
+<td>256</td>
+<td>Rollout length per update</td>
+</tr>
+<tr>
+<td><code>n_epochs</code></td>
+<td>10</td>
+<td>PPO update epochs per rollout</td>
+</tr>
+<tr>
+<td><code>batch_size</code></td>
+<td>64</td>
+<td>Minibatch size</td>
+</tr>
+<tr>
+<td><code>lr</code></td>
+<td>3e-4</td>
+<td>Adam learning rate</td>
+</tr>
+<tr>
+<td><code>gamma</code></td>
+<td>0.99</td>
+<td>Discount factor</td>
+</tr>
+<tr>
+<td><code>gae_lambda</code></td>
+<td>0.95</td>
+<td>GAE-λ</td>
+</tr>
+<tr>
+<td><code>clip_range</code></td>
+<td>0.2</td>
+<td>PPO ε clip</td>
+</tr>
+<tr>
+<td><code>vf_coef</code></td>
+<td>0.5</td>
+<td>Value-function loss weight</td>
+</tr>
+<tr>
+<td><code>ent_coef</code></td>
+<td>0.01</td>
+<td>Entropy bonus weight</td>
+</tr>
+<tr>
+<td><code>max_grad_norm</code></td>
+<td>0.5</td>
+<td>Gradient clip norm</td>
+</tr>
+</tbody>
+</table>
+<h3 id="launching-training">Launching Training<a class="headerlink" href="#launching-training" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># 2v2 reference experiment (Hydra config)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>training/train_mappo.py<span class="w"> </span>--config-name<span class="o">=</span>experiment_mappo_2v2
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Override via CLI</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>python<span class="w"> </span>training/train_mappo.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span>training.total_timesteps<span class="o">=</span><span class="m">500000</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span>env.n_blue<span class="o">=</span><span class="m">3</span><span class="w"> </span>env.n_red<span class="o">=</span><span class="m">3</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Disable W&amp;B for local testing</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="nv">WANDB_MODE</span><span class="o">=</span>disabled<span class="w"> </span>python<span class="w"> </span>training/train_mappo.py
+</code></pre></div>
+<p>Checkpoints are saved to <code>checkpoints/mappo_2v2/</code> (configurable via
+<code>eval.checkpoint_dir</code>).</p>
+<h3 id="swapping-the-red-policy-at-runtime">Swapping the Red Policy at Runtime<a class="headerlink" href="#swapping-the-red-policy-at-runtime" title="Permanent link">&para;</a></h3>
+<p><code>MAPPOTrainer</code> exposes <code>set_red_policy(policy)</code> for swapping in a snapshot
+opponent without restarting training:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">models.mappo_policy</span><span class="w"> </span><span class="kn">import</span> <span class="n">MAPPOPolicy</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">checkpoint_path</span> <span class="o">=</span> <span class="s2">&quot;checkpoints/mappo_2v2/snapshot_500k.pt&quot;</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">snapshot</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">checkpoint_path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Reconstruct the MAPPOPolicy from saved kwargs and state_dict</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">opponent</span> <span class="o">=</span> <span class="n">MAPPOPolicy</span><span class="p">(</span><span class="o">**</span><span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;kwargs&quot;</span><span class="p">])</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">opponent</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;state_dict&quot;</span><span class="p">])</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">trainer</span><span class="o">.</span><span class="n">set_red_policy</span><span class="p">(</span><span class="n">opponent</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="three-stage-curriculum">Three-Stage Curriculum<a class="headerlink" href="#three-stage-curriculum" title="Permanent link">&para;</a></h2>
+<p>The curriculum (<code>training/curriculum_scheduler.py</code>) progressively increases
+difficulty to stabilize early learning:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Stage 1 — 1v1  (BattalionEnv, scripted Red)
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>        ↓  win-rate ≥ threshold over rolling window
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>Stage 2 — 2v1  (MultiBattalionEnv, 2 Blue vs 1 stationary Red)
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        ↓  win-rate ≥ threshold over rolling window
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>Stage 3 — 2v2  (MultiBattalionEnv, 2 Blue vs 2 scripted Red)
+</code></pre></div>
+<h3 id="enabling-the-curriculum">Enabling the Curriculum<a class="headerlink" href="#enabling-the-curriculum" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>training/train_mappo.py<span class="w"> </span>--config-name<span class="o">=</span>curriculum_2v2
+</code></pre></div>
+<h3 id="weight-transfer-from-v1">Weight Transfer from v1<a class="headerlink" href="#weight-transfer-from-v1" title="Permanent link">&para;</a></h3>
+<p>When transitioning from Stage 1 (v1 PPO) to Stage 2 (MAPPO), the scheduler
+calls <code>load_v1_weights_into_mappo()</code> to warm-start the MAPPO actor from the
+v1 checkpoint.  This matches SB3 <code>mlp_extractor.policy_net</code> Linear layers to
+MAPPO <code>actor.trunk</code> Linear layers by position.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">training.curriculum_scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_v1_weights_into_mappo</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">load_v1_weights_into_mappo</span><span class="p">(</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">v1_model_path</span><span class="o">=</span><span class="s2">&quot;checkpoints/ppo_battalion_final.zip&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">mappo_policy</span><span class="o">=</span><span class="n">policy</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="win-rate-promotion-logic">Win-Rate Promotion Logic<a class="headerlink" href="#win-rate-promotion-logic" title="Permanent link">&para;</a></h3>
+<p><code>CurriculumScheduler.record_episode_result(won)</code> maintains a rolling win-rate
+window.  When the window is full and win-rate exceeds <code>win_rate_threshold</code>,
+<code>promote()</code> advances to the next stage and resets the window.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">scheduler</span> <span class="o">=</span> <span class="n">CurriculumScheduler</span><span class="p">(</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">win_rate_threshold</span><span class="o">=</span><span class="mf">0.70</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">window_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="multi-agent-self-play">Multi-Agent Self-Play<a class="headerlink" href="#multi-agent-self-play" title="Permanent link">&para;</a></h2>
+<p>Multi-agent self-play uses <code>TeamOpponentPool</code> in <code>training/self_play.py</code>.</p>
+<h3 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Every <code>snapshot_freq</code> timesteps the current MAPPO policy is saved to the
+   pool directory as a <code>.pt</code> file.</li>
+<li>At each rollout collection step, a snapshot is sampled from the pool
+   (uniform or Elo-weighted) and used as the Red opponent.</li>
+<li><code>TeamEloRegistry</code> (<code>training/elo.py</code>) tracks relative team strength and
+   provides K-factor-weighted Elo updates.</li>
+</ol>
+<h3 id="enabling-self-play-in-mappo-training">Enabling Self-Play in MAPPO Training<a class="headerlink" href="#enabling-self-play-in-mappo-training" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># configs/experiment_mappo_2v2.yaml (or any override)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">self_play</span><span class="p">:</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">pool_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;checkpoints/mappo_pool/&quot;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">pool_max_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">snapshot_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50000</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="nt">eval_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25000</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">n_eval_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+</code></pre></div>
+<h3 id="evaluating-against-the-pool">Evaluating Against the Pool<a class="headerlink" href="#evaluating-against-the-pool" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">training.self_play</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">TeamOpponentPool</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">evaluate_team_vs_pool</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">nash_exploitability_proxy</span><span class="p">,</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Sample a random opponent from the pool</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="n">opponent</span> <span class="o">=</span> <span class="n">opponent_pool</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="n">win_rate</span> <span class="o">=</span> <span class="n">evaluate_team_vs_pool</span><span class="p">(</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="n">policy</span><span class="o">=</span><span class="n">current_policy</span><span class="p">,</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="n">opponent</span><span class="o">=</span><span class="n">opponent</span><span class="p">,</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="n">n_blue</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="n">n_red</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>    <span class="n">n_episodes</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="p">)</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Win rate vs sampled pool opponent: </span><span class="si">{</span><span class="n">win_rate</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="c1"># Compute Nash exploitability proxy against the full pool</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="n">nash_proxy</span> <span class="o">=</span> <span class="n">nash_exploitability_proxy</span><span class="p">(</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>    <span class="n">policy</span><span class="o">=</span><span class="n">current_policy</span><span class="p">,</span>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>    <span class="n">pool</span><span class="o">=</span><span class="n">opponent_pool</span><span class="p">,</span>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="p">)</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nash exploitability proxy: </span><span class="si">{</span><span class="n">nash_proxy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="coordination-metrics">Coordination Metrics<a class="headerlink" href="#coordination-metrics" title="Permanent link">&para;</a></h2>
+<p><code>envs/metrics/coordination.py</code> provides three episode-level metrics logged
+to W&amp;B under the <code>metrics/</code> namespace:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flanking_ratio</code></td>
+<td><code>[0, 1]</code></td>
+<td>Fraction of attacks coming from a flank angle (&gt; 45° off the target's front). Values &gt; 0.3 indicate meaningful flanking.</td>
+</tr>
+<tr>
+<td><code>fire_concentration</code></td>
+<td><code>[0, 1]</code></td>
+<td>Degree to which Blue agents focus fire on a single Red target. 1.0 = perfect concentration.</td>
+</tr>
+<tr>
+<td><code>mutual_support_score</code></td>
+<td><code>[0, 1]</code></td>
+<td>Average fraction of Blue agents within support range of each other. Higher = tighter coordination.</td>
+</tr>
+</tbody>
+</table>
+<p><code>MAPPOTrainer</code> accumulates these metrics every environment step and computes
+episode-averaged values, which are then logged to W&amp;B at the usual logging
+interval.</p>
+<hr />
+<h2 id="running-an-experiment">Running an Experiment<a class="headerlink" href="#running-an-experiment" title="Permanent link">&para;</a></h2>
+<h3 id="quick-start-2v2-no-curriculum">Quick-Start (2v2, no curriculum)<a class="headerlink" href="#quick-start-2v2-no-curriculum" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Install dependencies</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Run 2v2 MAPPO training</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>python<span class="w"> </span>training/train_mappo.py<span class="w"> </span>--config-name<span class="o">=</span>experiment_mappo_2v2
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Monitor in W&amp;B</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="c1"># → project: wargames_training, tags: v2, mappo, 2v2</span>
+</code></pre></div>
+<h3 id="curriculum-training-1v1-2v1-2v2">Curriculum Training (1v1 → 2v1 → 2v2)<a class="headerlink" href="#curriculum-training-1v1-2v1-2v2" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Requires a v1 checkpoint for weight transfer</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>python<span class="w"> </span>training/train_mappo.py<span class="w"> </span>--config-name<span class="o">=</span>curriculum_2v2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span>curriculum.v1_checkpoint<span class="o">=</span>checkpoints/ppo_battalion_final.zip
+</code></pre></div>
+<h3 id="nvn-scaling-3v3-4v4-6v6">NvN Scaling (3v3, 4v4, 6v6)<a class="headerlink" href="#nvn-scaling-3v3-4v4-6v6" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># 3v3 — use the scenario config</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>python<span class="w"> </span>training/train_mappo.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span>--config-name<span class="o">=</span>experiment_mappo_2v2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span>env.n_blue<span class="o">=</span><span class="m">3</span><span class="w"> </span>env.n_red<span class="o">=</span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span>training.total_timesteps<span class="o">=</span><span class="m">500000</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># 6v6 — adjust hidden sizes for larger obs/state dims</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>python<span class="w"> </span>training/train_mappo.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">    </span>--config-name<span class="o">=</span>experiment_mappo_2v2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span>env.n_blue<span class="o">=</span><span class="m">6</span><span class="w"> </span>env.n_red<span class="o">=</span><span class="m">6</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">    </span>training.actor_hidden_sizes<span class="o">=[</span><span class="m">256</span>,128<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">    </span>training.critic_hidden_sizes<span class="o">=[</span><span class="m">256</span>,128<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="w">    </span>training.total_timesteps<span class="o">=</span><span class="m">2000000</span>
+</code></pre></div>
+<hr />
+<h2 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Config File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>configs/experiment_mappo_2v2.yaml</code></td>
+<td>Reference 2v2 MAPPO experiment</td>
+</tr>
+<tr>
+<td><code>configs/curriculum_2v2.yaml</code></td>
+<td>Three-stage curriculum schedule</td>
+</tr>
+<tr>
+<td><code>configs/scenarios/2v2.yaml</code></td>
+<td>2v2 scenario parameters</td>
+</tr>
+<tr>
+<td><code>configs/scenarios/3v3.yaml</code></td>
+<td>3v3 scenario parameters</td>
+</tr>
+<tr>
+<td><code>configs/scenarios/4v4.yaml</code></td>
+<td>4v4 scenario parameters</td>
+</tr>
+<tr>
+<td><code>configs/scenarios/6v6.yaml</code></td>
+<td>6v6 scenario parameters</td>
+</tr>
+</tbody>
+</table>
+<p>Key configuration keys:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">n_blue</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">                    </span><span class="c1"># Blue team size</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">n_red</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">                     </span><span class="c1"># Red team size</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">visibility_radius</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600.0</span><span class="w">     </span><span class="c1"># Fog-of-war radius (metres)</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">red_random</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">            </span><span class="c1"># false=stationary Red, true=random Red</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="nt">training</span><span class="p">:</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span><span class="nt">share_parameters</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">       </span><span class="c1"># Shared actor across Blue agents</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">  </span><span class="nt">actor_hidden_sizes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">  </span><span class="nt">critic_hidden_sizes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">  </span><span class="nt">total_timesteps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200000</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="nt">self_play</span><span class="p">:</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">               </span><span class="c1"># Enable multi-agent self-play</span>
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">  </span><span class="nt">pool_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;checkpoints/mappo_pool/&quot;</span>
+<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="w">  </span><span class="nt">snapshot_freq</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50000</span>
+</code></pre></div>
+<hr />
+<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>docs/ENVIRONMENT_SPEC.md</code> — Full v1 environment specification</li>
+<li><code>docs/TRAINING_GUIDE.md</code> — v1 PPO training guide</li>
+<li><code>docs/scaling_notes.md</code> — NvN scaling analysis and benchmarks</li>
+<li><code>docs/v2_architecture.md</code> — v2 system architecture diagram</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Wargames Training Contributors
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/B9android/wargames_training" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/wargames-training/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.instant", "navigation.instant.progress", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.annotate", "content.code.copy", "content.tooltips", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

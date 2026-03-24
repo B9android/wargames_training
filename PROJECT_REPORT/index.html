@@ -1,0 +1,2771 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reinforcement learning research platform for Napoleonic-era battalion simulation. Includes WargamesBench — the standardised benchmark suite for reproducible comparison of wargame AI methods.
+">
+      
+      
+      
+        <link rel="canonical" href="https://b9android.github.io/wargames_training/PROJECT_REPORT/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Wargames Training — Comprehensive Project Report - Wargames Training</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#wargames-training-comprehensive-project-report" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Wargames Training" class="md-header__button md-logo" aria-label="Wargames Training" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wargames Training
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Wargames Training — Comprehensive Project Report
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/B9android/wargames_training" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    B9android/wargames_training
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/quickstart/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../wargames_bench_leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmark Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../TRAINING_GUIDE/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../CONTRIBUTING.md" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Wargames Training" class="md-nav__button md-logo" aria-label="Wargames Training" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Wargames Training
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/B9android/wargames_training" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    B9android/wargames_training
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick-Start Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WargamesBench Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/envs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environments API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wargames_bench_leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TRAINING_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Training Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ENVIRONMENT_SPEC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Environment Specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Project Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRIBUTING.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    None
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_OF_CONDUCT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    None
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Executive Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-current-state-what-has-been-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Current State — What Has Been Built
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Current State — What Has Been Built">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-simulation-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Simulation Engine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-training-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Training Pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.3 Training Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#single-agent-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-Agent (v1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-agent-mappo-v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Agent / MAPPO (v2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hierarchical-rl-v3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hierarchical RL (v3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#league-training-v4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        League Training (v4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysis-tools-v5-completed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis Tools (v5 / completed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-analysis-explainability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Analysis &amp; Explainability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-deployment-infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Deployment Infrastructure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-github-automation-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 GitHub Automation &amp; Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-test-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Test Coverage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-version-by-version-milestone-recap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Version-by-Version Milestone Recap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-what-is-missing-known-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. What Is Missing — Known Gaps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. What Is Missing — Known Gaps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-simulation-realism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Simulation Realism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-training-learning-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Training &amp; Learning Gaps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-deployment-interface-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Deployment &amp; Interface Gaps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-operational-organisational-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Operational &amp; Organisational Gaps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-most-logical-next-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Most Logical Next Step
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Most Logical Next Step">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-documentation-housekeeping-12-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Documentation Housekeeping (1–2 days)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-baseline-training-run-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Baseline Training Run (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-historical-validation-23-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — Historical Validation (2–3 days)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-self-play-baseline-35-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — Self-Play Baseline (3–5 days)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-league-smoke-run-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5 — League Smoke Run (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-6-fix-agentpool-concurrency-35-days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6 — Fix AgentPool Concurrency (3–5 days)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-long-term-vision-v6-and-beyond" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Long-Term Vision — v6 and Beyond
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Long-Term Vision — v6 and Beyond">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-v6-physics-accurate-simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 v6: Physics-Accurate Simulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-v7-operational-scale-corps-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 v7: Operational Scale — Corps Command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-v8-transformer-policy-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 v8: Transformer Policy &amp; Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-recommended-priorities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Recommended Priorities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-appendix-component-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Appendix — Component Inventory
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Appendix — Component Inventory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#source-files-by-domain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source files by domain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependency-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="wargames-training-comprehensive-project-report">Wargames Training — Comprehensive Project Report<a class="headerlink" href="#wargames-training-comprehensive-project-report" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Date:</strong> 2026-03-21<br />
+<strong>Version at time of writing:</strong> 5.0 (v5 code complete)<br />
+<strong>Author:</strong> Copilot project-report agent</p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#1-executive-summary">Executive Summary</a></li>
+<li><a href="#2-current-state--what-has-been-built">Current State — What Has Been Built</a></li>
+<li>2.1 <a href="#21-simulation-engine">Simulation Engine</a></li>
+<li>2.2 <a href="#22-environments">Environments</a></li>
+<li>2.3 <a href="#23-training-pipeline">Training Pipeline</a></li>
+<li>2.4 <a href="#24-analysis--explainability">Analysis &amp; Explainability</a></li>
+<li>2.5 <a href="#25-deployment-infrastructure">Deployment Infrastructure</a></li>
+<li>2.6 <a href="#26-github-automation--operations">GitHub Automation &amp; Operations</a></li>
+<li>2.7 <a href="#27-test-coverage">Test Coverage</a></li>
+<li><a href="#3-version-by-version-milestone-recap">Version-by-Version Milestone Recap</a></li>
+<li><a href="#4-what-is-missing--known-gaps">What Is Missing — Known Gaps</a></li>
+<li>4.1 <a href="#41-simulation-realism">Simulation Realism</a></li>
+<li>4.2 <a href="#42-training--learning-gaps">Training &amp; Learning Gaps</a></li>
+<li>4.3 <a href="#43-deployment--interface-gaps">Deployment &amp; Interface Gaps</a></li>
+<li>4.4 <a href="#44-operational--organisational-gaps">Operational &amp; Organisational Gaps</a></li>
+<li><a href="#5-most-logical-next-step">Most Logical Next Step</a></li>
+<li><a href="#6-long-term-vision--v6-and-beyond">Long-Term Vision — v6 and Beyond</a></li>
+<li>6.1 <a href="#61-v6-physics-accurate-simulation">v6: Physics-Accurate Simulation</a></li>
+<li>6.2 <a href="#62-v7-operational-scale--corps-command">v7: Operational Scale — Corps Command</a></li>
+<li>6.3 <a href="#63-v8-transformer-policy--architecture">v8: Transformer Policy &amp; Architecture</a></li>
+<li><a href="#7-recommended-priorities">Recommended Priorities</a></li>
+<li><a href="#8-appendix--component-inventory">Appendix — Component Inventory</a></li>
+</ol>
+<hr />
+<h2 id="1-executive-summary">1. Executive Summary<a class="headerlink" href="#1-executive-summary" title="Permanent link">&para;</a></h2>
+<p><strong>Wargames Training</strong> has reached a significant milestone: all five planned development
+versions (v1–v5) are code-complete. The project has grown from a single-battalion
+1v1 Gymnasium environment into a full research platform that includes:</p>
+<ul>
+<li>A continuous 2D Napoleonic-era combat simulation engine</li>
+<li>Seven distinct Gymnasium/PettingZoo environments (battalion → brigade → division)</li>
+<li>Hierarchical RL (HRL) enabling multi-echelon command structures</li>
+<li>AlphaStar-style league training with Nash equilibrium sampling and diversity metrics</li>
+<li>Ray-based distributed rollout infrastructure</li>
+<li>Course-of-action (COA) generator and REST API</li>
+<li>SHAP-based strategy explainability</li>
+<li>Historical scenario validation (Waterloo, Austerlitz, Borodino)</li>
+<li>ONNX/TorchScript policy export with a Dockerised inference server</li>
+<li>Human-playable interface (keyboard-driven pygame)</li>
+<li>50+ unit tests, 8 analysis notebooks, and 27 documentation files</li>
+</ul>
+<p>Despite this breadth, the project remains a <strong>research prototype</strong>: no training run
+has yet produced a deployable, validated policy artifact, and critical simulation
+realism gaps limit its applicability beyond academic exploration.</p>
+<p>The most logical immediate next step is <strong>end-to-end validation</strong> — running a
+full training experiment through the complete pipeline (battalion → league →
+export → COA generation → historical validation) and recording reproducible
+results. The next major long-term goal is <strong>v6: Physics-Accurate Simulation</strong>,
+which adds artillery, cavalry, and logistical constraints to push the agents toward
+more doctrinally credible behaviour.</p>
+<hr />
+<h2 id="2-current-state-what-has-been-built">2. Current State — What Has Been Built<a class="headerlink" href="#2-current-state-what-has-been-built" title="Permanent link">&para;</a></h2>
+<h3 id="21-simulation-engine">2.1 Simulation Engine<a class="headerlink" href="#21-simulation-engine" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> <code>envs/sim/</code> (1,039 lines total)</p>
+<p>The core physics simulation is complete and functional:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Lines</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>battalion.py</code></td>
+<td>104</td>
+<td>Battalion dataclass: position, heading, strength, morale</td>
+</tr>
+<tr>
+<td><code>combat.py</code></td>
+<td>331</td>
+<td>Damage, morale drain, fire arcs, flanking/rear multipliers</td>
+</tr>
+<tr>
+<td><code>engine.py</code></td>
+<td>241</td>
+<td>Simulation loop, state management, casualty application</td>
+</tr>
+<tr>
+<td><code>terrain.py</code></td>
+<td>363</td>
+<td>Perlin-noise terrain, elevation speed factors, line-of-sight</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key constants:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Map size</td>
+<td>1 000 m × 1 000 m</td>
+</tr>
+<tr>
+<td>Time step</td>
+<td>0.1 s</td>
+</tr>
+<tr>
+<td>Base fire damage</td>
+<td>0.05 (fractional strength/step)</td>
+</tr>
+<tr>
+<td>Morale routing threshold</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>Fire range</td>
+<td>200 m</td>
+</tr>
+<tr>
+<td>Fire arc</td>
+<td>±45° frontal</td>
+</tr>
+</tbody>
+</table>
+<p><strong>What the simulation does well:</strong> deterministic physics, morale mechanics,
+terrain-induced speed penalties, line-of-sight occlusion, and cover bonuses are
+all implemented.</p>
+<p><strong>What the simulation lacks:</strong> see §4.1.</p>
+<hr />
+<h3 id="22-environments">2.2 Environments<a class="headerlink" href="#22-environments" title="Permanent link">&para;</a></h3>
+<p>Seven distinct environments exist across two levels of abstraction:</p>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>API</th>
+<th>Agents</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BattalionEnv</code></td>
+<td>Gymnasium</td>
+<td>1 (Blue)</td>
+<td>1v1 vs. scripted Red</td>
+</tr>
+<tr>
+<td><code>MultiBattalionEnv</code></td>
+<td>PettingZoo Parallel</td>
+<td>N (Blue)</td>
+<td>NvN MARL</td>
+</tr>
+<tr>
+<td><code>RemoteMultiBattalionEnv</code></td>
+<td>PettingZoo + Ray</td>
+<td>N (Blue)</td>
+<td>Distributed MARL</td>
+</tr>
+<tr>
+<td><code>BrigadeEnv</code></td>
+<td>Gymnasium</td>
+<td>1 (Brigade commander)</td>
+<td>HRL over frozen battalion sub-policies</td>
+</tr>
+<tr>
+<td><code>DivisionEnv</code></td>
+<td>Gymnasium</td>
+<td>1 (Division commander)</td>
+<td>HRL over brigade commanders</td>
+</tr>
+<tr>
+<td><code>HumanEnv</code></td>
+<td>Gymnasium</td>
+<td>1 (Human)</td>
+<td>Keyboard-driven human vs. AI</td>
+</tr>
+<tr>
+<td>SMDP wrappers</td>
+<td>Gymnasium</td>
+<td>Any</td>
+<td>Temporal abstraction / Options framework</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Observation space (12-dim per battalion):</strong> normalized position <code>(x, y)</code>,
+heading <code>(cos θ, sin θ)</code>, own strength/morale, relative bearing/distance to
+nearest enemy, enemy strength/morale, normalised step count.</p>
+<p><strong>Action space (3-dim continuous per battalion):</strong> forward/backward throttle,
+rotation rate, fire intensity.</p>
+<p><strong>Scripted opponents:</strong> five curriculum levels (L1 random walk → L5 full
+engagement), used as initial training ladders.</p>
+<hr />
+<h3 id="23-training-pipeline">2.3 Training Pipeline<a class="headerlink" href="#23-training-pipeline" title="Permanent link">&para;</a></h3>
+<p><strong>Location:</strong> <code>training/</code> (~9,200 lines)</p>
+<p>The training pipeline covers the full RL research lifecycle:</p>
+<h4 id="single-agent-v1">Single-Agent (v1)<a class="headerlink" href="#single-agent-v1" title="Permanent link">&para;</a></h4>
+<ul>
+<li>PPO with Stable-Baselines3 (<code>train.py</code>, 930 lines)</li>
+<li><code>BattalionMlpPolicy</code> — 2-layer MLP (obs → 128 → Tanh → 128 → Tanh)</li>
+<li>Hydra config, W&amp;B logging, checkpoint/resume, Elo tracking</li>
+<li>Evaluation against L1–L5 opponents and self-play pool</li>
+</ul>
+<h4 id="multi-agent-mappo-v2">Multi-Agent / MAPPO (v2)<a class="headerlink" href="#multi-agent-mappo-v2" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Centralized-training decentralized-execution (CTDE) via <code>MAPPOPolicy</code></li>
+<li><code>MAPPORolloutBuffer</code> with per-agent GAE</li>
+<li>3-stage curriculum: 1v1 → 2v1 → 2v2 with rolling win-rate promotion</li>
+<li>Team Elo registry, coordination metrics (flanking ratio, fire concentration,
+  mutual support score)</li>
+<li>NvN scaling tested up to 6v6</li>
+</ul>
+<h4 id="hierarchical-rl-v3">Hierarchical RL (v3)<a class="headerlink" href="#hierarchical-rl-v3" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>HRLCurriculumScheduler</code>: bottom-up training across three phases
+  (PHASE_1_BATTALION → PHASE_2_BRIGADE → PHASE_3_DIVISION)</li>
+<li>Options/SMDP framework with five tactical primitives
+  (advance, hold, retreat, flank-left, flank-right)</li>
+<li><code>PolicyRegistry</code> (JSON manifest, echelon-aware versioning)</li>
+<li>Freeze utilities (<code>freeze_mappo_policy</code>, <code>freeze_sb3_policy</code>)</li>
+<li>Adaptive temporal abstraction scheduler</li>
+<li>HRL vs. flat MARL tournament with bootstrapped 95% CIs</li>
+</ul>
+<h4 id="league-training-v4">League Training (v4)<a class="headerlink" href="#league-training-v4" title="Permanent link">&para;</a></h4>
+<ul>
+<li>AlphaStar-style three-tier league:</li>
+<li><code>MainAgentTrainer</code> (PFSP vs. all, MAPPO + Elo + snapshots)</li>
+<li><code>MainExploiterTrainer</code> (targets latest main agent, orthogonal reinit on
+    high win-rate)</li>
+<li><code>LeagueExploiterTrainer</code> (PFSP vs. full pool, Nash exploitability)</li>
+<li><code>AgentPool</code> (JSON manifest, atomic writes), <code>MatchDatabase</code> (JSONL log)</li>
+<li><code>LeagueMatchmaker</code> (PFSP hard-first, swappable weight function)</li>
+<li>Nash distribution sampling via LP + regret matching (<code>nash.py</code>)</li>
+<li>Strategy diversity metrics: action histogram + position heatmap + movement
+  stats, L2-normalised embeddings, cosine distance, mean/min/median diversity</li>
+<li>Distributed rollout via Ray (<code>DistributedRolloutRunner</code>, <code>@ray.remote</code> actors)</li>
+<li>W&amp;B keys: <code>league/nash_entropy</code>, <code>league/diversity_score</code></li>
+</ul>
+<h4 id="analysis-tools-v5-completed">Analysis Tools (v5 / completed)<a class="headerlink" href="#analysis-tools-v5-completed" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>SaliencyAnalyser</code> (SHAP, permutation, gradient-based) — <code>analysis/saliency.py</code></li>
+<li><code>COAGenerator</code> (Monte-Carlo rollouts over 7 tactical archetypes) —
+  <code>analysis/coa_generator.py</code></li>
+<li>Historical scenario validation against Waterloo, Austerlitz, Borodino —
+  <code>envs/scenarios/historical.py</code></li>
+</ul>
+<hr />
+<h3 id="24-analysis-explainability">2.4 Analysis &amp; Explainability<a class="headerlink" href="#24-analysis-explainability" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>File</th>
+<th>Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Saliency maps</td>
+<td><code>analysis/saliency.py</code> (739 lines)</td>
+<td>SHAP, permutation, gradient; feature importance</td>
+</tr>
+<tr>
+<td>COA generator</td>
+<td><code>analysis/coa_generator.py</code> (576 lines)</td>
+<td>7 archetypes, Monte-Carlo scoring, ranked COA list</td>
+</tr>
+<tr>
+<td>COA REST API</td>
+<td><code>api/coa_endpoint.py</code> (221 lines)</td>
+<td>Flask <code>/health</code>, POST <code>/coas</code></td>
+</tr>
+<tr>
+<td>Historical validation</td>
+<td><code>envs/scenarios/historical.py</code> (541 lines)</td>
+<td>YAML scenario loader, <code>OutcomeComparator</code>, fidelity score</td>
+</tr>
+<tr>
+<td>Explainability notebook</td>
+<td><code>notebooks/explainability_demo.ipynb</code></td>
+<td>SHAP waterfall plots</td>
+</tr>
+<tr>
+<td>Historical notebook</td>
+<td><code>notebooks/historical_validation.ipynb</code></td>
+<td>Fidelity metrics across Napoleonic battles</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The 7 COA archetypes:</strong> frontal assault, flanking manoeuvre, double envelopment,
+defence in depth, feint-and-strike, fire suppression + advance, hold-and-attrit.</p>
+<hr />
+<h3 id="25-deployment-infrastructure">2.5 Deployment Infrastructure<a class="headerlink" href="#25-deployment-infrastructure" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>File</th>
+<th>Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Policy export</td>
+<td><code>scripts/export_policy.py</code> (674 lines)</td>
+<td>ONNX, TorchScript, inference benchmark, CLI</td>
+</tr>
+<tr>
+<td>Policy server</td>
+<td><code>docker/policy_server/server.py</code> (220 lines)</td>
+<td>Flask <code>/predict</code>, <code>/health</code>, <code>/info</code></td>
+</tr>
+<tr>
+<td>Dockerfile</td>
+<td><code>docker/policy_server/Dockerfile</code></td>
+<td>Containerised ONNX + TorchScript serving</td>
+</tr>
+<tr>
+<td>Deployment guide</td>
+<td><code>docs/deployment_guide.md</code></td>
+<td>Container ops, scaling, monitoring</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="26-github-automation-operations">2.6 GitHub Automation &amp; Operations<a class="headerlink" href="#26-github-automation-operations" title="Permanent link">&para;</a></h3>
+<p>A comprehensive GitHub automation layer lives in <code>scripts/project_agent/</code> (~3,000 lines):</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>triage_agent.py</code></td>
+<td>Auto-label and milestone issues on creation</td>
+</tr>
+<tr>
+<td><code>experiment_lifecycle.py</code></td>
+<td>Track experiment open → running → complete</td>
+</tr>
+<tr>
+<td><code>progress_reporter.py</code></td>
+<td>Weekly W&amp;B-based progress reports</td>
+</tr>
+<tr>
+<td><code>training_monitor.py</code></td>
+<td>CI/CD training run monitoring</td>
+</tr>
+<tr>
+<td><code>sprint_manager.py</code> / <code>sprint_assigner.py</code></td>
+<td>Sprint automation</td>
+</tr>
+<tr>
+<td><code>release_coordinator.py</code></td>
+<td>Release orchestration</td>
+</tr>
+<tr>
+<td><code>epic_decomposer.py</code></td>
+<td>Decompose epics into sub-issues</td>
+</tr>
+<tr>
+<td><code>milestone_checker.py</code></td>
+<td>Validate milestone closure criteria</td>
+</tr>
+<tr>
+<td><code>static_analysis_agent.py</code></td>
+<td>Code quality checks</td>
+</tr>
+</tbody>
+</table>
+<p>Six GitHub Actions workflows automate triage, governance, label setup, issue
+seeding, and Ray smoke tests.</p>
+<hr />
+<h3 id="27-test-coverage">2.7 Test Coverage<a class="headerlink" href="#27-test-coverage" title="Permanent link">&para;</a></h3>
+<p>54 test files covering all major components:</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key test files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simulation</td>
+<td><code>test_battalion.py</code>, <code>test_combat.py</code>, <code>test_terrain.py</code>, <code>test_sim.py</code></td>
+</tr>
+<tr>
+<td>Environments</td>
+<td><code>test_battalion_env.py</code>, <code>test_brigade_env.py</code>, <code>test_division_env.py</code>, <code>test_multi_battalion_env.py</code></td>
+</tr>
+<tr>
+<td>Training</td>
+<td><code>test_train.py</code>, <code>test_train_main_agent.py</code>, <code>test_self_play.py</code>, <code>test_evaluate.py</code></td>
+</tr>
+<tr>
+<td>League</td>
+<td><code>test_agent_pool.py</code>, <code>test_matchmaker.py</code>, <code>test_nash.py</code>, <code>test_diversity.py</code></td>
+</tr>
+<tr>
+<td>HRL</td>
+<td><code>test_hrl_curriculum.py</code>, <code>test_evaluate_hrl.py</code>, <code>test_smdp_wrapper.py</code></td>
+</tr>
+<tr>
+<td>Analysis</td>
+<td><code>test_coa_generator.py</code>, <code>test_saliency.py</code>, <code>test_historical_scenarios.py</code></td>
+</tr>
+<tr>
+<td>Export</td>
+<td><code>test_policy_export.py</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-version-by-version-milestone-recap">3. Version-by-Version Milestone Recap<a class="headerlink" href="#3-version-by-version-milestone-recap" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Theme</th>
+<th>Status</th>
+<th>Key Deliverables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>Foundation — 1v1 battalion</td>
+<td>✅ Complete</td>
+<td>PPO + curriculum, Elo, self-play, visualization</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>Multi-Agent — MARL 2v2+</td>
+<td>✅ Complete</td>
+<td>MAPPO, NvN scaling, team Elo, coordination metrics</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>Hierarchy — Brigade/Division HRL</td>
+<td>✅ Complete</td>
+<td>SMDP/Options, HRL curriculum, policy registry, adaptive temporal abstraction</td>
+</tr>
+<tr>
+<td><strong>v4</strong></td>
+<td>League — AlphaStar-style training</td>
+<td>✅ Complete</td>
+<td>League infrastructure, Nash sampling, diversity metrics, Ray distributed training</td>
+</tr>
+<tr>
+<td><strong>v5</strong></td>
+<td>Real-World Interface &amp; Analysis</td>
+<td>✅ Code complete</td>
+<td>Human interface, COA generator, SHAP explainability, historical validation, ONNX export</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> The ROADMAP.md currently marks v5 as 🔮 Future. All v5 epics
+(E5.1–E5.5) are code-complete and tested. The roadmap should be updated to
+reflect v5 as complete. See §5 for the immediate action item.</p>
+</blockquote>
+<hr />
+<h2 id="4-what-is-missing-known-gaps">4. What Is Missing — Known Gaps<a class="headerlink" href="#4-what-is-missing-known-gaps" title="Permanent link">&para;</a></h2>
+<h3 id="41-simulation-realism">4.1 Simulation Realism<a class="headerlink" href="#41-simulation-realism" title="Permanent link">&para;</a></h3>
+<p>The current simulation is intentionally simplified for fast RL training. Moving
+toward operational credibility requires addressing several realism gaps:</p>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Impact</th>
+<th>Difficulty</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Single unit type only</strong></td>
+<td>Agents cannot learn inter-arm cooperation (infantry/cavalry/artillery)</td>
+<td>High — requires new action/obs spaces</td>
+</tr>
+<tr>
+<td><strong>No artillery or indirect fire</strong></td>
+<td>Eliminates one of the dominant Napoleonic tactical dimensions</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>No cavalry</strong></td>
+<td>Pursuit, screening, and shock action missing</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>No supply/logistics</strong></td>
+<td>Agents cannot be penalized for overextension</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>No fog of war beyond visibility radius</strong></td>
+<td>Agents cannot learn intelligence-driven deception</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>No unit formation types</strong></td>
+<td>Line, column, square formation switching with stat modifiers is absent</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>Fixed map size (1 km²)</strong></td>
+<td>Scales poorly to operational scenarios spanning tens of kilometres</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>No weather or time-of-day effects</strong></td>
+<td>Condition-dependent doctrine impossible to learn</td>
+<td>Low</td>
+</tr>
+<tr>
+<td><strong>Deterministic physics</strong></td>
+<td>No noise → agents may overfit to specific engagement geometries</td>
+<td>Low</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-training-learning-gaps">4.2 Training &amp; Learning Gaps<a class="headerlink" href="#42-training-learning-gaps" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Impact</th>
+<th>Difficulty</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>No trained policy artifacts</strong></td>
+<td>Every claim about agent capability is hypothetical — no benchmark results exist</td>
+<td>Critical — must run actual experiments</td>
+</tr>
+<tr>
+<td><strong>No validation against historical outcomes</strong></td>
+<td>The <code>OutcomeComparator</code> exists but has never been used against a policy trained to convergence</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>League training never run end-to-end</strong></td>
+<td>Nash equilibrium and diversity metrics have been unit-tested but never observed in a live league</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>No curriculum continuity across versions</strong></td>
+<td>v1 PPO policies cannot be smoothly continued into v2/v3/v4 training</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>No adversarial robustness evaluation</strong></td>
+<td>Policies may be brittle to slight perturbations in initial conditions</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong><code>TransformerPolicy</code> is a placeholder</strong></td>
+<td><code>models/transformer_policy.py</code> has the scaffold but no implementation</td>
+<td>Low–Medium</td>
+</tr>
+<tr>
+<td><strong>No hyperparameter sweep results</strong></td>
+<td>W&amp;B sweeps have never been run; no reported optimal hyperparameters</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>Concurrent writer risk in <code>AgentPool</code></strong></td>
+<td>JSON manifest uses a single <code>.tmp</code> file — not safe for concurrent multi-process writers without external locking</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-deployment-interface-gaps">4.3 Deployment &amp; Interface Gaps<a class="headerlink" href="#43-deployment-interface-gaps" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Impact</th>
+<th>Difficulty</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>No web-based human interface</strong></td>
+<td><code>HumanEnv</code> requires pygame on the same machine; no browser-accessible UI</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>No interactive COA dashboard</strong></td>
+<td>COA results are returned via API only; no visual front-end to display and compare courses of action</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>No model registry / versioned artifacts</strong></td>
+<td><code>PolicyRegistry</code> exists but there is no integration with MLflow, W&amp;B Artifacts, or a model registry</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>ONNX export untested at scale</strong></td>
+<td>Exported models have been tested in unit tests but not benchmarked against a target latency SLA</td>
+<td>Low</td>
+</tr>
+<tr>
+<td><strong>No authentication on REST API</strong></td>
+<td>Flask policy server and COA endpoint have no auth layer</td>
+<td>Low–Medium</td>
+</tr>
+<tr>
+<td><strong>No batch inference endpoint</strong></td>
+<td>Policy server supports single predictions; no batched or streaming endpoint</td>
+<td>Low</td>
+</tr>
+</tbody>
+</table>
+<h3 id="44-operational-organisational-gaps">4.4 Operational &amp; Organisational Gaps<a class="headerlink" href="#44-operational-organisational-gaps" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Impact</th>
+<th>Difficulty</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>README still says "Current Version: v1"</strong></td>
+<td>Misleads new contributors about project maturity</td>
+<td>Trivial</td>
+</tr>
+<tr>
+<td><strong>ROADMAP.md marks v5 as 🔮 Future</strong></td>
+<td>Documentation is out of sync with actual implementation</td>
+<td>Trivial</td>
+</tr>
+<tr>
+<td><strong>No published benchmarks / paper</strong></td>
+<td>The research value cannot be assessed or cited without results</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>No license file</strong></td>
+<td><code>README.md</code> says "Add license here" — unclear ownership and reuse rights</td>
+<td>Low</td>
+</tr>
+<tr>
+<td><strong>W&amp;B entity / project not configured</strong></td>
+<td><code>configs/default.yaml</code> has <code>entity: null</code> — first-time contributors cannot share results</td>
+<td>Low</td>
+</tr>
+<tr>
+<td><strong>No CI training smoke test</strong></td>
+<td>CI only tests environment creation and single-step rollouts; no end-to-end training verification</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-most-logical-next-step">5. Most Logical Next Step<a class="headerlink" href="#5-most-logical-next-step" title="Permanent link">&para;</a></h2>
+<p><strong>Run the first end-to-end validated training experiment.</strong></p>
+<p>All the machinery is in place. The critical missing piece is proof that the
+pipeline works from start to finish, producing a policy that demonstrably defeats
+scripted opponents and passes historical validation. The recommended sequence:</p>
+<h3 id="step-1-documentation-housekeeping-12-days">Step 1 — Documentation Housekeeping (1–2 days)<a class="headerlink" href="#step-1-documentation-housekeeping-12-days" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Mark v5 as complete in <code>docs/ROADMAP.md</code></li>
+<li>Update <code>README.md</code> to reflect "Current Version: v5"</li>
+<li>Add an open-source license (MIT or Apache 2.0)</li>
+<li>Set the W&amp;B <code>entity</code> / <code>project</code> in <code>configs/default.yaml</code></li>
+</ul>
+<h3 id="step-2-baseline-training-run-1-week">Step 2 — Baseline Training Run (1 week)<a class="headerlink" href="#step-2-baseline-training-run-1-week" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Train a v1 PPO policy to convergence against scripted L5</li>
+<li>Log full W&amp;B run with all reward breakdown metrics</li>
+<li>Run <code>training/evaluate.py</code> — record win rate vs. L1–L5 and Elo</li>
+<li>Export to ONNX via <code>scripts/export_policy.py</code></li>
+<li>Serve with <code>docker/policy_server/</code> and verify prediction latency</li>
+</ol>
+<h3 id="step-3-historical-validation-23-days">Step 3 — Historical Validation (2–3 days)<a class="headerlink" href="#step-3-historical-validation-23-days" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Load the trained policy into <code>envs/scenarios/historical.py</code></li>
+<li>Run <code>OutcomeComparator</code> on Waterloo, Austerlitz, Borodino scenarios</li>
+<li>Record <code>fidelity_score</code> per scenario</li>
+<li>Publish results in <code>notebooks/historical_validation.ipynb</code></li>
+</ol>
+<h3 id="step-4-self-play-baseline-35-days">Step 4 — Self-Play Baseline (3–5 days)<a class="headerlink" href="#step-4-self-play-baseline-35-days" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Run self-play loop to ≥ 200 k timesteps</li>
+<li>Record Elo trajectory and pool diversity</li>
+<li>Compare self-play policy to scripted-L5-trained policy</li>
+<li>Document in a new GitHub issue <code>[EXP] v1 Self-Play Baseline</code></li>
+</ol>
+<h3 id="step-5-league-smoke-run-1-week">Step 5 — League Smoke Run (1 week)<a class="headerlink" href="#step-5-league-smoke-run-1-week" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Initialise <code>AgentPool</code> with the v1 PPO policy as seed main agent</li>
+<li>Run 1 × <code>MainAgentTrainer</code>, 1 × <code>MainExploiterTrainer</code>,
+   1 × <code>LeagueExploiterTrainer</code> for 50 k timesteps each</li>
+<li>Record Nash entropy and diversity score trajectories in W&amp;B</li>
+<li>Verify no <code>AgentPool</code> concurrency issues</li>
+</ol>
+<h3 id="step-6-fix-agentpool-concurrency-35-days">Step 6 — Fix AgentPool Concurrency (3–5 days)<a class="headerlink" href="#step-6-fix-agentpool-concurrency-35-days" title="Permanent link">&para;</a></h3>
+<p>Replace the <code>.tmp</code> single-file atomic write in <code>training/league/agent_pool.py</code>
+with a proper file-lock (e.g., <code>filelock</code>) so concurrent writers cannot corrupt
+the manifest.</p>
+<p>Completing Steps 1–6 would give the project its first validated, reproducible
+baseline — a foundation for all further research claims.</p>
+<hr />
+<h2 id="6-long-term-vision-v6-and-beyond">6. Long-Term Vision — v6 and Beyond<a class="headerlink" href="#6-long-term-vision-v6-and-beyond" title="Permanent link">&para;</a></h2>
+<p>The current foundation (multi-echelon simulation, CTDE MARL, HRL, league training,
+COA generation, historical validation, policy export) supports an ambitious
+long-term trajectory.</p>
+<h3 id="61-v6-physics-accurate-simulation">6.1 v6: Physics-Accurate Simulation<a class="headerlink" href="#61-v6-physics-accurate-simulation" title="Permanent link">&para;</a></h3>
+<p><strong>Theme:</strong> Achieve physics-accurate battalion-level simulation suitable for
+quantitative analysis and future operational research.</p>
+<p><strong>Core additions:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Epic</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E6.1</td>
+<td><strong>Terrain Elevation &amp; LOS Engine</strong> — heightmap-driven terrain with JAX-compiled line-of-sight, elevation-aware movement costs, and a procedural map generator</td>
+</tr>
+<tr>
+<td>E6.2</td>
+<td><strong>Realistic Weapon Ranges, Accuracy &amp; Reload Cycles</strong> — historically-grounded musket/cannon parameters, reload state machines, volley fire mechanics</td>
+</tr>
+<tr>
+<td>E6.3</td>
+<td><strong>Morale, Cohesion &amp; Rout Mechanics</strong> — continuous morale state variable, cohesion-loss threshold, rout (forced withdrawal) and dispersal</td>
+</tr>
+<tr>
+<td>E6.4</td>
+<td><strong>Formation System</strong> — LINE, COLUMN, SQUARE, SKIRMISH with transition timing and attribute modifiers; cavalry vs. square resolution</td>
+</tr>
+<tr>
+<td>E6.5</td>
+<td><strong>Supply, Ammunition &amp; Fatigue Model</strong> — per-battalion ammo counter, supply wagons as emergent high-value targets, fatigue accumulator</td>
+</tr>
+<tr>
+<td>E6.6</td>
+<td><strong>Weather &amp; Time-of-Day Effects</strong> — CLEAR/RAIN/FOG/SNOW/OVERCAST conditions affecting visibility, accuracy, and movement</td>
+</tr>
+<tr>
+<td>E6.7</td>
+<td><strong>v6 Documentation &amp; Release</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Target milestones:</strong> M13 (Physics Simulation), M14 (v6 Complete)</p>
+<p><strong>Key research questions:</strong>
+- Does terrain-aware training produce qualitatively different emergent tactics?
+- What is the minimum physics fidelity required for historically-plausible agent behaviour?
+- Can agents discover fire-and-movement doctrine without explicit reward?</p>
+<p><strong>Estimated effort:</strong> 12–16 weeks</p>
+<hr />
+<h3 id="62-v7-operational-scale-corps-command">6.2 v7: Operational Scale — Corps Command<a class="headerlink" href="#62-v7-operational-scale-corps-command" title="Permanent link">&para;</a></h3>
+<p><strong>Theme:</strong> Extend the HRL stack to corps level (3–5 divisions per side on a
+20–50 km² map). Introduce road networks, strategic supply chains, and
+operational objectives (capture, interdict, fix-and-flank).</p>
+<p><strong>Core additions:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Epic</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E7.1</td>
+<td><strong>Corps-Level Operational Environment</strong> — multi-division ParallelEnv wrapper, road network, operational objectives</td>
+</tr>
+<tr>
+<td>E7.2</td>
+<td><strong>Strategic Supply &amp; Logistics Network</strong> — depot nodes, convoy routes, supply radius; cutting supply lines is a primary objective</td>
+</tr>
+<tr>
+<td>E7.3</td>
+<td><strong>Multi-Corps Self-Play &amp; League Extension</strong> — port v4 league infrastructure to corps scale; Nash equilibrium sampling at operational level</td>
+</tr>
+<tr>
+<td>E7.4</td>
+<td><strong>v7 Documentation &amp; Release</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Target milestones:</strong> M15 (Corps Command), M16 (v7 Complete)</p>
+<p><strong>Key research questions:</strong>
+- Does corps-level HRL discover Napoleon's corps maneuver system independently?
+- What map scale makes supply interdiction a decisive operational factor?
+- Does Nash equilibrium sampling still prevent strategy collapse at corps scale?</p>
+<p><strong>Estimated effort:</strong> 12–16 weeks</p>
+<hr />
+<h3 id="63-v8-transformer-policy-architecture">6.3 v8: Transformer Policy &amp; Architecture<a class="headerlink" href="#63-v8-transformer-policy-architecture" title="Permanent link">&para;</a></h3>
+<p><strong>Theme:</strong> Replace fixed-size concatenation observations with variable-length
+entity-token sequences processed by a multi-head self-attention transformer.
+Add recurrent memory for fog-of-war scenarios. Systematic scaling study.</p>
+<p><strong>Core additions:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Epic</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E8.1</td>
+<td><strong>Entity-Based Observation &amp; Transformer Policy</strong> — entity token schema, multi-head self-attention encoder, variable-length masking</td>
+</tr>
+<tr>
+<td>E8.2</td>
+<td><strong>Memory Module (LSTM / Temporal Context)</strong> — recurrent memory for fog-of-war, hidden state checkpointing</td>
+</tr>
+<tr>
+<td>E8.3</td>
+<td><strong>Model Scaling &amp; Hyperparameter Study</strong> — W&amp;B sweep over depth × width × heads; "small/medium/large" config tiers</td>
+</tr>
+<tr>
+<td>E8.4</td>
+<td><strong>v8 Documentation &amp; Release</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Target milestones:</strong> M17 (Transformer Policy), M18 (v8 Complete)</p>
+<p><strong>Key research questions:</strong>
+- Does entity-based transformer encoding outperform flat MLP at 8v8+?
+- Does recurrent memory provide meaningful advantage under fog-of-war?
+- What is the optimal model size for the performance–latency Pareto frontier?</p>
+<p><strong>Estimated effort:</strong> 8–12 weeks</p>
+<hr />
+<h2 id="7-recommended-priorities">7. Recommended Priorities<a class="headerlink" href="#7-recommended-priorities" title="Permanent link">&para;</a></h2>
+<p>The table below maps gaps to priority and suggests which version roadmap they
+belong to.</p>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Item</th>
+<th>Version</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔴 Critical</td>
+<td>Run first end-to-end training experiment</td>
+<td>Immediate</td>
+<td>1–2 weeks</td>
+</tr>
+<tr>
+<td>🔴 Critical</td>
+<td>Fix <code>AgentPool</code> concurrent writer vulnerability</td>
+<td>v5 patch</td>
+<td>1–2 days</td>
+</tr>
+<tr>
+<td>🟠 High</td>
+<td>Update ROADMAP.md + README to reflect v5 complete</td>
+<td>v5 patch</td>
+<td>1 hour</td>
+</tr>
+<tr>
+<td>🟠 High</td>
+<td>Add open-source license</td>
+<td>v5 patch</td>
+<td>30 minutes</td>
+</tr>
+<tr>
+<td>🟠 High</td>
+<td>Implement <code>TransformerPolicy</code></td>
+<td>v5.1 or v6</td>
+<td>1 week</td>
+</tr>
+<tr>
+<td>🟠 High</td>
+<td>Web-based COA dashboard</td>
+<td>v5.1</td>
+<td>2–3 weeks</td>
+</tr>
+<tr>
+<td>🟡 Medium</td>
+<td>Multi-arm unit types (infantry / cavalry / artillery)</td>
+<td>v6</td>
+<td>4–6 weeks</td>
+</tr>
+<tr>
+<td>🟡 Medium</td>
+<td>Formation system</td>
+<td>v6</td>
+<td>2–3 weeks</td>
+</tr>
+<tr>
+<td>🟡 Medium</td>
+<td>Larger maps + procedural generation</td>
+<td>v6</td>
+<td>2–3 weeks</td>
+</tr>
+<tr>
+<td>🟡 Medium</td>
+<td>CI training smoke test</td>
+<td>v5 patch</td>
+<td>1 week</td>
+</tr>
+<tr>
+<td>🟢 Low</td>
+<td>REST API authentication</td>
+<td>v5.1</td>
+<td>2 days</td>
+</tr>
+<tr>
+<td>🟢 Low</td>
+<td>W&amp;B entity / project default config</td>
+<td>v5 patch</td>
+<td>1 hour</td>
+</tr>
+<tr>
+<td>🟢 Low</td>
+<td>Batch inference endpoint</td>
+<td>v5.1</td>
+<td>1 day</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-appendix-component-inventory">8. Appendix — Component Inventory<a class="headerlink" href="#8-appendix-component-inventory" title="Permanent link">&para;</a></h2>
+<h3 id="source-files-by-domain">Source files by domain<a class="headerlink" href="#source-files-by-domain" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Files</th>
+<th>Approx. lines</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simulation engine</td>
+<td><code>envs/sim/</code> (4 files)</td>
+<td>~1,039</td>
+</tr>
+<tr>
+<td>Environments</td>
+<td><code>envs/</code> (7 env files + helpers)</td>
+<td>~3,500</td>
+</tr>
+<tr>
+<td>Models</td>
+<td><code>models/</code> (3 files)</td>
+<td>~800</td>
+</tr>
+<tr>
+<td>Training (core)</td>
+<td><code>training/</code> (11 files)</td>
+<td>~7,000</td>
+</tr>
+<tr>
+<td>League training</td>
+<td><code>training/league/</code> (8 files)</td>
+<td>~4,500</td>
+</tr>
+<tr>
+<td>Analysis</td>
+<td><code>analysis/</code> (2 files)</td>
+<td>~1,315</td>
+</tr>
+<tr>
+<td>API</td>
+<td><code>api/</code> (1 file)</td>
+<td>~221</td>
+</tr>
+<tr>
+<td>Scripts / export</td>
+<td><code>scripts/</code> (4 files)</td>
+<td>~1,400</td>
+</tr>
+<tr>
+<td>GitHub automation</td>
+<td><code>scripts/project_agent/</code> (20+ files)</td>
+<td>~6,000</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td><code>tests/</code> (54 files)</td>
+<td>~12,000</td>
+</tr>
+<tr>
+<td>Documentation</td>
+<td><code>docs/</code> (27 files)</td>
+<td>~15,000</td>
+</tr>
+<tr>
+<td>Configs</td>
+<td><code>configs/</code> (20+ YAML files)</td>
+<td>~1,200</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>~160 files</strong></td>
+<td><strong>~54,000 lines</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="dependency-summary">Dependency summary<a class="headerlink" href="#dependency-summary" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Key packages</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RL</td>
+<td><code>torch</code>, <code>stable-baselines3</code>, <code>gymnasium</code>, <code>pettingzoo</code></td>
+</tr>
+<tr>
+<td>Distributed</td>
+<td><code>ray[rllib]</code></td>
+</tr>
+<tr>
+<td>Tracking</td>
+<td><code>wandb</code></td>
+</tr>
+<tr>
+<td>Numerical</td>
+<td><code>numpy</code>, <code>scipy</code></td>
+</tr>
+<tr>
+<td>Explainability</td>
+<td><code>shap</code></td>
+</tr>
+<tr>
+<td>Visualization</td>
+<td><code>matplotlib</code>, <code>pygame</code></td>
+</tr>
+<tr>
+<td>Config</td>
+<td><code>hydra-core</code>, <code>pyyaml</code></td>
+</tr>
+<tr>
+<td>API</td>
+<td><code>flask</code></td>
+</tr>
+<tr>
+<td>Export</td>
+<td><code>onnx</code>, <code>onnxruntime</code></td>
+</tr>
+<tr>
+<td>Automation</td>
+<td><code>PyGithub</code>, <code>openai</code></td>
+</tr>
+<tr>
+<td>Dev</td>
+<td><code>pytest</code>, <code>black</code>, <code>ruff</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>This report was generated by the Copilot project-report agent on 2026-03-21.
+It is intended as a living document — update it as new milestones are reached
+and new research directions are confirmed.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Wargames Training Contributors
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/B9android/wargames_training" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/wargames-training/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.instant", "navigation.instant.progress", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.annotate", "content.code.copy", "content.tooltips", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
