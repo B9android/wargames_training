@@ -1,0 +1,37 @@
+name: "Docs — Build & Deploy to GitHub Pages"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements.txt"
+      - "pyproject.toml"
+  workflow_dispatch:       # allow manual re-deploys
+
+permissions:
+  contents: write          # needed to push to gh-pages branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for git-revision-date plugin (future use)
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install docs dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            "mkdocs-material>=9.5" \
+            "mkdocstrings[python]>=0.24" \
+            pymdown-extensions
+
+      - name: Build & deploy
+        run: mkdocs gh-deploy --force --clean --verbose

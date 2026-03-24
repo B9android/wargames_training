@@ -4,53 +4,119 @@
 
 [![PyPI](https://img.shields.io/pypi/v/wargames-training)](https://pypi.org/project/wargames-training/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/B9android/wargames_training/actions/workflows/ray_smoke_test.yml/badge.svg)](https://github.com/B9android/wargames_training/actions)
 
 ---
 
-## What is Wargames Training?
+<div class="grid cards" markdown>
 
-Wargames Training is an open-source RL research platform built around a
-continuous 2D simulation of Napoleonic-era military battalions.  The platform
-provides:
+-   :material-map-legend: __Gymnasium Environments__
 
-- **Gymnasium environments** — from single battalions to corps-level operations
-- **PPO + self-play + league training** — complete training pipelines
-- **WargamesBench** — 20 standardised scenarios for reproducible comparison
-- **GIS terrain** — real battlefield data (Waterloo, Austerlitz, Borodino, Salamanca)
+    ---
 
-## Quick Install
+    Fully-featured Gymnasium and PettingZoo environments spanning single battalions through corps-level operations.  Observations normalized, angles as (cos θ, sin θ), positions normalized by map size.
 
-```bash
-pip install wargames-training
-```
+    [:octicons-arrow-right-24: Environment Spec](ENVIRONMENT_SPEC.md)
 
-## First Steps
+-   :material-robot-outline: __PPO · Self-Play · League__
 
-```python
-from envs import BattalionEnv
+    ---
 
-env = BattalionEnv()
-obs, info = env.reset(seed=42)
-action = env.action_space.sample()
-obs, reward, terminated, truncated, info = env.step(action)
-```
+    Complete training pipelines: PPO baseline, MAPPO multi-agent, self-play loop, and AlphaStar-style league training with PFSP matchmaking and Elo tracking.
 
-## WargamesBench
+    [:octicons-arrow-right-24: Training Guide](TRAINING_GUIDE.md)
 
-Run the canonical benchmark against your policy:
+-   :material-trophy-outline: __WargamesBench__
 
-```bash
-wargames-bench --episodes 100 --label "my_policy_v1"
-```
+    ---
 
-Results are reproducible within ± 2 % win rate across seeds.
+    20 canonical scenarios for reproducible comparison.  Results guaranteed within ± 2 % win rate across identical seeds.  Open leaderboard included.
+
+    [:octicons-arrow-right-24: Benchmark Leaderboard](wargames_bench_leaderboard.md)
+
+-   :material-terrain: __GIS Terrain__
+
+    ---
+
+    Real geographic battlefield data for Waterloo, Austerlitz, Borodino, and Salamanca.  Elevation grids drive line-of-sight, movement cost, and terrain bonuses.
+
+    [:octicons-arrow-right-24: Historical Scenarios](historical_scenarios.md)
+
+</div>
+
+---
+
+## Quick Start
+
+=== "pip install"
+
+    ```bash
+    pip install wargames-training
+    ```
+
+=== "from source"
+
+    ```bash
+    git clone https://github.com/B9android/wargames_training.git
+    cd wargames_training
+    pip install -e ".[dev]"
+    ```
+
+=== "first training run"
+
+    ```python
+    from envs import BattalionEnv
+    from training.train import train
+    import wandb
+
+    wandb.init(project="wargames_training", config={"total_timesteps": 100_000})
+
+    env = BattalionEnv()
+    train(env=env, total_timesteps=100_000)
+    ```
+
+    Or via CLI:
+
+    ```bash
+    python -m training.train --config configs/experiment_1.yaml
+    ```
+
+=== "benchmark"
+
+    ```bash
+    wargames-bench --episodes 100 --label "my_policy_v1"
+    ```
+
+    Results are written to `docs/wargames_bench_leaderboard.md`.  Submit a PR to add your row to the public leaderboard.
+
+---
+
+## Project Status
+
+| Version | Theme | Status |
+|---------|-------|--------|
+| **v1** | Foundation — 1v1 battalion | ✅ Complete |
+| **v2** | Multi-Agent — MARL 2v2+ | ✅ Complete |
+| **v3** | Hierarchy — Brigade / Division HRL | ✅ Complete |
+| **v4** | League — AlphaStar-style training | ✅ Complete |
+| **v5** | Real-World Interface & Analysis | ✅ Complete |
+| **v6** | Physics-Accurate Simulation | 🔲 Planned |
+| **v7** | Operational Scale (Corps / Army) | 🔲 Planned |
+| **v8** | Transformer Policy & Architecture | 🔲 Planned |
+| **v9** | Human-in-the-Loop & Decision Support | 🔲 Planned |
+
+See the full [:octicons-arrow-right-24: Roadmap](ROADMAP.md) for v10–v12.
+
+---
 
 ## Community
 
 - **GitHub Discussions** — research questions, benchmark results, ideas
 - **Issues** — bug reports and feature requests
-- **Contributing** — see [CONTRIBUTING.md](../CONTRIBUTING.md)
-- **Code of Conduct** — see [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)
+- **Contributing** — see [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Code of Conduct** — see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
+---
 
 ## Citation
 

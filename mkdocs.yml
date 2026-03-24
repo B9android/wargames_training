@@ -12,13 +12,7 @@ copyright: "Copyright &copy; Wargames Training Contributors"
 theme:
   name: material
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: deep purple
-      accent: deep orange
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
+    # Dark mode is listed first — it becomes the default
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: deep purple
@@ -26,14 +20,32 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.progress
     - navigation.top
+    - navigation.footer
     - search.suggest
     - search.highlight
+    - search.share
     - content.code.annotate
     - content.code.copy
+    - content.tooltips
+    - header.autohide
+
+extra_css:
+  - extra.css
 
 plugins:
   - search
@@ -62,12 +74,15 @@ nav:
       - TRAINING_GUIDE.md
       - ENVIRONMENT_SPEC.md
       - ROADMAP.md
+  - Changelog: CHANGELOG.md
   - Contributing:
       - CONTRIBUTING.md
       - CODE_OF_CONDUCT.md
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
   - codehilite
   - pymdownx.highlight:
       anchor_linenums: true
@@ -75,6 +90,9 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - tables
   - toc:
       permalink: true
@@ -83,3 +101,5 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/B9android/wargames_training
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/wargames-training/
