@@ -113,6 +113,9 @@ _MORALE_DMG_NORM: float = 2.0
 #: Normalisation denominator for fortification HP damage summary.
 _FORT_DMG_NORM: float = 1.0
 
+#: Reward bonus applied per fortification completed in a step.
+_FORT_COMPLETION_BONUS: float = 0.1
+
 
 def _art_obs_dim(n_divisions: int, n_artillery_batteries: int) -> int:
     """Return the flat observation dimension for an artillery corps env."""
@@ -411,7 +414,7 @@ class ArtilleryCorpsEnv(CorpsEnv):
         )
 
         # ── Reward shaping: bonus for completing fortifications ───────
-        fort_bonus = self._last_art_report.fortifications_completed * 0.1
+        fort_bonus = self._last_art_report.fortifications_completed * _FORT_COMPLETION_BONUS
         total_reward = base_reward + fort_bonus
 
         # ── Augment info with artillery report ────────────────────────

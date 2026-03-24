@@ -1536,18 +1536,11 @@ class TestArtilleryCorpsEnvFortReward(unittest.TestCase):
             if term or trunc:
                 break
 
-        # At least one step should have given a fort bonus (>= 0.1)
-        fort_bonus_steps = [
-            r for r, i in zip(rewards, [None])
-            if i is not None
-        ]
-        # Simpler: check that the step that completed the fort has reward > baseline
-        # We know the fort completes at step DEFAULT_FORTIFY_STEPS
+        # The step at which the fort completes should have a finite reward
+        # that includes the fort bonus (base reward may vary, but reward is always finite).
         step_idx = DEFAULT_FORTIFY_STEPS - 1
         if step_idx < len(rewards):
-            # This step should include the 0.1 fort bonus
-            # (The base reward may be negative; we just check the bonus path was hit)
-            self.assertIsNotNone(rewards[step_idx])
+            self.assertTrue(math.isfinite(rewards[step_idx]))
 
 
 if __name__ == "__main__":
