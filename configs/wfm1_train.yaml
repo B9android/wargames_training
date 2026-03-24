@@ -38,6 +38,9 @@ training:
   checkpoint_dir: checkpoints/wfm1
 
 # Active echelon tasks — each is one parallel training "head"
+# All tasks must share the same action_dim because WFM-1 uses a single
+# actor head.  Set action_dim=3 for all echelons to match the battalion
+# continuous action space (speed, rotation, fire).
 echelon_tasks:
   - echelon: 0               # ECHELON_BATTALION
     env_id: battalion
@@ -49,19 +52,19 @@ echelon_tasks:
     env_id: brigade
     task_weight: 0.8
     max_entities: 48
-    action_dim: 4            # brigade commands include formation change
+    action_dim: 3            # must match battalion action_dim
 
   - echelon: 2               # ECHELON_DIVISION
     env_id: division
     task_weight: 0.6
     max_entities: 64
-    action_dim: 5
+    action_dim: 3            # must match battalion action_dim
 
   - echelon: 3               # ECHELON_CORPS
     env_id: corps
     task_weight: 0.5
     max_entities: 96
-    action_dim: 6            # corps commands include supply/attachment
+    action_dim: 3            # must match battalion action_dim
 
 # W&B experiment tracking
 wandb:

@@ -211,9 +211,14 @@ class ScenarioCard:
         * [10]  n_red_units / max_units      float [0, 1]
         * [11]  terrain_type / 4             float [0, 1]
 
-        The remaining floating-point fields (cavalry_fraction, artillery_fraction,
-        supply_pressure, time_of_day) are encoded by subclasses or via the
-        extended card tensor in :meth:`to_tensor_extended`.
+        Unit counts (``n_blue_units``, ``n_red_units``) are normalised
+        internally by dividing by ``max_units``; callers do not need to
+        pre-normalise them.
+
+        Note: the remaining floating-point fields (``cavalry_fraction``,
+        ``artillery_fraction``, ``supply_pressure``, ``time_of_day``) are
+        stored on the dataclass but are **not** included in this 12-dim
+        vector.  They can be appended manually for experimental extensions.
         """
         vec = torch.zeros(_SCENARIO_CARD_RAW_DIM)
         vec[0] = float(self.map_scale)
@@ -334,7 +339,14 @@ class EchelonEncoder(nn.Module):
 
         # Echelon embedding: broadcast over the entity sequence
         if self.use_echelon_embedding:
-            ech_idx = torch.tensor(echelon, device=tokens.device, dtype=torch.long)
+            echelon_int = int(echelon)
+            num_echelons = self.echelon_embed.num_embeddings
+            if not (0 <= echelon_int < num_echelons):
+                raise ValueError(
+                    f"Invalid echelon id {echelon!r}; expected integer in "
+                    f"[0, {num_echelons - 1}]."
+                )
+            ech_idx = torch.tensor(echelon_int, device=tokens.device, dtype=torch.long)
             ech_emb = self.echelon_embed(ech_idx)  # (d_model,)
             x = x + ech_emb.unsqueeze(0).unsqueeze(0)  # (1, 1, d_model)
 
@@ -582,6 +594,7 @@ class WFM1Policy(nn.Module):
         self.action_dim = action_dim
         self.d_model = d_model
         self.share_echelon_encoders = share_echelon_encoders
+        self.dropout = dropout
 
         # --- Echelon encoders -------------------------------------------------
         if share_echelon_encoders:
@@ -729,7 +742,7 @@ class WFM1Policy(nn.Module):
     @torch.no_grad()
     def act(
         self,
-        tokens: torch.Tensor,
+        tokens: Optional[torch.Tensor],
         pad_mask: Optional[torch.Tensor] = None,
         echelon: int = ECHELON_BATTALION,
         card: Optional[ScenarioCard] = None,
@@ -897,7 +910,7 @@ class WFM1Policy(nn.Module):
                         for layer in self.critic_head
                         if isinstance(layer, nn.Linear)
                     )[:-1],
-                    "dropout": 0.0,
+                    "dropout": self.dropout,
                     "share_echelon_encoders": self.share_echelon_encoders,
                     "card_hidden_size": self.card_encoder.mlp[0].out_features,
                 },

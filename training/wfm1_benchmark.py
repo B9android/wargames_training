@@ -500,23 +500,57 @@ class WFM1Benchmark:
     # ------------------------------------------------------------------
 
     def _make_env(self, scenario: WFM1BenchmarkScenario) -> Any:
-        """Create an evaluation environment for *scenario*."""
+        """Create an evaluation environment for *scenario*.
+
+        Builds a GIS terrain when ``scenario.terrain_type`` is non-zero
+        (a recognised GIS battle site), otherwise uses procedurally generated
+        random terrain.  The terrain dimensions are passed through to
+        :class:`~envs.battalion_env.BattalionEnv` so that unit-position
+        normalisation is consistent with the terrain grid.
+        """
+        _GIS_SITE_NAMES: Dict[int, str] = {
+            TERRAIN_GIS_WATERLOO: "waterloo",
+            TERRAIN_GIS_AUSTERLITZ: "austerlitz",
+            TERRAIN_GIS_BORODINO: "borodino",
+            TERRAIN_GIS_SALAMANCA: "salamanca",
+        }
+
         try:
             from envs.battalion_env import BattalionEnv
             from envs.sim.terrain import TerrainMap
 
-            terrain = TerrainMap.generate_random(
-                rng=np.random.default_rng(scenario.seed),
-                width=10_000.0,
-                height=10_000.0,
-                rows=40,
-                cols=40,
-                num_hills=4,
-                num_forests=3,
+            if scenario.terrain_type in _GIS_SITE_NAMES:
+                from data.gis.terrain_importer import GISTerrainBuilder
+
+                terrain = GISTerrainBuilder(
+                    site=_GIS_SITE_NAMES[scenario.terrain_type],
+                    rows=40,
+                    cols=40,
+                ).build()
+            else:
+                terrain = TerrainMap.generate_random(
+                    rng=np.random.default_rng(scenario.seed),
+                    width=10_000.0,
+                    height=10_000.0,
+                    rows=40,
+                    cols=40,
+                    num_hills=4,
+                    num_forests=3,
+                )
+
+            return BattalionEnv(
+                terrain=terrain,
+                randomize_terrain=False,
+                map_width=terrain.width,
+                map_height=terrain.height,
             )
-            return BattalionEnv(terrain=terrain, randomize_terrain=False)
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug(
+                "Could not build real env for scenario %r: %s — using synthetic.",
+                scenario.name,
+                exc,
+                exc_info=True,
+            )
 
         # Synthetic fallback
         n_entities = scenario.n_blue + scenario.n_red
@@ -545,6 +579,15 @@ class WFM1Benchmark:
 
         import torch
 
+        # Infer policy device once so all tensors are placed correctly.
+        if use_wfm1:
+            try:
+                _policy_device = next(policy.parameters()).device
+            except (StopIteration, AttributeError):
+                _policy_device = torch.device("cpu")
+        else:
+            _policy_device = torch.device("cpu")
+
         for ep_idx in range(cfg.n_eval_episodes):
             obs, _ = env.reset(seed=ep_idx + 9000)
             terminated = truncated = False
@@ -556,18 +599,22 @@ class WFM1Benchmark:
                     tokens_np, pm_np = self._obs_to_tokens(obs)
                     t = torch.as_tensor(
                         tokens_np[np.newaxis], dtype=torch.float32
-                    )
+                    ).to(_policy_device)
                     pm = (
-                        torch.as_tensor(pm_np[np.newaxis], dtype=torch.bool)
+                        torch.as_tensor(pm_np[np.newaxis], dtype=torch.bool).to(_policy_device)
                         if pm_np is not None
                         else None
                     )
+                    _card_vec = (
+                        card.to_tensor(device=_policy_device) if card is not None else None
+                    )
                     with torch.no_grad():
                         action, _ = policy.act(
-                            t, pad_mask=pm, echelon=echelon, card=card,
-                            deterministic=True
+                            t, pad_mask=pm, echelon=echelon,
+                            card_vec=_card_vec,
+                            deterministic=True,
                         )
-                    action = action.squeeze(0).numpy()
+                    action = action.squeeze(0).cpu().numpy()
                 elif use_predict:
                     action, _ = policy.predict(obs, deterministic=True)
                 else:
@@ -629,22 +676,31 @@ class WFM1Benchmark:
         opt = torch.optim.Adam(ft_policy.adapter_parameters(), lr=3e-4)
         steps = 0
 
+        try:
+            ft_device = next(ft_policy.parameters()).device
+        except StopIteration:
+            ft_device = torch.device("cpu")
+
         obs, _ = env.reset(seed=7777)
         tokens_np, pm_np = self._obs_to_tokens(obs)
 
         while steps < self.config.finetune_steps:
-            # Collect one step
+            # Use deterministic=True so the BC target is the distribution mean,
+            # not a stochastic sample — prevents the adapter from chasing noise.
             t = torch.as_tensor(
                 tokens_np[np.newaxis], dtype=torch.float32
-            )
+            ).to(ft_device)
             pm = (
-                torch.as_tensor(pm_np[np.newaxis], dtype=torch.bool)
+                torch.as_tensor(pm_np[np.newaxis], dtype=torch.bool).to(ft_device)
                 if pm_np is not None
                 else None
             )
             with torch.no_grad():
-                action, _ = ft_policy.act(t, pad_mask=pm, echelon=echelon, card=card)
-            action_np = action.squeeze(0).numpy()
+                action, _ = ft_policy.act(
+                    t, pad_mask=pm, echelon=echelon, card=card,
+                    deterministic=True,
+                )
+            action_np = action.squeeze(0).cpu().numpy()
 
             obs_new, _rew, terminated, truncated, _info = env.step(action_np)
             done = terminated or truncated
@@ -657,7 +713,7 @@ class WFM1Benchmark:
                 "echelon": torch.tensor(echelon),
             }
             if card is not None:
-                batch["card_vec"] = card.to_tensor()
+                batch["card_vec"] = card.to_tensor(device=ft_device)
             loss = ft_policy.finetune_loss(batch)
             opt.zero_grad()
             loss.backward()

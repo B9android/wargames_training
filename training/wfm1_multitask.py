@@ -445,13 +445,21 @@ class WFM1MultiTaskTrainer:
         if policy is not None:
             self.policy = policy.to(self.device)
         else:
-            # Determine action_dim: use the largest among all tasks
-            max_action_dim = max(
-                (t.action_dim for t in config.echelon_tasks), default=3
-            )
+            # Validate that all echelon tasks share a single action_dim.
+            # WFM-1 uses a single actor head, so all tasks must agree on the
+            # output dimensionality.
+            task_dims = [t.action_dim for t in config.echelon_tasks]
+            if len(set(task_dims)) > 1:
+                raise ValueError(
+                    f"All echelon tasks must share the same action_dim for a "
+                    f"single-head WFM-1 policy, but got dims {task_dims}. "
+                    f"Set every task's action_dim to the same value, or supply "
+                    f"a pre-built policy with the desired action_dim."
+                )
+            shared_action_dim = task_dims[0] if task_dims else 3
             self.policy = WFM1Policy(
                 token_dim=ENTITY_TOKEN_DIM,
-                action_dim=max_action_dim,
+                action_dim=shared_action_dim,
                 d_model=config.d_model,
                 n_heads=config.n_heads,
                 n_echelon_layers=config.n_echelon_layers,
@@ -560,8 +568,15 @@ class WFM1MultiTaskTrainer:
                 )
 
             return env
-        except Exception:
-            pass  # fall through to synthetic env
+        except Exception as exc:
+            log.debug(
+                "Could not construct real env for echelon %d (task %r): %s — "
+                "falling back to synthetic environment.",
+                task.echelon,
+                task.env_id,
+                exc,
+                exc_info=True,
+            )
 
         return _SyntheticEnv(
             n_entities=task.max_entities,
