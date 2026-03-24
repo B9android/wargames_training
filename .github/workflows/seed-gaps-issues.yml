@@ -1,0 +1,44 @@
+name: "🔍 Seed Gap-Filling Issues"
+
+# Triggered manually, or automatically whenever a push lands on main.
+# Idempotent — skips any issue that already exists.
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (print planned issues without creating them)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: seed-gaps-issues-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  seed-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Seed gap-filling issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        working-directory: scripts/project_agent
+        run: python seed_gaps_issues.py
