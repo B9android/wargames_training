@@ -39,27 +39,30 @@ Dry-run (CI) with the scripted baseline::
     summary = bench.run(policy=None)
     print(summary)
 
-With an SB3-compatible checkpoint::
+With an SB3-compatible policy object::
+
+    from stable_baselines3 import PPO
+    from benchmarks.wargames_bench import WargamesBench, BenchConfig
 
     bench = WargamesBench(BenchConfig())
-    summary = bench.run(policy="checkpoints/my_policy.zip")
-    bench.write_markdown(summary, "docs/leaderboard.md")
+    model = PPO.load("checkpoints/my_policy.zip")
+    summary = bench.run(policy=model, label="ppo_v1")
+    summary.write_markdown("docs/leaderboard.md")
 """
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
 
 log = logging.getLogger(__name__)
 
@@ -428,6 +431,9 @@ class WargamesBench:
         """
         cfg = self.config
         effective_label = label or cfg.baseline_label
+        # Build a config copy that carries the effective label so all summary
+        # rendering paths (str, write_markdown, to_leaderboard_row) are consistent.
+        summary_cfg = dataclasses.replace(cfg, baseline_label=effective_label)
         n = min(cfg.n_scenarios, len(BENCH_SCENARIOS))
         scenarios = [BenchScenario.from_dict(d) for d in BENCH_SCENARIOS[:n]]
 
@@ -455,7 +461,7 @@ class WargamesBench:
                 stats["mean_steps"],
             )
 
-        return BenchSummary(results=results, config=cfg)
+        return BenchSummary(results=results, config=summary_cfg)
 
     # ------------------------------------------------------------------
     # Internal: environment factory
@@ -465,13 +471,30 @@ class WargamesBench:
         """Create an evaluation environment for *scenario*.
 
         Attempts to instantiate a real :class:`~envs.battalion_env.BattalionEnv`
-        with procedurally generated terrain.  Falls back to a lightweight
-        synthetic environment when the real env cannot be constructed (e.g.
-        missing optional dependencies in CI).
+        with procedurally generated terrain and fixed weather (when available).
+        Falls back to :class:`_SyntheticEnv` when the real env cannot be
+        constructed (e.g. missing optional dependencies in CI).
+
+        .. note::
+            :class:`~envs.battalion_env.BattalionEnv` is a 1v1 environment.
+            The ``n_blue`` / ``n_red`` fields in a :class:`BenchScenario` have
+            no effect on the real env; they only influence the entity-count of
+            the :class:`_SyntheticEnv` fallback.  Weather *is* applied to the
+            real env via :class:`~envs.sim.weather.WeatherConfig`.
         """
         try:
             from envs.battalion_env import BattalionEnv
             from envs.sim.terrain import TerrainMap
+            from envs.sim.weather import WeatherCondition, WeatherConfig
+
+            _WEATHER_MAP: Dict[str, WeatherCondition] = {
+                "clear": WeatherCondition.CLEAR,
+                "rain":  WeatherCondition.RAIN,
+                "fog":   WeatherCondition.FOG,
+                "snow":  WeatherCondition.SNOW,
+            }
+            fixed_condition = _WEATHER_MAP.get(scenario.weather.lower())
+            weather_cfg = WeatherConfig(fixed_condition=fixed_condition)
 
             terrain = TerrainMap.generate_random(
                 rng=np.random.default_rng(scenario.terrain_seed),
@@ -487,6 +510,8 @@ class WargamesBench:
                 randomize_terrain=False,
                 map_width=terrain.width,
                 map_height=terrain.height,
+                enable_weather=True,
+                weather_config=weather_cfg,
             )
         except Exception as exc:
             log.debug(
@@ -695,4 +720,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 if __name__ == "__main__":
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
     raise SystemExit(main())

@@ -16,7 +16,9 @@ COA generation
 
 Saliency
 --------
-:func:`~analysis.saliency.compute_saliency` — compute observation saliency maps.
+:func:`~analysis.saliency.compute_gradient_saliency` — gradient-based saliency.
+:func:`~analysis.saliency.compute_integrated_gradients` — integrated-gradients saliency.
+:func:`~analysis.saliency.compute_shap_importance` — SHAP feature importance (optional).
 """
 
 from analysis.coa_generator import (

@@ -461,6 +461,18 @@ class TestWargamesBench(unittest.TestCase):
         summary = bench.run(label="custom_agent")
         self.assertEqual(summary.results[0].policy_label, "custom_agent")
 
+    def test_run_label_propagates_to_summary_config(self) -> None:
+        """Label kwarg must be reflected in BenchSummary.config.baseline_label."""
+        bench = self._make_bench(n_scenarios=1, n_episodes=2)
+        summary = bench.run(label="override_label")
+        self.assertEqual(summary.config.baseline_label, "override_label")
+
+    def test_run_label_propagates_to_leaderboard_row(self) -> None:
+        """to_leaderboard_row() and __str__() must use the overridden label."""
+        bench = self._make_bench(n_scenarios=1, n_episodes=2)
+        summary = bench.run(label="my_policy")
+        self.assertEqual(summary.to_leaderboard_row()["policy"], "my_policy")
+
     def test_config_label_used_when_no_label_kwarg(self) -> None:
         cfg = BenchConfig(
             n_eval_episodes=2,

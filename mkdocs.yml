@@ -59,9 +59,9 @@ nav:
       - api/benchmarks.md
   - Benchmark Leaderboard: wargames_bench_leaderboard.md
   - Guides:
-      - docs/TRAINING_GUIDE.md
-      - docs/ENVIRONMENT_SPEC.md
-      - docs/ROADMAP.md
+      - TRAINING_GUIDE.md
+      - ENVIRONMENT_SPEC.md
+      - ROADMAP.md
   - Contributing:
       - CONTRIBUTING.md
       - CODE_OF_CONDUCT.md
