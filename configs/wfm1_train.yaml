@@ -1,0 +1,69 @@
+# configs/wfm1_train.yaml
+# WFM-1 multi-task training configuration — E12.1.
+#
+# Trains models/wfm1.WFM1Policy simultaneously across battalion, brigade,
+# division, and corps echelons using training/wfm1_multitask.py.
+#
+# Usage
+# -----
+#   python -m training.wfm1_multitask   (using this config as defaults)
+#
+# Key training targets
+# --------------------
+#   Total steps  : 10 M (all echelons combined)
+#   zero-shot WR : ≥ 55 % on unseen procedural scenarios
+#   fine-tune    : ≥ 80 % specialist recovery in ≤ 10 k adapter steps
+
+defaults:
+  - _self_
+  - model: wfm1
+
+training:
+  total_steps: 10_000_000
+  n_steps: 512               # rollout length per echelon per update
+  batch_size: 256
+  n_epochs: 4
+  learning_rate: 3.0e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_coef: 0.2
+  vf_coef: 0.5
+  ent_coef: 0.01
+  max_grad_norm: 0.5
+  seed: 42
+  device: cpu                # override to "cuda" for GPU training
+
+  # Checkpoint every N PPO updates
+  checkpoint_interval: 200
+  checkpoint_dir: checkpoints/wfm1
+
+# Active echelon tasks — each is one parallel training "head"
+echelon_tasks:
+  - echelon: 0               # ECHELON_BATTALION
+    env_id: battalion
+    task_weight: 1.0
+    max_entities: 32
+    action_dim: 3
+
+  - echelon: 1               # ECHELON_BRIGADE
+    env_id: brigade
+    task_weight: 0.8
+    max_entities: 48
+    action_dim: 4            # brigade commands include formation change
+
+  - echelon: 2               # ECHELON_DIVISION
+    env_id: division
+    task_weight: 0.6
+    max_entities: 64
+    action_dim: 5
+
+  - echelon: 3               # ECHELON_CORPS
+    env_id: corps
+    task_weight: 0.5
+    max_entities: 96
+    action_dim: 6            # corps commands include supply/attachment
+
+# W&B experiment tracking
+wandb:
+  project: wargames-wfm1
+  run_name: wfm1-v1

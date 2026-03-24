@@ -1,0 +1,58 @@
+# configs/models/wfm1.yaml
+# WFM-1 — Wargames Foundation Model 1 configuration.
+#
+# Architecture summary
+# --------------------
+#   Echelon encoder depth  : 4 transformer layers (per echelon)
+#   Cross-echelon depth    : 2 transformer layers
+#   Hidden dimension       : 128
+#   Attention heads        : 8  (16 dims per head)
+#   Actor/critic MLP       : [256, 128]
+#   Shared echelon encoder : true (weight-tying across all echelons)
+#   FiLM adapter           : card_hidden_size=64
+#
+# Training targets
+# ----------------
+#   Zero-shot win rate     : ≥ 55 % on unseen procedural scenarios
+#   Fine-tune recovery     : ≥ 80 % of specialist in ≤ 10 k steps
+#
+# See also
+# --------
+#   training/wfm1_multitask.py  — multi-task PPO training loop
+#   training/wfm1_benchmark.py  — zero-shot vs. specialist benchmark
+#   configs/wfm1_train.yaml     — training hyper-parameters
+
+model:
+  name: wfm1
+
+  # ── Echelon encoder ───────────────────────────────────────────────────
+  echelon_encoder:
+    token_dim: 16             # ENTITY_TOKEN_DIM
+    d_model: 128              # transformer hidden dimension
+    n_heads: 8                # attention heads (d_model / n_heads = 16)
+    n_layers: 4               # transformer encoder depth (per echelon)
+    dropout: 0.0              # disabled for deployment
+    use_spatial_pe: true      # 2-D Fourier positional encoding
+    n_freq_bands: 8
+    use_echelon_embedding: true  # per-echelon learned embedding
+
+  # ── Cross-echelon transformer ─────────────────────────────────────────
+  cross_echelon:
+    n_heads: 8
+    n_layers: 2
+    dropout: 0.0
+
+  # ── Scenario card FiLM adapter ────────────────────────────────────────
+  card_adapter:
+    card_raw_dim: 12          # _SCENARIO_CARD_RAW_DIM
+    hidden_size: 64
+
+  # ── Actor-Critic heads ────────────────────────────────────────────────
+  action_dim: 3
+  actor_hidden_sizes: [256, 128]
+  critic_hidden_sizes: [256, 128]
+  share_echelon_encoders: true
+
+  # ── Deployment metadata ───────────────────────────────────────────────
+  param_count_approx: 8_000_000
+  latency_target_ms: 15       # CPU inference budget (ms)
