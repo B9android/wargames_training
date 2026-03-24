@@ -67,6 +67,11 @@ from training.self_play import OpponentPool, SelfPlayCallback, WinRateVsPoolCall
 log = logging.getLogger(__name__)
 
 
+def _default_wandb_tags() -> List[str]:
+    """Default W&B tag list for :class:`TrainingConfig`."""
+    return ["v1", "ppo"]
+
+
 def _stable_config_hash(cfg: DictConfig) -> str:
     """Build a deterministic hash for the fully-resolved run config."""
     payload = OmegaConf.to_container(cfg, resolve=True)
@@ -604,7 +609,7 @@ class TrainingConfig:
     enable_wandb: bool = True
     wandb_project: str = "wargames_training"
     wandb_entity: Optional[str] = None
-    wandb_tags: List[str] = field(default_factory=lambda: ["v1", "ppo"])
+    wandb_tags: List[str] = field(default_factory=_default_wandb_tags)
     wandb_log_freq: int = 1000
 
     # ── Self-play (disabled by default) ───────────────────────────────────
