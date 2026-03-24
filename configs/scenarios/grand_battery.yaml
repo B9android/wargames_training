@@ -1,0 +1,65 @@
+# configs/scenarios/grand_battery.yaml
+# Artillery scenario: Blue grand battery supported by corps-level infantry
+# against an entrenched Red line.
+#
+# E10.3 — Artillery Arm: Grand Battery & Counter-Battery
+
+# ── Map ───────────────────────────────────────────────────────────────────
+map:
+  width: 10000.0       # metres — corps-scale map
+  height: 5000.0
+
+# ── Artillery arm ─────────────────────────────────────────────────────────
+artillery:
+  blue:
+    n_batteries: 6           # grand battery (≥ 6 guns)
+    max_range: 600.0         # fire range (metres)
+    base_fire_damage: 0.05   # morale damage per step per gun
+    grand_battery_radius: 800.0
+    grand_battery_bonus: 0.01
+    counter_battery_bonus: 0.06
+    siege_damage_per_step: 0.06
+    fortify_steps: 12        # steps to complete earthworks
+    cover_bonus: 0.5
+    max_speed: 30.0
+  red:
+    n_batteries: 4
+    max_range: 600.0
+    base_fire_damage: 0.05
+    grand_battery_radius: 800.0
+    grand_battery_bonus: 0.01
+    counter_battery_bonus: 0.06
+    siege_damage_per_step: 0.06
+    fortify_steps: 12
+    cover_bonus: 0.5
+    max_speed: 30.0
+
+# ── Blue forces ───────────────────────────────────────────────────────────
+blue:
+  n_divisions: 3
+  n_brigades_per_division: 3
+  n_blue_per_brigade: 4
+  # Artillery deployed at 25% map width, spread along Y axis
+  artillery_x: 2500.0
+  artillery_deploy: evenly_spaced
+
+# ── Red forces ────────────────────────────────────────────────────────────
+red:
+  n_divisions: 3
+  n_brigades_per_division: 3
+  n_red_per_brigade: 4
+  # Red deploys at 75% map width with four counter-battery guns
+  artillery_x: 7500.0
+  artillery_deploy: evenly_spaced
+
+# ── Acceptance criteria ────────────────────────────────────────────────────
+# AC-1: Grand battery of ≥ 6 guns breaks enemy line in < 5 game minutes
+#       (< 300 steps at 1 step/s).
+# AC-2: Counter-battery fire silences enemy guns faster than targeting infantry.
+# AC-3: Agents learn to build fortifications proactively on defensive maps.
+
+# ── Episode parameters ────────────────────────────────────────────────────
+episode:
+  max_steps: 500
+  blue_victory_condition: enemy_morale_broken  # all Red units routed
+  red_victory_condition: blue_morale_broken    # all Blue units routed
