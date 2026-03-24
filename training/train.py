@@ -811,207 +811,217 @@ def train(
         env_kwargs=env_kwargs,
     )
 
-    # Built-in callbacks.
-    _checkpoint_cb = ManifestCheckpointCallback(
-        save_freq=max(1, config.checkpoint_freq // config.n_envs),
-        save_path=str(checkpoint_dir),
-        name_prefix=periodic_prefix,
-        manifest=manifest,
-        seed=config.seed,
-        curriculum_level=config.curriculum_level,
-        run_id=run_id,
-        config_hash=config_hash,
-        verbose=config.verbose,
-    )
-    _eval_cb = ManifestEvalCallback(
-        eval_env,
-        best_model_save_path=str(checkpoint_dir / "best"),
-        log_path=str(log_dir),
-        eval_freq=max(1, config.eval_freq // config.n_envs),
-        n_eval_episodes=config.n_eval_episodes,
-        deterministic=config.eval_deterministic,
-        manifest=manifest,
-        seed=config.seed,
-        curriculum_level=config.curriculum_level,
-        run_id=run_id,
-        config_hash=config_hash,
-        enable_naming_v2=config.enable_naming_v2,
-        verbose=config.verbose,
-    )
-    all_callbacks: list = [_checkpoint_cb, _eval_cb]
-
-    if config.enable_wandb:
-        all_callbacks.append(WandbCallback(log_freq=config.wandb_log_freq))
-        all_callbacks.append(RewardBreakdownCallback(log_freq=config.wandb_log_freq))
-
-    # Self-play callbacks (optional).
-    if config.enable_self_play:
-        _pool = OpponentPool(
-            pool_dir=Path(config.self_play_pool_dir),
-            max_size=config.self_play_pool_max_size,
-        )
-        _sp_cb = SelfPlayCallback(
-            pool=_pool,
-            snapshot_freq=config.self_play_snapshot_freq,
-            vec_env=vec_env,
-            verbose=config.verbose,
+    try:
+        # Built-in callbacks.
+        _checkpoint_cb = ManifestCheckpointCallback(
+            save_freq=max(1, config.checkpoint_freq // config.n_envs),
+            save_path=str(checkpoint_dir),
+            name_prefix=periodic_prefix,
             manifest=manifest,
             seed=config.seed,
             curriculum_level=config.curriculum_level,
             run_id=run_id,
             config_hash=config_hash,
-        )
-        _wr_cb = WinRateVsPoolCallback(
-            pool=_pool,
-            eval_freq=config.self_play_eval_freq,
-            n_eval_episodes=config.self_play_n_eval_episodes,
-            deterministic=True,
-            use_latest=config.self_play_use_latest_for_eval,
             verbose=config.verbose,
         )
-        all_callbacks.extend([_sp_cb, _wr_cb])
-        log.info(
-            "Self-play enabled: pool_dir=%s, max_size=%d",
-            config.self_play_pool_dir,
-            config.self_play_pool_max_size,
-        )
-
-    # Elo callbacks (optional).
-    if config.elo_opponents:
-        _elo_registry = EloRegistry(path=Path(config.elo_registry_path))
-        _elo_run_id = run_id or f"run_seed{config.seed}"
-        _elo_cb = EloEvalCallback(
-            opponents=list(config.elo_opponents),
-            n_eval_episodes=config.elo_n_eval_episodes,
-            registry=_elo_registry,
-            agent_name=_elo_run_id,
-            eval_freq=config.elo_eval_freq,
-            env_kwargs=dict(env_kwargs),
+        _eval_cb = ManifestEvalCallback(
+            eval_env,
+            best_model_save_path=str(checkpoint_dir / "best"),
+            log_path=str(log_dir),
+            eval_freq=max(1, config.eval_freq // config.n_envs),
+            n_eval_episodes=config.n_eval_episodes,
+            deterministic=config.eval_deterministic,
+            manifest=manifest,
             seed=config.seed,
+            curriculum_level=config.curriculum_level,
+            run_id=run_id,
+            config_hash=config_hash,
+            enable_naming_v2=config.enable_naming_v2,
             verbose=config.verbose,
         )
-        all_callbacks.append(_elo_cb)
+        all_callbacks: list = [_checkpoint_cb, _eval_cb]
 
-    # Merge extra caller-supplied callbacks.
-    all_callbacks.extend(extra_callbacks or [])
+        if config.enable_wandb:
+            all_callbacks.append(WandbCallback(log_freq=config.wandb_log_freq))
+            all_callbacks.append(RewardBreakdownCallback(log_freq=config.wandb_log_freq))
 
-    # Resolve resume checkpoint.
-    resume_path: Optional[Path] = None
-    if resume is not None:
-        resume_path = Path(resume)
-        if not resume_path.exists():
-            zip_path = Path(str(resume_path) + ".zip")
-            if zip_path.exists():
-                resume_path = zip_path
-            else:
-                raise FileNotFoundError(
-                    f"Resume checkpoint not found: '{resume}'. "
-                    "Provide an existing .zip path or omit the extension."
+        # Self-play callbacks (optional).
+        if config.enable_self_play:
+            _pool = OpponentPool(
+                pool_dir=Path(config.self_play_pool_dir),
+                max_size=config.self_play_pool_max_size,
+            )
+            _sp_cb = SelfPlayCallback(
+                pool=_pool,
+                snapshot_freq=config.self_play_snapshot_freq,
+                vec_env=vec_env,
+                verbose=config.verbose,
+                manifest=manifest,
+                seed=config.seed,
+                curriculum_level=config.curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+            )
+            _wr_cb = WinRateVsPoolCallback(
+                pool=_pool,
+                eval_freq=config.self_play_eval_freq,
+                n_eval_episodes=config.self_play_n_eval_episodes,
+                deterministic=True,
+                use_latest=config.self_play_use_latest_for_eval,
+                verbose=config.verbose,
+            )
+            all_callbacks.extend([_sp_cb, _wr_cb])
+            log.info(
+                "Self-play enabled: pool_dir=%s, max_size=%d",
+                config.self_play_pool_dir,
+                config.self_play_pool_max_size,
+            )
+
+        # Elo callbacks (optional).
+        if config.elo_opponents:
+            _elo_registry = EloRegistry(path=Path(config.elo_registry_path))
+            _elo_run_id = run_id or f"run_seed{config.seed}"
+            _elo_cb = EloEvalCallback(
+                opponents=list(config.elo_opponents),
+                n_eval_episodes=config.elo_n_eval_episodes,
+                registry=_elo_registry,
+                agent_name=_elo_run_id,
+                eval_freq=config.elo_eval_freq,
+                env_kwargs=dict(env_kwargs),
+                seed=config.seed,
+                verbose=config.verbose,
+            )
+            all_callbacks.append(_elo_cb)
+
+        # Merge extra caller-supplied callbacks.
+        all_callbacks.extend(extra_callbacks or [])
+
+        # Resolve resume checkpoint.
+        resume_path: Optional[Path] = None
+        if resume is not None:
+            resume_path = Path(resume)
+            if not resume_path.exists():
+                zip_path = Path(str(resume_path) + ".zip")
+                if zip_path.exists():
+                    resume_path = zip_path
+                else:
+                    raise FileNotFoundError(
+                        f"Resume checkpoint not found: '{resume}'. "
+                        "Provide an existing .zip path or omit the extension."
+                    )
+
+        # Build or reload PPO model.
+        if resume_path is not None:
+            log.info("Resuming from checkpoint: %s", resume_path)
+            model = PPO.load(
+                str(resume_path),
+                env=vec_env,
+                device=config.device,
+                custom_objects={
+                    "learning_rate": config.learning_rate,
+                    "clip_range": config.clip_range,
+                },
+            )
+        else:
+            model = PPO(
+                BattalionMlpPolicy,
+                vec_env,
+                learning_rate=config.learning_rate,
+                n_steps=config.n_steps,
+                batch_size=config.batch_size,
+                n_epochs=config.n_epochs,
+                gamma=config.gamma,
+                gae_lambda=config.gae_lambda,
+                clip_range=config.clip_range,
+                ent_coef=config.ent_coef,
+                vf_coef=config.vf_coef,
+                max_grad_norm=config.max_grad_norm,
+                seed=config.seed,
+                device=config.device,
+                verbose=config.verbose,
+            )
+        log.info("PPO model ready. Training for %d timesteps.", config.total_timesteps)
+
+        # Training loop.
+        model.learn(
+            total_timesteps=config.total_timesteps,
+            callback=CallbackList(all_callbacks),
+            progress_bar=False,
+            reset_num_timesteps=resume_path is None,
+        )
+
+        # Save final checkpoint.
+        final_stem = checkpoint_final_stem(
+            seed=config.seed,
+            curriculum_level=config.curriculum_level,
+            enable_v2=config.enable_naming_v2,
+        )
+        final_path = checkpoint_dir / final_stem
+        model.save(str(final_path))
+        log.info("Saved final model to %s.zip", final_path)
+
+        legacy_alias = checkpoint_dir / "ppo_battalion_final"
+        if config.keep_legacy_aliases and final_path != legacy_alias:
+            model.save(str(legacy_alias))
+
+        # Register artifacts in the manifest.
+        if manifest is not None:
+            for periodic_zip in checkpoint_dir.glob(f"{periodic_prefix}_*_steps.zip"):
+                manifest.register(
+                    periodic_zip,
+                    artifact_type="periodic",
+                    seed=config.seed,
+                    curriculum_level=config.curriculum_level,
+                    run_id=run_id,
+                    config_hash=config_hash,
+                    step=parse_step_from_checkpoint_name(periodic_zip),
                 )
+            final_zip = final_path.with_suffix(".zip")
+            if final_zip.exists():
+                manifest.register(
+                    final_zip,
+                    artifact_type="final",
+                    seed=config.seed,
+                    curriculum_level=config.curriculum_level,
+                    run_id=run_id,
+                    config_hash=config_hash,
+                    step=int(getattr(model, "num_timesteps", 0) or 0),
+                )
+            # Prune old checkpoints if requested.
+            if config.prune_on_run_end and config.keep_periodic > 0:
+                pruned = manifest.prune_periodic(
+                    checkpoint_dir, periodic_prefix, keep_last=config.keep_periodic
+                )
+                if pruned:
+                    log.info("Pruned %d old periodic checkpoint(s).", len(pruned))
+            if config.enable_self_play and config.keep_self_play_snapshots > 0:
+                pruned_sp = manifest.prune_self_play_snapshots(
+                    Path(config.self_play_pool_dir),
+                    keep_last=config.keep_self_play_snapshots,
+                )
+                if pruned_sp:
+                    log.info("Pruned %d old self-play snapshot(s).", len(pruned_sp))
 
-    # Build or reload PPO model.
-    if resume_path is not None:
-        log.info("Resuming from checkpoint: %s", resume_path)
-        model = PPO.load(
-            str(resume_path),
-            env=vec_env,
-            device=config.device,
-            custom_objects={
-                "learning_rate": config.learning_rate,
-                "clip_range": config.clip_range,
-            },
-        )
-    else:
-        model = PPO(
-            BattalionMlpPolicy,
-            vec_env,
-            learning_rate=config.learning_rate,
-            n_steps=config.n_steps,
-            batch_size=config.batch_size,
-            n_epochs=config.n_epochs,
-            gamma=config.gamma,
-            gae_lambda=config.gae_lambda,
-            clip_range=config.clip_range,
-            ent_coef=config.ent_coef,
-            vf_coef=config.vf_coef,
-            max_grad_norm=config.max_grad_norm,
-            seed=config.seed,
-            device=config.device,
-            verbose=config.verbose,
-        )
-    log.info("PPO model ready. Training for %d timesteps.", config.total_timesteps)
+        # Upload final artifact to W&B and close the run.
+        if run is not None:
+            artifact = wandb.Artifact(name="ppo_battalion_final", type="model")
+            zip_str = str(final_path) + ".zip"
+            if Path(zip_str).exists():
+                artifact.add_file(zip_str)
+                run.log_artifact(artifact)
+            run.finish()
+            run = None  # prevent double-finish in finally
 
-    # Training loop.
-    model.learn(
-        total_timesteps=config.total_timesteps,
-        callback=CallbackList(all_callbacks),
-        progress_bar=False,
-        reset_num_timesteps=resume_path is None,
-    )
+    finally:
+        vec_env.close()
+        eval_env.close()
+        # Ensure W&B run is finished even when an exception interrupts training.
+        if run is not None:
+            try:
+                run.finish()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("W&B run.finish() raised an error during cleanup: %s", exc)
 
-    # Save final checkpoint.
-    final_stem = checkpoint_final_stem(
-        seed=config.seed,
-        curriculum_level=config.curriculum_level,
-        enable_v2=config.enable_naming_v2,
-    )
-    final_path = checkpoint_dir / final_stem
-    model.save(str(final_path))
-    log.info("Saved final model to %s.zip", final_path)
-
-    legacy_alias = checkpoint_dir / "ppo_battalion_final"
-    if config.keep_legacy_aliases and final_path != legacy_alias:
-        model.save(str(legacy_alias))
-
-    # Register artifacts in the manifest.
-    if manifest is not None:
-        for periodic_zip in checkpoint_dir.glob(f"{periodic_prefix}_*_steps.zip"):
-            manifest.register(
-                periodic_zip,
-                artifact_type="periodic",
-                seed=config.seed,
-                curriculum_level=config.curriculum_level,
-                run_id=run_id,
-                config_hash=config_hash,
-                step=parse_step_from_checkpoint_name(periodic_zip),
-            )
-        final_zip = final_path.with_suffix(".zip")
-        if final_zip.exists():
-            manifest.register(
-                final_zip,
-                artifact_type="final",
-                seed=config.seed,
-                curriculum_level=config.curriculum_level,
-                run_id=run_id,
-                config_hash=config_hash,
-                step=int(getattr(model, "num_timesteps", 0) or 0),
-            )
-        # Prune old checkpoints if requested.
-        if config.prune_on_run_end and config.keep_periodic > 0:
-            pruned = manifest.prune_periodic(
-                checkpoint_dir, periodic_prefix, keep_last=config.keep_periodic
-            )
-            if pruned:
-                log.info("Pruned %d old periodic checkpoint(s).", len(pruned))
-        if config.enable_self_play and config.keep_self_play_snapshots > 0:
-            pruned_sp = manifest.prune_self_play_snapshots(
-                Path(config.self_play_pool_dir),
-                keep_last=config.keep_self_play_snapshots,
-            )
-            if pruned_sp:
-                log.info("Pruned %d old self-play snapshot(s).", len(pruned_sp))
-
-    # Upload final artifact to W&B and close the run.
-    if run is not None:
-        artifact = wandb.Artifact(name="ppo_battalion_final", type="model")
-        zip_str = str(final_path) + ".zip"
-        if Path(zip_str).exists():
-            artifact.add_file(zip_str)
-            run.log_artifact(artifact)
-        run.finish()
-
-    vec_env.close()
-    eval_env.close()
     return model
 
 

@@ -47,7 +47,7 @@ Saliency
     Bar chart of mean absolute saliency per feature.
 
 :data:`OBSERVATION_FEATURES`
-    Tuple of human-readable feature names for the 12-dim BattalionEnv obs.
+    Tuple of human-readable feature names for the BattalionEnv base observation vector.
 """
 
 from __future__ import annotations

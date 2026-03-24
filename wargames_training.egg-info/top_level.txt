@@ -1,8 +1,0 @@
-analysis
-api
-benchmarks
-configs
-envs
-models
-server
-training

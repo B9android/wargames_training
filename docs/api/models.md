@@ -13,9 +13,9 @@ from envs import BattalionEnv
 env = BattalionEnv()
 model = PPO(BattalionMlpPolicy, env)
 
-# Multi-agent MAPPO
+# Multi-agent MAPPO (obs_dim/state_dim taken from MultiBattalionEnv 2v2 defaults)
 from models import MAPPOPolicy
-policy = MAPPOPolicy(obs_dim=12, action_dim=3, n_agents=2)
+policy = MAPPOPolicy(obs_dim=22, action_dim=3, state_dim=25, n_agents=2)
 
 # WFM-1 foundation model
 from models import WFM1Policy, ScenarioCard, ECHELON_BATTALION, TERRAIN_PROCEDURAL

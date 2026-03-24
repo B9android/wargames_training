@@ -306,8 +306,22 @@ class TestAnalysisPackageAPI(unittest.TestCase):
 
     def test_observation_features_length(self) -> None:
         from analysis import OBSERVATION_FEATURES
-        # BattalionEnv has a 12-dimensional observation space
-        self.assertEqual(len(OBSERVATION_FEATURES), 12)
+        from envs import BattalionEnv
+
+        # Derive expected observation length from BattalionEnv with optional
+        # features disabled so that OBSERVATION_FEATURES stays in sync with
+        # the core observation schema.
+        env = BattalionEnv(
+            enable_formations=False,
+            enable_logistics=False,
+            enable_weather=False,
+        )
+        try:
+            obs_dim = env.observation_space.shape[0]
+        finally:
+            env.close()
+
+        self.assertEqual(len(OBSERVATION_FEATURES), obs_dim)
 
     def test_all_list_complete(self) -> None:
         import analysis
