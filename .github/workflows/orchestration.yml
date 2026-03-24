@@ -39,6 +39,7 @@ on:
           - project-sync
           - training-complete
           - seed-roadmap
+          - seed-gaps
       issue_number:
         description: "Issue number (triage, experiment-*, epic-decompose, project-sync, training-complete)"
         required: false
@@ -704,5 +705,36 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: seed-roadmap-report-${{ github.run_id }}
+          path: agent-artifacts/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────
+  # SEED GAPS — create gap-filling and improvement issues discovered
+  # by a full project audit (idempotent, skips existing titles)
+  # ─────────────────────────────────────────────────────────────────
+  seed_gaps:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'seed-gaps'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: seed-gaps
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install PyGithub
+      - name: Seed gap-filling issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        working-directory: scripts/project_agent
+        run: python seed_gaps_issues.py
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-gaps-report-${{ github.run_id }}
           path: agent-artifacts/
           if-no-files-found: ignore
