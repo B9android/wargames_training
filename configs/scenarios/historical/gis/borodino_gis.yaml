@@ -1,0 +1,87 @@
+# Battle of Borodino — GIS terrain scenario (E11.2)
+#
+# Bounding box: lat 55.49–55.55, lon 35.79–35.90 (≈ 6.5 km × 6.7 km)
+# Grid: 40 × 40 cells
+
+scenario:
+  name: "Battle of Borodino — GIS terrain (1812)"
+  date: "1812-09-07"
+  description: >
+    Napoleon's Grande Armée launched frontal assaults on heavily fortified
+    Russian positions along the Borodino–Utitsa line.  This scenario uses
+    GIS terrain to place the Raevsky Redoubt on its actual ridge spur and
+    the Bagration Fleches on the southern slope.
+
+factions:
+  blue: "French Grande Armée (Napoleon)"
+  red: "Russian Imperial Army (Kutuzov)"
+
+terrain:
+  type: "gis"
+  gis_site: "borodino"
+  rows: 40
+  cols: 40
+  # gis_data_dir: "/data/gis"
+
+units:
+  # ── French corps ─────────────────────────────────────────────────────────
+  blue:
+    - id: "davout_i_corps"
+      x: 1300.0   # x ≈ 0.20
+      y: 2345.0   # y ≈ 0.35
+      theta: "east"
+      strength: 1.0
+    - id: "ney_iii_corps"
+      x: 1820.0   # x ≈ 0.28
+      y: 3216.0   # y ≈ 0.48
+      theta: "east"
+      strength: 1.0
+    - id: "eugene_iv_corps"
+      x: 2210.0   # x ≈ 0.34
+      y: 3886.0   # y ≈ 0.58
+      theta: "east"
+      strength: 0.95
+    - id: "poniatowski_v_corps"
+      x: 1170.0   # x ≈ 0.18
+      y: 1675.0   # y ≈ 0.25
+      theta: "east"
+      strength: 0.85
+
+  # ── Russian corps ─────────────────────────────────────────────────────────
+  red:
+    - id: "bagration_2nd_army"
+      x: 4420.0   # x ≈ 0.68
+      y: 2345.0   # y ≈ 0.35 — Fleches earthworks
+      theta: "west"
+      strength: 0.90
+    - id: "raevsky_vii_corps"
+      x: 4875.0   # x ≈ 0.75
+      y: 3686.0   # y ≈ 0.55 — Great Redoubt
+      theta: "west"
+      strength: 0.95
+    - id: "tuchkov_iii_corps"
+      x: 4355.0   # x ≈ 0.67
+      y: 1675.0   # y ≈ 0.25 — Utitsa defence
+      theta: "west"
+      strength: 0.85
+    - id: "guards_reserve"
+      x: 5200.0   # x ≈ 0.80
+      y: 3351.0   # y ≈ 0.50
+      theta: "west"
+      strength: 1.0
+    - id: "platov_cossacks"
+      x: 5330.0   # x ≈ 0.82
+      y: 4355.0   # y ≈ 0.65
+      theta: "north"
+      strength: 0.70
+
+historical_outcome:
+  winner: null
+  blue_casualties: 0.35
+  red_casualties: 0.40
+  duration_steps: 490
+  description: >
+    Napoleon captured the Russian field fortifications but failed to
+    destroy the Russian army.  Kutuzov withdrew, Moscow fell to the French,
+    yet Russia refused to sue for peace.  Napoleon's strategic position in
+    Russia collapsed as winter set in.

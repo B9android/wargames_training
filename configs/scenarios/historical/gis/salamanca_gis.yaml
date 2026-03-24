@@ -1,0 +1,84 @@
+# Battle of Salamanca — GIS terrain scenario (E11.2)
+#
+# Bounding box: lat 40.90–40.98, lon -5.55–-5.42 (≈ 10.7 km × 8.9 km)
+# Grid: 40 × 40 cells
+#
+# The battle was decided by the topography of the Greater and Lesser Arapiles
+# ridges, which gave Wellington observation over Marmont's extended line.
+
+scenario:
+  name: "Battle of Salamanca — GIS terrain (1812)"
+  date: "1812-07-22"
+  description: >
+    Wellington exploited a gap in Marmont's over-extended line of march,
+    attacking the isolated French left wing near the Greater Arapil ridge.
+    This scenario uses GIS terrain to replicate the Arapiles hills that gave
+    the Allies their tactical advantage.
+
+factions:
+  blue: "Anglo-Portuguese (Wellington)"
+  red: "French Armée de Portugal (Marmont)"
+
+terrain:
+  type: "gis"
+  gis_site: "salamanca"
+  rows: 40
+  cols: 40
+  # gis_data_dir: "/data/gis"
+
+units:
+  # ── Anglo-Portuguese divisions ────────────────────────────────────────────
+  blue:
+    - id: "3rd_division_pakenham"
+      x: 3210.0   # x ≈ 0.30
+      y: 4450.0   # y ≈ 0.50
+      theta: "east"
+      strength: 1.0
+    - id: "5th_division_leith"
+      x: 4280.0   # x ≈ 0.40
+      y: 4895.0   # y ≈ 0.55
+      theta: "south"
+      strength: 0.95
+    - id: "4th_division_cole"
+      x: 5350.0   # x ≈ 0.50
+      y: 4005.0   # y ≈ 0.45
+      theta: "east"
+      strength: 0.90
+    - id: "6th_division_clinton"
+      x: 6420.0   # x ≈ 0.60
+      y: 4895.0   # y ≈ 0.55
+      theta: "east"
+      strength: 0.85
+
+  # ── French divisions ──────────────────────────────────────────────────────
+  red:
+    - id: "thomieres_division"
+      x: 3210.0   # x ≈ 0.30
+      y: 3560.0   # y ≈ 0.40 — leading division, over-extended
+      theta: "west"
+      strength: 0.70
+    - id: "maucune_division"
+      x: 5350.0   # x ≈ 0.50
+      y: 3115.0   # y ≈ 0.35
+      theta: "west"
+      strength: 0.85
+    - id: "brennier_division"
+      x: 6420.0   # x ≈ 0.60
+      y: 2670.0   # y ≈ 0.30
+      theta: "west"
+      strength: 0.80
+    - id: "clausel_reserve"
+      x: 7490.0   # x ≈ 0.70
+      y: 3560.0   # y ≈ 0.40
+      theta: "west"
+      strength: 1.0
+
+historical_outcome:
+  winner: 0
+  blue_casualties: 0.13
+  red_casualties: 0.44
+  duration_steps: 240
+  description: >
+    Wellington's rapid exploitation of the gap in Marmont's line routed
+    three French divisions in under 40 minutes.  Marmont and his deputy
+    Bonnet were both wounded.  The victory opened the road to Madrid.

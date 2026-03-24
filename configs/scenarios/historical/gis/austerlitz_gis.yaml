@@ -1,0 +1,86 @@
+# Battle of Austerlitz — GIS terrain scenario (E11.2)
+#
+# Bounding box: lat 49.09–49.17, lon 16.73–16.85 (≈ 9.9 km × 8.9 km)
+# Grid: 40 × 40 cells
+
+scenario:
+  name: "Battle of Austerlitz — GIS terrain (1805)"
+  date: "1805-12-02"
+  description: >
+    Napoleon feigned weakness on his right to draw the Coalition left wing
+    down from the Pratzen Heights, then struck the weakened centre with
+    Soult's corps.  This scenario uses GIS terrain to replicate the Pratzen
+    plateau that dominated the battle.
+
+factions:
+  blue: "French Grande Armée (Napoleon)"
+  red: "Russo-Austrian Coalition (Kutuzov / Alexander I)"
+
+terrain:
+  type: "gis"
+  gis_site: "austerlitz"
+  rows: 40
+  cols: 40
+  # gis_data_dir: "/data/gis"
+
+units:
+  # ── French divisions ──────────────────────────────────────────────────────
+  blue:
+    - id: "soult_iv_corps_1"
+      x: 4455.0   # x ≈ 0.45
+      y: 4895.0   # y ≈ 0.55
+      theta: "east"
+      strength: 1.0
+    - id: "soult_iv_corps_2"
+      x: 5148.0   # x ≈ 0.52
+      y: 4272.0   # y ≈ 0.48
+      theta: "east"
+      strength: 1.0
+    - id: "bernadotte_i_corps"
+      x: 3960.0   # x ≈ 0.40
+      y: 4895.0   # y ≈ 0.55
+      theta: "east"
+      strength: 0.95
+    - id: "davout_iii_corps"
+      x: 2772.0   # x ≈ 0.28
+      y: 2670.0   # y ≈ 0.30 — thin right-flank lure
+      theta: "north"
+      strength: 0.75
+
+  # ── Russo-Austrian divisions ─────────────────────────────────────────────
+  red:
+    - id: "weyrother_left_wing_1"
+      x: 5940.0   # x ≈ 0.60
+      y: 2670.0   # y ≈ 0.30 — marching south off the Heights
+      theta: "south"
+      strength: 0.90
+    - id: "weyrother_left_wing_2"
+      x: 6732.0   # x ≈ 0.68
+      y: 2493.0
+      theta: "south"
+      strength: 0.90
+    - id: "kollowrath_centre"
+      x: 6435.0   # x ≈ 0.65
+      y: 4450.0   # y ≈ 0.50 — Pratzen plateau
+      theta: "west"
+      strength: 0.85
+    - id: "miloradovich_advance_guard"
+      x: 6930.0   # x ≈ 0.70
+      y: 4895.0   # y ≈ 0.55
+      theta: "west"
+      strength: 0.80
+    - id: "guards_reserve"
+      x: 7128.0   # x ≈ 0.72
+      y: 5518.0   # y ≈ 0.62
+      theta: "west"
+      strength: 1.0
+
+historical_outcome:
+  winner: 0
+  blue_casualties: 0.12
+  red_casualties: 0.47
+  duration_steps: 380
+  description: >
+    Soult's storm of the Pratzen Heights took under 90 minutes.  By noon
+    the Allied army was split and the left wing driven into the Satschan
+    ponds.  Austria sued for peace within weeks (Treaty of Pressburg).

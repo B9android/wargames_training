@@ -1,0 +1,96 @@
+# Battle of Waterloo — GIS terrain scenario (E11.2)
+#
+# This scenario uses real-world terrain imported from SRTM elevation data
+# and OpenStreetMap layers via data/gis/terrain_importer.py.  When the
+# source GeoTIFF/OSM files are absent the importer falls back to a
+# synthetic profile that approximates the Mont-Saint-Jean ridge line.
+#
+# Bounding box: lat 50.66–50.74, lon 4.36–4.46 (≈ 8.9 km × 9.0 km)
+# Grid: 40 × 40 cells (≈ 225 m per cell)
+#
+# Acceptance criterion (E11.2):
+#   The terrain must correctly replicate the La Haye Sainte ridge line —
+#   the ridge running E–W at y ≈ 0.58–0.65 of the grid must have higher
+#   normalised elevation than the southern French position at y < 0.45.
+
+scenario:
+  name: "Battle of Waterloo — GIS terrain (1815)"
+  date: "1815-06-18"
+  description: >
+    Wellington's Anglo-Allied army defended the Mont-Saint-Jean ridge
+    against Napoleon's final offensive.  This scenario uses GIS-sourced
+    terrain to replicate the true ridge line and the Hougoumont woodland
+    that anchored the Allied right flank.
+
+factions:
+  blue: "Anglo-Allied (Wellington)"
+  red: "French Grande Armée (Napoleon)"
+
+terrain:
+  type: "gis"
+  gis_site: "waterloo"
+  rows: 40
+  cols: 40
+  # gis_data_dir: "/data/gis"   # Uncomment and set when real files are available
+
+units:
+  # ── Anglo-Allied brigades (defending the ridge) ──────────────────────────
+  blue:
+    - id: "1st_division_guard"
+      x: 3560.0   # x ≈ 0.40 of 8900 m width
+      y: 5850.0   # y ≈ 0.65 of 9000 m height (on the ridge)
+      theta: "south"
+      strength: 0.75
+    - id: "best_division"
+      x: 4895.0   # x ≈ 0.55
+      y: 5760.0
+      theta: "south"
+      strength: 0.80
+    - id: "3rd_division_picton"
+      x: 2670.0   # x ≈ 0.30
+      y: 5670.0
+      theta: "south"
+      strength: 0.65
+    - id: "prussian_iv_corps"
+      x: 6675.0   # x ≈ 0.75 — arriving from the east
+      y: 5400.0
+      theta: "west"
+      strength: 0.90
+
+  # ── French brigades ───────────────────────────────────────────────────────
+  red:
+    - id: "old_guard_1st"
+      x: 3382.0   # x ≈ 0.38
+      y: 2700.0   # y ≈ 0.30 (south of ridge)
+      theta: "north"
+      strength: 0.95
+    - id: "old_guard_2nd"
+      x: 4272.0   # x ≈ 0.48
+      y: 2520.0
+      theta: "north"
+      strength: 0.95
+    - id: "middle_guard"
+      x: 4895.0   # x ≈ 0.55
+      y: 2880.0
+      theta: "north"
+      strength: 0.85
+    - id: "d_erlon_i_corps"
+      x: 2670.0   # x ≈ 0.30
+      y: 3150.0
+      theta: "north"
+      strength: 0.55
+    - id: "reille_ii_corps"
+      x: 1780.0   # x ≈ 0.20
+      y: 3600.0
+      theta: "north"
+      strength: 0.60
+
+historical_outcome:
+  winner: 0
+  blue_casualties: 0.36
+  red_casualties: 0.68
+  duration_steps: 420
+  description: >
+    Wellington's infantry repulsed the Imperial Guard assault, triggering
+    a general French collapse.  Prussian forces arriving from the east
+    completed the rout.  Napoleon abdicated four days later.
