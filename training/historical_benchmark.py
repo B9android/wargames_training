@@ -1,7 +1,9 @@
 """Historical benchmark runner for E11.1 — Historical Battle Database.
 
-Evaluates a trained agent (or a scripted baseline) against the historical
-outcome across all 50+ Napoleonic engagements in the battle database.
+Runs the deterministic 1v1 :class:`~envs.sim.engine.SimEngine` baseline
+against the historical outcomes across all 50+ Napoleonic engagements in
+the battle database. This is a simulation fidelity benchmark only; no
+trained RL policy or external scripted controller is loaded or consulted.
 
 Acceptance criteria tested here
 ---------------------------------
@@ -23,7 +25,6 @@ Typical usage::
 
 from __future__ import annotations
 
-import math
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -199,7 +200,7 @@ class HistoricalBenchmark:
         """
         importer = BatchScenarioImporter(self.battles_path)
         records = importer.load_records()
-        scenarios = importer.load_all()
+        scenarios = [r.to_scenario() for r in records]
 
         entries: List[BenchmarkEntry] = []
         overall_start = time.perf_counter()
@@ -306,8 +307,9 @@ def _render_markdown(summary: BenchmarkSummary) -> str:
     lines.append("# Historical Benchmark Results")
     lines.append("")
     lines.append(
-        "Automated benchmark: simulated agent vs. historical AI "
-        "across all engagements in `data/historical/battles.json`."
+        "Automated benchmark: direct `SimEngine` runs comparing simulated "
+        "outcomes to historical battle results across all engagements in "
+        "`data/historical/battles.json`."
     )
     lines.append("")
 

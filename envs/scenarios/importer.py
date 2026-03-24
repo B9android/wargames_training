@@ -257,10 +257,12 @@ def _parse_json_entry(raw: dict) -> BattleRecord:
 def _parse_csv_row(row: Dict[str, str]) -> BattleRecord:
     """Convert a flat CSV row to a :class:`BattleRecord`.
 
-    Mandatory columns: ``id``, ``name``, ``date``, ``winner``,
+    Core columns used when present: ``id``, ``name``, ``date``, ``winner``,
     ``blue_casualties``, ``red_casualties``, ``duration_steps``.
-    All other columns are optional; missing unit/terrain data uses
-    sensible defaults so that the scenario can still run.
+    Missing or invalid values are replaced with permissive defaults
+    (e.g. casualties → 0.0, duration_steps → 500) so that the scenario
+    can still run.  Unit positions and terrain are set to sensible defaults
+    when the corresponding optional columns are absent.
     """
     def _float(val: str, default: float = 0.0) -> float:
         try:
@@ -355,7 +357,19 @@ def _record_to_scenario(rec: BattleRecord) -> HistoricalScenario:
     ):
         winner: Optional[int] = None
     else:
-        winner = int(raw_winner)
+        try:
+            winner_int = int(raw_winner)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid historical outcome winner {raw_winner!r}; "
+                "expected 0, 1, or a null/draw sentinel."
+            ) from exc
+        if winner_int not in (0, 1):
+            raise ValueError(
+                f"Invalid historical outcome winner {winner_int!r}; "
+                "expected 0 or 1."
+            )
+        winner = winner_int
 
     outcome = HistoricalOutcome(
         winner=winner,

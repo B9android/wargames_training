@@ -155,6 +155,21 @@ class TestBattleRecord(unittest.TestCase):
         with self.assertRaises(ValueError):
             rec.to_scenario()
 
+    def test_invalid_winner_value_raises_value_error(self) -> None:
+        rec = _minimal_record(historical_outcome={"winner": 2, "blue_casualties": 0.1, "red_casualties": 0.2, "duration_steps": 300})
+        with self.assertRaises(ValueError):
+            rec.to_scenario()
+
+    def test_negative_winner_value_raises_value_error(self) -> None:
+        rec = _minimal_record(historical_outcome={"winner": -1, "blue_casualties": 0.1, "red_casualties": 0.2, "duration_steps": 300})
+        with self.assertRaises(ValueError):
+            rec.to_scenario()
+
+    def test_string_winner_non_numeric_raises_value_error(self) -> None:
+        rec = _minimal_record(historical_outcome={"winner": "red", "blue_casualties": 0.1, "red_casualties": 0.2, "duration_steps": 300})
+        with self.assertRaises(ValueError):
+            rec.to_scenario()
+
 
 # ---------------------------------------------------------------------------
 # BatchScenarioImporter — JSON

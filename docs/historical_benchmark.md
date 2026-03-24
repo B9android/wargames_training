@@ -1,6 +1,6 @@
 # Historical Benchmark Results
 
-Automated benchmark: simulated agent vs. historical AI across all engagements in `data/historical/battles.json`.
+Automated benchmark: direct `SimEngine` runs comparing simulated outcomes to historical battle results across all engagements in `data/historical/battles.json`.
 
 ## Summary
 
