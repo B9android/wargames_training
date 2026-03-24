@@ -1,0 +1,2 @@
+[console_scripts]
+wargames-bench = benchmarks.wargames_bench:main

@@ -95,7 +95,7 @@ class TestWandbCallback(unittest.TestCase):
 
     def test_on_step_logs_when_buffer_full(self) -> None:
         """_on_step logs to wandb when buffer has data and log_freq is met."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.train import WandbCallback
 
         with patch.object(train_mod, "wandb") as mock_wandb:
@@ -116,7 +116,7 @@ class TestWandbCallback(unittest.TestCase):
 
     def test_on_step_skips_when_buffer_empty(self) -> None:
         """_on_step does not log when ep_info_buffer is empty."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.train import WandbCallback
 
         with patch.object(train_mod, "wandb") as mock_wandb:
@@ -132,7 +132,7 @@ class TestWandbCallback(unittest.TestCase):
 
     def test_on_rollout_end_logs_losses(self) -> None:
         """_on_rollout_end forwards SB3 logger values to wandb."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.train import WandbCallback
 
         with patch.object(train_mod, "wandb") as mock_wandb:
@@ -196,7 +196,7 @@ class TestRewardBreakdownCallback(unittest.TestCase):
 
     def test_accumulates_per_step_not_just_terminal(self) -> None:
         """Components should be summed across all steps, not only the terminal one."""
-        from training import train as train_mod
+        import training.train as train_mod
 
         with patch.object(train_mod, "wandb"):
             cb = self._make_cb(log_freq=1000)
@@ -225,7 +225,7 @@ class TestRewardBreakdownCallback(unittest.TestCase):
 
     def test_logs_episode_means_at_log_freq(self) -> None:
         """Flush should occur when num_timesteps % log_freq == 0 and ep_count > 0."""
-        from training import train as train_mod
+        import training.train as train_mod
 
         with patch.object(train_mod, "wandb") as mock_wandb:
             cb = self._make_cb(log_freq=10)
@@ -245,7 +245,7 @@ class TestRewardBreakdownCallback(unittest.TestCase):
 
     def test_no_log_when_no_episodes_completed(self) -> None:
         """No W&B log when log_freq is met but no episodes have finished."""
-        from training import train as train_mod
+        import training.train as train_mod
 
         with patch.object(train_mod, "wandb") as mock_wandb:
             cb = self._make_cb(log_freq=10)
@@ -260,7 +260,7 @@ class TestRewardBreakdownCallback(unittest.TestCase):
 
     def test_accumulators_reset_after_flush(self) -> None:
         """Episode accumulators must be zeroed after logging."""
-        from training import train as train_mod
+        import training.train as train_mod
 
         with patch.object(train_mod, "wandb"):
             cb = self._make_cb(log_freq=10)
@@ -277,7 +277,7 @@ class TestRewardBreakdownCallback(unittest.TestCase):
 
     def test_on_training_end_flushes_remaining_episodes(self) -> None:
         """_on_training_end must log any episodes accumulated since the last flush."""
-        from training import train as train_mod
+        import training.train as train_mod
 
         with patch.object(train_mod, "wandb") as mock_wandb:
             cb = self._make_cb(log_freq=10000)  # large → won't auto-flush
@@ -301,7 +301,7 @@ class TestRewardBreakdownCallback(unittest.TestCase):
 
     def test_multi_env_episode_boundaries(self) -> None:
         """Multiple parallel envs finishing simultaneously are each counted."""
-        from training import train as train_mod
+        import training.train as train_mod
 
         with patch.object(train_mod, "wandb") as mock_wandb:
             cb = self._make_cb_n(n_envs=2, log_freq=10)
@@ -334,7 +334,7 @@ class TestManifestCallbacks(unittest.TestCase):
     def test_periodic_checkpoint_registered_when_created(self) -> None:
         import tempfile
 
-        from training import train as train_mod
+        import training.train as train_mod
         from training.artifacts import CheckpointManifest
         from training.train import ManifestCheckpointCallback
 
@@ -377,7 +377,7 @@ class TestManifestCallbacks(unittest.TestCase):
     def test_best_checkpoint_registered_when_created(self) -> None:
         import tempfile
 
-        from training import train as train_mod
+        import training.train as train_mod
         from training.artifacts import CheckpointManifest
         from training.train import ManifestEvalCallback
         from envs.battalion_env import BattalionEnv
@@ -522,7 +522,7 @@ class TestTrainWandbInit(unittest.TestCase):
         import tempfile
 
         from omegaconf import OmegaConf
-        from training import train as train_mod
+        import training.train as train_mod
         from training.train import main
 
         cfg = OmegaConf.create(
@@ -663,7 +663,7 @@ class TestEloEvalCallback(unittest.TestCase):
 
     def test_on_step_does_not_trigger_before_freq(self) -> None:
         """_on_step does not run evaluation before eval_freq steps."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.elo import EloRegistry
         from training.train import EloEvalCallback
 
@@ -684,7 +684,7 @@ class TestEloEvalCallback(unittest.TestCase):
 
     def test_on_step_triggers_at_eval_freq(self) -> None:
         """_on_step evaluates and logs to W&B when eval_freq is reached."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.elo import EloRegistry
         from training.train import EloEvalCallback
 
@@ -713,7 +713,7 @@ class TestEloEvalCallback(unittest.TestCase):
 
     def test_on_step_does_not_trigger_twice_at_same_step(self) -> None:
         """_on_step does not re-evaluate if called twice at the same timestep."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.elo import EloRegistry
         from training.train import EloEvalCallback
 
@@ -744,7 +744,7 @@ class TestEloEvalCallback(unittest.TestCase):
 
     def test_elo_registry_updated_on_win(self) -> None:
         """Rating increases when the agent wins all evaluation episodes."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.elo import EloRegistry, DEFAULT_RATING
         from training.train import EloEvalCallback
 
@@ -771,7 +771,7 @@ class TestEloEvalCallback(unittest.TestCase):
 
     def test_elo_registry_updated_on_loss(self) -> None:
         """Rating decreases when the agent loses all evaluation episodes."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.elo import EloRegistry, DEFAULT_RATING
         from training.train import EloEvalCallback
 
@@ -799,7 +799,7 @@ class TestEloEvalCallback(unittest.TestCase):
     def test_registry_saved_to_disk(self) -> None:
         """_run_elo_eval persists the registry when it has a file path."""
         import tempfile
-        from training import train as train_mod
+        import training.train as train_mod
         from training.elo import EloRegistry
         from training.train import EloEvalCallback
 
@@ -827,7 +827,7 @@ class TestEloEvalCallback(unittest.TestCase):
 
     def test_env_kwargs_forwarded_to_run_episodes(self) -> None:
         """env_kwargs stored on callback are forwarded to run_episodes_with_model."""
-        from training import train as train_mod
+        import training.train as train_mod
         from training.elo import EloRegistry
         from training.train import EloEvalCallback
 

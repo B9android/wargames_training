@@ -21,14 +21,16 @@ Usage::
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import logging
 import os
 import shutil
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, List, Optional, Union
 
 # Ensure project root is importable when running as a script.
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -529,7 +531,487 @@ class EloEvalCallback(BaseCallback):
 
 
 # ---------------------------------------------------------------------------
-# Training entry point
+# TrainingConfig — programmatic training configuration
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TrainingConfig:
+    """Configuration for a single PPO training run on :class:`~envs.battalion_env.BattalionEnv`.
+
+    All fields are optional; the defaults match ``configs/default.yaml``.
+    Instances can be passed directly to :func:`train` or individual fields
+    can be overridden via ``**kwargs`` at the call site.
+
+    Examples
+    --------
+    Minimal run with defaults::
+
+        from training import train, TrainingConfig
+        model = train(TrainingConfig(total_timesteps=500_000))
+
+    Override specific fields at call time without constructing a config::
+
+        model = train(total_timesteps=200_000, n_envs=4, enable_wandb=False)
+    """
+
+    # ── PPO hyperparameters ───────────────────────────────────────────────
+    total_timesteps: int = 1_000_000
+    learning_rate: float = 3.0e-4
+    n_steps: int = 2048
+    batch_size: int = 64
+    n_epochs: int = 10
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    clip_range: float = 0.2
+    ent_coef: float = 0.01
+    vf_coef: float = 0.5
+    max_grad_norm: float = 0.5
+    seed: int = 42
+    device: str = "auto"
+
+    # ── Environment ───────────────────────────────────────────────────────
+    n_envs: int = 8
+    curriculum_level: int = 5
+    map_width: float = 1000.0
+    map_height: float = 1000.0
+    max_steps: int = 500
+    randomize_terrain: bool = True
+    hill_speed_factor: float = 0.5
+
+    # ── Reward weights ────────────────────────────────────────────────────
+    reward_delta_enemy_strength: float = 5.0
+    reward_delta_own_strength: float = 5.0
+    reward_survival_bonus: float = 0.0
+    reward_win_bonus: float = 10.0
+    reward_loss_penalty: float = -10.0
+    reward_time_penalty: float = -0.01
+
+    # ── Checkpointing and evaluation ──────────────────────────────────────
+    checkpoint_dir: str = "checkpoints"
+    checkpoint_freq: int = 100_000
+    eval_freq: int = 50_000
+    n_eval_episodes: int = 20
+    eval_deterministic: bool = True
+
+    # ── Artifact management ───────────────────────────────────────────────
+    write_manifest: bool = True
+    manifest_path: str = "checkpoints/manifest.jsonl"
+    enable_naming_v2: bool = True
+    keep_legacy_aliases: bool = True
+
+    # ── W&B experiment tracking ───────────────────────────────────────────
+    enable_wandb: bool = True
+    wandb_project: str = "wargames_training"
+    wandb_entity: Optional[str] = None
+    wandb_tags: List[str] = field(default_factory=lambda: ["v1", "ppo"])
+    wandb_log_freq: int = 1000
+
+    # ── Self-play (disabled by default) ───────────────────────────────────
+    enable_self_play: bool = False
+    self_play_pool_dir: str = "checkpoints/pool"
+    self_play_pool_max_size: int = 10
+    self_play_snapshot_freq: int = 50_000
+    self_play_eval_freq: int = 50_000
+    self_play_n_eval_episodes: int = 20
+    self_play_use_latest_for_eval: bool = False
+
+    # ── Elo evaluation (disabled by default) ─────────────────────────────
+    elo_opponents: List[str] = field(default_factory=list)
+    elo_registry_path: str = "checkpoints/elo_registry.json"
+    elo_eval_freq: int = 50_000
+    elo_n_eval_episodes: int = 20
+
+    # ── Retention / pruning ───────────────────────────────────────────────
+    keep_periodic: int = 5
+    keep_self_play_snapshots: int = 10
+    prune_on_run_end: bool = True
+
+    # ── Logging ───────────────────────────────────────────────────────────
+    verbose: int = 1
+    log_dir: str = "logs"
+
+
+# ---------------------------------------------------------------------------
+# train() — programmatic training entry point
+# ---------------------------------------------------------------------------
+
+
+def train(
+    config: Optional[TrainingConfig] = None,
+    *,
+    extra_callbacks: Optional[List[BaseCallback]] = None,
+    resume: Optional[Union[str, Path]] = None,
+    **override_kwargs: Any,
+) -> PPO:
+    """Train a PPO policy on :class:`~envs.battalion_env.BattalionEnv`.
+
+    This is the programmatic entry-point for training, fully decoupled from
+    Hydra/YAML so it can be called from any Python script or notebook.
+
+    Parameters
+    ----------
+    config:
+        :class:`TrainingConfig` instance.  When ``None`` a default config is
+        used.  Individual fields can be overridden via ``**override_kwargs``.
+    extra_callbacks:
+        Additional SB3 :class:`~stable_baselines3.common.callbacks.BaseCallback`
+        instances appended to the built-in callback list.
+    resume:
+        Path to an existing ``.zip`` checkpoint to resume training from.
+        When provided, the model weights and optimizer state are loaded
+        before training begins (the ``.zip`` extension may be omitted).
+    **override_kwargs:
+        Keyword arguments that override individual :class:`TrainingConfig`
+        fields.  Any unrecognised key raises :exc:`ValueError`.
+
+    Returns
+    -------
+    stable_baselines3.PPO
+        The trained model.  Periodic checkpoints, best-model, and a manifest
+        are written to *config.checkpoint_dir* during training.
+
+    Raises
+    ------
+    ValueError
+        If any configuration value is invalid or an unrecognised
+        ``**override_kwarg`` key is passed.
+    FileNotFoundError
+        If *resume* points to a path that does not exist on disk.
+
+    Examples
+    --------
+    Quickstart with defaults::
+
+        from training import train
+        model = train(total_timesteps=200_000, n_envs=4, enable_wandb=False)
+
+    Full config::
+
+        from training import train, TrainingConfig
+        config = TrainingConfig(
+            total_timesteps=1_000_000,
+            n_envs=8,
+            curriculum_level=3,
+            enable_self_play=True,
+        )
+        model = train(config)
+    """
+    if config is None:
+        config = TrainingConfig()
+
+    # Apply per-call overrides.
+    if override_kwargs:
+        valid_fields = {f.name for f in dataclasses.fields(config)}
+        unknown = set(override_kwargs) - valid_fields
+        if unknown:
+            raise ValueError(
+                f"Unknown TrainingConfig fields: {', '.join(sorted(unknown))}. "
+                f"Valid fields: {', '.join(sorted(valid_fields))}."
+            )
+        config = dataclasses.replace(config, **override_kwargs)
+
+    # Validate critical parameters.
+    if config.total_timesteps < 1:
+        raise ValueError(
+            f"total_timesteps must be >= 1, got {config.total_timesteps}."
+        )
+    if config.n_envs < 1:
+        raise ValueError(f"n_envs must be >= 1, got {config.n_envs}.")
+    if config.checkpoint_freq <= 0:
+        raise ValueError(
+            f"checkpoint_freq must be > 0, got {config.checkpoint_freq}."
+        )
+    if config.eval_freq <= 0:
+        raise ValueError(f"eval_freq must be > 0, got {config.eval_freq}.")
+
+    # Resolve paths relative to the current working directory.
+    checkpoint_dir = Path(config.checkpoint_dir)
+    log_dir = Path(config.log_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Checkpoint manifest.
+    manifest_path_resolved = Path(config.manifest_path)
+    manifest: Optional[CheckpointManifest] = (
+        CheckpointManifest(manifest_path_resolved) if config.write_manifest else None
+    )
+
+    # Deterministic config hash for traceability.
+    config_dict = dataclasses.asdict(config)
+    config_hash = hashlib.sha256(
+        json.dumps(config_dict, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+    periodic_prefix = checkpoint_name_prefix(
+        seed=config.seed,
+        curriculum_level=config.curriculum_level,
+        enable_v2=config.enable_naming_v2,
+    )
+
+    # W&B initialisation (optional; failures are non-fatal).
+    run: Any = None
+    run_id: Optional[str] = None
+    if config.enable_wandb:
+        try:
+            run = wandb.init(
+                project=config.wandb_project,
+                entity=config.wandb_entity,
+                config=config_dict,
+                tags=list(config.wandb_tags),
+                sync_tensorboard=False,
+                reinit=True,
+            )
+            run_id = (
+                run.id
+                if run is not None and hasattr(run, "id") and run.id
+                else None
+            )
+            log.info("W&B run: %s", getattr(run, "url", "offline"))
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "W&B initialisation failed (%s) — continuing without W&B.", exc
+            )
+
+    # Reward weights.
+    reward_weights = RewardWeights(
+        delta_enemy_strength=config.reward_delta_enemy_strength,
+        delta_own_strength=config.reward_delta_own_strength,
+        survival_bonus=config.reward_survival_bonus,
+        win_bonus=config.reward_win_bonus,
+        loss_penalty=config.reward_loss_penalty,
+        time_penalty=config.reward_time_penalty,
+    )
+
+    env_kwargs: dict = dict(
+        map_width=config.map_width,
+        map_height=config.map_height,
+        max_steps=config.max_steps,
+        randomize_terrain=config.randomize_terrain,
+        hill_speed_factor=config.hill_speed_factor,
+        curriculum_level=config.curriculum_level,
+        reward_weights=reward_weights,
+    )
+
+    vec_env = make_vec_env(
+        BattalionEnv,
+        n_envs=config.n_envs,
+        seed=config.seed,
+        env_kwargs=env_kwargs,
+    )
+    eval_env = make_vec_env(
+        BattalionEnv,
+        n_envs=1,
+        seed=config.seed + 1000,
+        env_kwargs=env_kwargs,
+    )
+
+    # Built-in callbacks.
+    _checkpoint_cb = ManifestCheckpointCallback(
+        save_freq=max(1, config.checkpoint_freq // config.n_envs),
+        save_path=str(checkpoint_dir),
+        name_prefix=periodic_prefix,
+        manifest=manifest,
+        seed=config.seed,
+        curriculum_level=config.curriculum_level,
+        run_id=run_id,
+        config_hash=config_hash,
+        verbose=config.verbose,
+    )
+    _eval_cb = ManifestEvalCallback(
+        eval_env,
+        best_model_save_path=str(checkpoint_dir / "best"),
+        log_path=str(log_dir),
+        eval_freq=max(1, config.eval_freq // config.n_envs),
+        n_eval_episodes=config.n_eval_episodes,
+        deterministic=config.eval_deterministic,
+        manifest=manifest,
+        seed=config.seed,
+        curriculum_level=config.curriculum_level,
+        run_id=run_id,
+        config_hash=config_hash,
+        enable_naming_v2=config.enable_naming_v2,
+        verbose=config.verbose,
+    )
+    all_callbacks: list = [_checkpoint_cb, _eval_cb]
+
+    if config.enable_wandb:
+        all_callbacks.append(WandbCallback(log_freq=config.wandb_log_freq))
+        all_callbacks.append(RewardBreakdownCallback(log_freq=config.wandb_log_freq))
+
+    # Self-play callbacks (optional).
+    if config.enable_self_play:
+        _pool = OpponentPool(
+            pool_dir=Path(config.self_play_pool_dir),
+            max_size=config.self_play_pool_max_size,
+        )
+        _sp_cb = SelfPlayCallback(
+            pool=_pool,
+            snapshot_freq=config.self_play_snapshot_freq,
+            vec_env=vec_env,
+            verbose=config.verbose,
+            manifest=manifest,
+            seed=config.seed,
+            curriculum_level=config.curriculum_level,
+            run_id=run_id,
+            config_hash=config_hash,
+        )
+        _wr_cb = WinRateVsPoolCallback(
+            pool=_pool,
+            eval_freq=config.self_play_eval_freq,
+            n_eval_episodes=config.self_play_n_eval_episodes,
+            deterministic=True,
+            use_latest=config.self_play_use_latest_for_eval,
+            verbose=config.verbose,
+        )
+        all_callbacks.extend([_sp_cb, _wr_cb])
+        log.info(
+            "Self-play enabled: pool_dir=%s, max_size=%d",
+            config.self_play_pool_dir,
+            config.self_play_pool_max_size,
+        )
+
+    # Elo callbacks (optional).
+    if config.elo_opponents:
+        _elo_registry = EloRegistry(path=Path(config.elo_registry_path))
+        _elo_run_id = run_id or f"run_seed{config.seed}"
+        _elo_cb = EloEvalCallback(
+            opponents=list(config.elo_opponents),
+            n_eval_episodes=config.elo_n_eval_episodes,
+            registry=_elo_registry,
+            agent_name=_elo_run_id,
+            eval_freq=config.elo_eval_freq,
+            env_kwargs=dict(env_kwargs),
+            seed=config.seed,
+            verbose=config.verbose,
+        )
+        all_callbacks.append(_elo_cb)
+
+    # Merge extra caller-supplied callbacks.
+    all_callbacks.extend(extra_callbacks or [])
+
+    # Resolve resume checkpoint.
+    resume_path: Optional[Path] = None
+    if resume is not None:
+        resume_path = Path(resume)
+        if not resume_path.exists():
+            zip_path = Path(str(resume_path) + ".zip")
+            if zip_path.exists():
+                resume_path = zip_path
+            else:
+                raise FileNotFoundError(
+                    f"Resume checkpoint not found: '{resume}'. "
+                    "Provide an existing .zip path or omit the extension."
+                )
+
+    # Build or reload PPO model.
+    if resume_path is not None:
+        log.info("Resuming from checkpoint: %s", resume_path)
+        model = PPO.load(
+            str(resume_path),
+            env=vec_env,
+            device=config.device,
+            custom_objects={
+                "learning_rate": config.learning_rate,
+                "clip_range": config.clip_range,
+            },
+        )
+    else:
+        model = PPO(
+            BattalionMlpPolicy,
+            vec_env,
+            learning_rate=config.learning_rate,
+            n_steps=config.n_steps,
+            batch_size=config.batch_size,
+            n_epochs=config.n_epochs,
+            gamma=config.gamma,
+            gae_lambda=config.gae_lambda,
+            clip_range=config.clip_range,
+            ent_coef=config.ent_coef,
+            vf_coef=config.vf_coef,
+            max_grad_norm=config.max_grad_norm,
+            seed=config.seed,
+            device=config.device,
+            verbose=config.verbose,
+        )
+    log.info("PPO model ready. Training for %d timesteps.", config.total_timesteps)
+
+    # Training loop.
+    model.learn(
+        total_timesteps=config.total_timesteps,
+        callback=CallbackList(all_callbacks),
+        progress_bar=False,
+        reset_num_timesteps=resume_path is None,
+    )
+
+    # Save final checkpoint.
+    final_stem = checkpoint_final_stem(
+        seed=config.seed,
+        curriculum_level=config.curriculum_level,
+        enable_v2=config.enable_naming_v2,
+    )
+    final_path = checkpoint_dir / final_stem
+    model.save(str(final_path))
+    log.info("Saved final model to %s.zip", final_path)
+
+    legacy_alias = checkpoint_dir / "ppo_battalion_final"
+    if config.keep_legacy_aliases and final_path != legacy_alias:
+        model.save(str(legacy_alias))
+
+    # Register artifacts in the manifest.
+    if manifest is not None:
+        for periodic_zip in checkpoint_dir.glob(f"{periodic_prefix}_*_steps.zip"):
+            manifest.register(
+                periodic_zip,
+                artifact_type="periodic",
+                seed=config.seed,
+                curriculum_level=config.curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+                step=parse_step_from_checkpoint_name(periodic_zip),
+            )
+        final_zip = final_path.with_suffix(".zip")
+        if final_zip.exists():
+            manifest.register(
+                final_zip,
+                artifact_type="final",
+                seed=config.seed,
+                curriculum_level=config.curriculum_level,
+                run_id=run_id,
+                config_hash=config_hash,
+                step=int(getattr(model, "num_timesteps", 0) or 0),
+            )
+        # Prune old checkpoints if requested.
+        if config.prune_on_run_end and config.keep_periodic > 0:
+            pruned = manifest.prune_periodic(
+                checkpoint_dir, periodic_prefix, keep_last=config.keep_periodic
+            )
+            if pruned:
+                log.info("Pruned %d old periodic checkpoint(s).", len(pruned))
+        if config.enable_self_play and config.keep_self_play_snapshots > 0:
+            pruned_sp = manifest.prune_self_play_snapshots(
+                Path(config.self_play_pool_dir),
+                keep_last=config.keep_self_play_snapshots,
+            )
+            if pruned_sp:
+                log.info("Pruned %d old self-play snapshot(s).", len(pruned_sp))
+
+    # Upload final artifact to W&B and close the run.
+    if run is not None:
+        artifact = wandb.Artifact(name="ppo_battalion_final", type="model")
+        zip_str = str(final_path) + ".zip"
+        if Path(zip_str).exists():
+            artifact.add_file(zip_str)
+            run.log_artifact(artifact)
+        run.finish()
+
+    vec_env.close()
+    eval_env.close()
+    return model
+
+
+# ---------------------------------------------------------------------------
+# Hydra training entry point (CLI / YAML config)
 # ---------------------------------------------------------------------------
 
 
