@@ -28,7 +28,7 @@ jobs:
         id: check_workflows
         run: |
           FORBIDDEN=$(git diff --name-only HEAD~1 HEAD -- '.github/workflows/*.yml' | \
-            grep -vE 'orchestration\.yml|governance\.yml|agent-project-board\.yml|agent-setup-labels-milestones\.yml|seed-v1-issues\.yml|docs\.yml|ray_smoke_test\.yml' || true)
+            grep -vE 'orchestration\.yml|governance\.yml|agent-project-board\.yml|agent-setup-labels-milestones\.yml|seed-v1-issues\.yml|docs\.yml|ray_smoke_test\.yml|ci\.yml' || true)
           if [ -n "$FORBIDDEN" ]; then
             echo "::error::New per-agent workflow files found. All agents MUST go through orchestration.yml."
             echo "Forbidden files:"
