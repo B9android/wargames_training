@@ -123,11 +123,12 @@ class TerrainConfig:
     Attributes
     ----------
     terrain_type:
-        One of ``"flat"``, ``"generated"``.
+        One of ``"flat"``, ``"generated"``, or ``"gis"``.
     width, height:
-        Map dimensions in metres.
+        Map dimensions in metres.  For GIS terrain these are ignored in
+        favour of the site's geographic bounding-box dimensions.
     rows, cols:
-        Grid resolution (used for flat / generated terrain).
+        Grid resolution (used for flat / generated / GIS terrain).
     seed:
         Random seed for terrain generation (only used when
         ``terrain_type == "generated"``).
@@ -135,6 +136,12 @@ class TerrainConfig:
         Number of elevation blobs for generated terrain.
     n_forests:
         Number of forest/cover blobs for generated terrain.
+    gis_site:
+        Battle-site identifier for GIS terrain (e.g. ``"waterloo"``).
+        Required when ``terrain_type == "gis"``.
+    gis_data_dir:
+        Optional directory containing ``{site}.tif`` and ``{site}.osm``
+        files.  When absent the synthetic GIS fallback is used.
     """
 
     terrain_type: str = "flat"
@@ -145,6 +152,8 @@ class TerrainConfig:
     seed: int = 0
     n_hills: int = 3
     n_forests: int = 2
+    gis_site: str = ""
+    gis_data_dir: str = ""
 
 
 @dataclass
@@ -229,6 +238,8 @@ class HistoricalScenario:
                 num_hills=cfg.n_hills,
                 num_forests=cfg.n_forests,
             )
+        if cfg.terrain_type == "gis":
+            return self._build_gis_terrain(cfg)
         # Default: flat terrain
         return TerrainMap.flat(
             width=cfg.width,
@@ -236,6 +247,37 @@ class HistoricalScenario:
             rows=cfg.rows,
             cols=cfg.cols,
         )
+
+    @staticmethod
+    def _build_gis_terrain(cfg: "TerrainConfig") -> TerrainMap:
+        """Build a GIS-sourced :class:`~envs.sim.terrain.TerrainMap`.
+
+        Imports :mod:`data.gis.terrain_importer` at call time so that the
+        heavy-weight dependency is only required when actually using GIS
+        terrain — the rest of the module works without it.
+
+        Raises
+        ------
+        ValueError
+            If ``cfg.gis_site`` is empty or not a known battle site.
+        """
+        from data.gis.terrain_importer import GISTerrainBuilder  # noqa: PLC0415
+
+        site = cfg.gis_site.strip()
+        if not site:
+            raise ValueError(
+                "terrain_type is 'gis' but gis_site is empty. "
+                "Set gis_site to one of: waterloo, austerlitz, borodino, salamanca."
+            )
+        data_dir = cfg.gis_data_dir.strip() or None
+        builder = GISTerrainBuilder(
+            site=site,
+            rows=cfg.rows,
+            cols=cfg.cols,
+            srtm_path=(Path(data_dir) / f"{site}.tif") if data_dir else None,
+            osm_path=(Path(data_dir) / f"{site}.osm") if data_dir else None,
+        )
+        return builder.build()
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +378,8 @@ class ScenarioLoader:
             seed=int(raw.get("seed", 0)),
             n_hills=int(raw.get("n_hills", 3)),
             n_forests=int(raw.get("n_forests", 2)),
+            gis_site=str(raw.get("gis_site", "")),
+            gis_data_dir=str(raw.get("gis_data_dir", "")),
         )
 
     @staticmethod

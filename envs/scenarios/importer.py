@@ -346,6 +346,8 @@ def _record_to_scenario(rec: BattleRecord) -> HistoricalScenario:
         seed=int(t.get("seed", 0)),
         n_hills=int(t.get("n_hills", 3)),
         n_forests=int(t.get("n_forests", 2)),
+        gis_site=str(t.get("gis_site", "")),
+        gis_data_dir=str(t.get("gis_data_dir", "")),
     )
 
     # Historical outcome
