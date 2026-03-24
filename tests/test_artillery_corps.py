@@ -66,6 +66,8 @@ from envs.sim.artillery_corps import (
     DEFAULT_ARTILLERY_RANGE,
     DEFAULT_ARTILLERY_SPEED,
     DEFAULT_BASE_FIRE_DAMAGE,
+    DEFAULT_BASE_MORALE_DAMAGE,
+    DEFAULT_BASE_STRENGTH_DAMAGE,
     DEFAULT_GRAND_BATTERY_RADIUS,
     DEFAULT_GRAND_BATTERY_BONUS,
     DEFAULT_COUNTER_BATTERY_BONUS,
@@ -194,7 +196,8 @@ class TestArtilleryUnitConfig(unittest.TestCase):
         cfg = ArtilleryUnitConfig()
         self.assertEqual(cfg.max_speed, DEFAULT_ARTILLERY_SPEED)
         self.assertEqual(cfg.max_range, DEFAULT_ARTILLERY_RANGE)
-        self.assertEqual(cfg.base_fire_damage, DEFAULT_BASE_FIRE_DAMAGE)
+        self.assertEqual(cfg.base_morale_damage, DEFAULT_BASE_MORALE_DAMAGE)
+        self.assertEqual(cfg.base_strength_damage, DEFAULT_BASE_STRENGTH_DAMAGE)
         self.assertEqual(cfg.grand_battery_radius, DEFAULT_GRAND_BATTERY_RADIUS)
         self.assertEqual(cfg.grand_battery_bonus, DEFAULT_GRAND_BATTERY_BONUS)
         self.assertEqual(cfg.counter_battery_bonus, DEFAULT_COUNTER_BATTERY_BONUS)
@@ -216,9 +219,13 @@ class TestArtilleryUnitConfig(unittest.TestCase):
         with self.assertRaises(ValueError):
             ArtilleryUnitConfig(max_range=-1.0)
 
-    def test_negative_base_fire_damage(self) -> None:
+    def test_negative_base_morale_damage(self) -> None:
         with self.assertRaises(ValueError):
-            ArtilleryUnitConfig(base_fire_damage=-0.01)
+            ArtilleryUnitConfig(base_morale_damage=-0.01)
+
+    def test_negative_base_strength_damage(self) -> None:
+        with self.assertRaises(ValueError):
+            ArtilleryUnitConfig(base_strength_damage=-0.01)
 
     def test_invalid_grand_battery_radius(self) -> None:
         with self.assertRaises(ValueError):
@@ -595,6 +602,8 @@ class TestCountGrandBatteryGuns(unittest.TestCase):
         u1 = _make_unit(x=2_000.0, y=2_500.0, config=cfg)
         u2 = _make_unit(x=2_300.0, y=2_500.0, config=cfg)
         u3 = _make_unit(x=2_600.0, y=2_500.0, config=cfg)
+        for u in (u1, u2, u3):
+            u.mission = ArtilleryMission.GRAND_BATTERY
         corps = ArtilleryCorps(
             units=[u1, u2, u3], map_width=MAP_W, map_height=MAP_H
         )
@@ -605,6 +614,8 @@ class TestCountGrandBatteryGuns(unittest.TestCase):
         cfg = ArtilleryUnitConfig(grand_battery_radius=100.0)
         u1 = _make_unit(x=2_000.0, y=2_500.0, config=cfg)
         u2 = _make_unit(x=5_000.0, y=2_500.0, config=cfg)
+        for u in (u1, u2):
+            u.mission = ArtilleryMission.GRAND_BATTERY
         corps = ArtilleryCorps(units=[u1, u2], map_width=MAP_W, map_height=MAP_H)
         count = corps.count_grand_battery_guns(u1)
         self.assertEqual(count, 1)
@@ -613,6 +624,8 @@ class TestCountGrandBatteryGuns(unittest.TestCase):
         cfg = ArtilleryUnitConfig(grand_battery_radius=1_000.0)
         u1 = _make_unit(x=2_000.0, y=2_500.0, config=cfg)
         u2 = _make_unit(x=2_100.0, y=2_500.0, alive=False, config=cfg)
+        u1.mission = ArtilleryMission.GRAND_BATTERY
+        u2.mission = ArtilleryMission.GRAND_BATTERY
         corps = ArtilleryCorps(units=[u1, u2], map_width=MAP_W, map_height=MAP_H)
         count = corps.count_grand_battery_guns(u1)
         self.assertEqual(count, 1)
@@ -622,9 +635,24 @@ class TestCountGrandBatteryGuns(unittest.TestCase):
         cfg1 = ArtilleryUnitConfig(grand_battery_radius=1_000.0, team=1)
         u_blue = _make_unit(x=2_000.0, y=2_500.0, team=0, config=cfg0)
         u_red = _make_unit(x=2_100.0, y=2_500.0, team=1, config=cfg1)
+        u_blue.mission = ArtilleryMission.GRAND_BATTERY
+        u_red.mission = ArtilleryMission.GRAND_BATTERY
         corps = ArtilleryCorps(units=[u_blue, u_red], map_width=MAP_W, map_height=MAP_H)
         count = corps.count_grand_battery_guns(u_blue)
         self.assertEqual(count, 1)
+
+    def test_off_mission_guns_not_counted(self) -> None:
+        """IDLE or COUNTER_BATTERY batteries nearby should NOT inflate the count."""
+        cfg = ArtilleryUnitConfig(grand_battery_radius=1_000.0)
+        u1 = _make_unit(x=2_000.0, y=2_500.0, config=cfg)
+        u2 = _make_unit(x=2_200.0, y=2_500.0, config=cfg)  # IDLE
+        u3 = _make_unit(x=2_400.0, y=2_500.0, config=cfg)  # COUNTER_BATTERY
+        u1.mission = ArtilleryMission.GRAND_BATTERY
+        u2.mission = ArtilleryMission.IDLE
+        u3.mission = ArtilleryMission.COUNTER_BATTERY
+        corps = ArtilleryCorps(units=[u1, u2, u3], map_width=MAP_W, map_height=MAP_H)
+        count = corps.count_grand_battery_guns(u1)
+        self.assertEqual(count, 1)  # only u1 counts
 
 
 # ---------------------------------------------------------------------------
@@ -665,7 +693,7 @@ class TestArtilleryCorpsStepGrandBattery(unittest.TestCase):
     def test_single_gun_applies_base_damage(self) -> None:
         cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=0.05,
+            base_morale_damage=0.05,
             grand_battery_bonus=0.01,
         )
         unit = _make_unit(
@@ -682,7 +710,7 @@ class TestArtilleryCorpsStepGrandBattery(unittest.TestCase):
         """Six guns close together apply a stacking bonus."""
         cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=0.05,
+            base_morale_damage=0.05,
             grand_battery_bonus=0.01,
             grand_battery_radius=1_000.0,
         )
@@ -725,7 +753,7 @@ class TestArtilleryCorpsStepGrandBattery(unittest.TestCase):
         self.assertAlmostEqual(report.morale_damage_dealt, 0.0)
 
     def test_grand_battery_routes_target_when_morale_low(self) -> None:
-        cfg = ArtilleryUnitConfig(max_range=2_000.0, base_fire_damage=0.8)
+        cfg = ArtilleryUnitConfig(max_range=2_000.0, base_morale_damage=0.8)
         unit = _make_unit(
             x=5_000.0, y=2_500.0,
             mission=ArtilleryMission.GRAND_BATTERY,
@@ -761,7 +789,7 @@ class TestArtilleryCorpsStepCounterBattery(unittest.TestCase):
     def test_counter_battery_damages_enemy_artillery(self) -> None:
         cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=0.05,
+            base_strength_damage=0.05,
             counter_battery_bonus=0.06,
         )
         unit = _make_unit(
@@ -777,7 +805,7 @@ class TestArtilleryCorpsStepCounterBattery(unittest.TestCase):
     def test_counter_battery_silences_weakened_gun(self) -> None:
         cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=0.5,
+            base_strength_damage=0.5,
             counter_battery_bonus=0.6,
         )
         unit = _make_unit(
@@ -792,7 +820,7 @@ class TestArtilleryCorpsStepCounterBattery(unittest.TestCase):
         self.assertFalse(enemy_art.alive)
 
     def test_counter_battery_fallback_to_infantry_when_no_enemy_art(self) -> None:
-        cfg = ArtilleryUnitConfig(max_range=2_000.0, base_fire_damage=0.05)
+        cfg = ArtilleryUnitConfig(max_range=2_000.0, base_morale_damage=0.05)
         unit = _make_unit(
             x=5_000.0, y=2_500.0,
             mission=ArtilleryMission.COUNTER_BATTERY,
@@ -821,7 +849,7 @@ class TestArtilleryCorpsStepCounterBattery(unittest.TestCase):
         """Counter-battery deals more total damage vs artillery than vs infantry."""
         cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=0.05,
+            base_strength_damage=0.05,
             counter_battery_bonus=0.06,
         )
         # With enemy art nearby: fires at art with counter_battery_bonus
@@ -835,15 +863,15 @@ class TestArtilleryCorpsStepCounterBattery(unittest.TestCase):
         before_strength = enemy_art.strength
         corps.step(_make_inner(), enemy_artillery=[enemy_art])
         strength_dmg_to_art = before_strength - enemy_art.strength
-        # strength_dmg_to_art should equal base + bonus = 0.11
+        # strength_dmg_to_art should equal base_strength_damage + counter_battery_bonus = 0.11
         self.assertAlmostEqual(
             strength_dmg_to_art,
-            cfg.base_fire_damage + cfg.counter_battery_bonus,
+            cfg.base_strength_damage + cfg.counter_battery_bonus,
             places=6,
         )
 
     def test_counter_battery_dead_enemy_art_ignored(self) -> None:
-        cfg = ArtilleryUnitConfig(max_range=2_000.0, base_fire_damage=0.05)
+        cfg = ArtilleryUnitConfig(max_range=2_000.0, base_morale_damage=0.05)
         unit = _make_unit(
             x=5_000.0, y=2_500.0,
             mission=ArtilleryMission.COUNTER_BATTERY,
@@ -1265,7 +1293,7 @@ class TestAC1GrandBattery(unittest.TestCase):
     def test_six_guns_break_enemy_line(self) -> None:
         cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=DEFAULT_BASE_FIRE_DAMAGE,
+            base_morale_damage=DEFAULT_BASE_MORALE_DAMAGE,
             grand_battery_bonus=DEFAULT_GRAND_BATTERY_BONUS,
             grand_battery_radius=1_000.0,
             team=0,
@@ -1311,7 +1339,7 @@ class TestAC1GrandBattery(unittest.TestCase):
         """A single gun should take more steps to route the enemy than a battery."""
         cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=DEFAULT_BASE_FIRE_DAMAGE,
+            base_morale_damage=DEFAULT_BASE_MORALE_DAMAGE,
             grand_battery_bonus=DEFAULT_GRAND_BATTERY_BONUS,
             grand_battery_radius=1_000.0,
             team=0,
@@ -1364,7 +1392,8 @@ class TestAC2CounterBattery(unittest.TestCase):
         # Config: counter-battery bonus ensures faster silencing
         cb_cfg = ArtilleryUnitConfig(
             max_range=2_000.0,
-            base_fire_damage=0.05,
+            base_morale_damage=0.05,
+            base_strength_damage=0.05,
             counter_battery_bonus=0.10,
             team=0,
         )

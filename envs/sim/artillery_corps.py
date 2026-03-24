@@ -80,6 +80,8 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import List, Optional, Tuple
 
+from envs.sim.combat import MORALE_ROUT_THRESHOLD
+
 __all__ = [
     "ArtilleryMission",
     "ArtilleryUnitConfig",
@@ -91,6 +93,8 @@ __all__ = [
     "DEFAULT_ARTILLERY_RANGE",
     "DEFAULT_ARTILLERY_SPEED",
     "DEFAULT_BASE_FIRE_DAMAGE",
+    "DEFAULT_BASE_MORALE_DAMAGE",
+    "DEFAULT_BASE_STRENGTH_DAMAGE",
     "DEFAULT_GRAND_BATTERY_RADIUS",
     "DEFAULT_GRAND_BATTERY_BONUS",
     "DEFAULT_COUNTER_BATTERY_BONUS",
@@ -113,8 +117,14 @@ DEFAULT_ARTILLERY_RANGE: float = 600.0
 #: Default maximum move speed (metres per step) — artillery is slow.
 DEFAULT_ARTILLERY_SPEED: float = 30.0
 
-#: Default base morale damage applied to a target per step of direct fire.
-DEFAULT_BASE_FIRE_DAMAGE: float = 0.05
+#: Default base morale damage applied to an enemy battalion per step of infantry fire.
+DEFAULT_BASE_MORALE_DAMAGE: float = 0.05
+
+#: Default base strength damage applied to an enemy artillery battery per counter-battery step.
+DEFAULT_BASE_STRENGTH_DAMAGE: float = 0.05
+
+#: Backward-compat alias — resolves to ``DEFAULT_BASE_MORALE_DAMAGE``.
+DEFAULT_BASE_FIRE_DAMAGE: float = DEFAULT_BASE_MORALE_DAMAGE
 
 #: Radius within which friendly batteries count towards a grand battery (m).
 DEFAULT_GRAND_BATTERY_RADIUS: float = 800.0
@@ -249,9 +259,14 @@ class ArtilleryUnitConfig:
         slower than cavalry or even line infantry.
     max_range:
         Maximum fire range in metres.
-    base_fire_damage:
-        Morale damage applied to the nearest enemy battalion per step
-        when within range.
+    base_morale_damage:
+        Morale damage applied to the nearest enemy infantry battalion per
+        step when within range (GRAND_BATTERY and COUNTER_BATTERY infantry
+        fallback).
+    base_strength_damage:
+        Strength damage applied to the nearest enemy artillery battery per
+        step when executing COUNTER_BATTERY fire.  Combined with
+        *counter_battery_bonus* to yield the full counter-battery damage.
     grand_battery_radius:
         Radius within which friendly batteries count towards a combined
         grand battery.
@@ -260,7 +275,7 @@ class ArtilleryUnitConfig:
         grand battery (stacks linearly).
     counter_battery_bonus:
         Additional *strength* damage bonus applied when targeting an enemy
-        artillery unit instead of infantry.
+        artillery unit — added on top of *base_strength_damage*.
     siege_damage_per_step:
         HP removed from the target fortification per SIEGE step.
     fortify_steps:
@@ -275,7 +290,8 @@ class ArtilleryUnitConfig:
 
     max_speed: float = DEFAULT_ARTILLERY_SPEED
     max_range: float = DEFAULT_ARTILLERY_RANGE
-    base_fire_damage: float = DEFAULT_BASE_FIRE_DAMAGE
+    base_morale_damage: float = DEFAULT_BASE_MORALE_DAMAGE
+    base_strength_damage: float = DEFAULT_BASE_STRENGTH_DAMAGE
     grand_battery_radius: float = DEFAULT_GRAND_BATTERY_RADIUS
     grand_battery_bonus: float = DEFAULT_GRAND_BATTERY_BONUS
     counter_battery_bonus: float = DEFAULT_COUNTER_BATTERY_BONUS
@@ -293,9 +309,13 @@ class ArtilleryUnitConfig:
             raise ValueError(
                 f"max_range must be > 0, got {self.max_range!r}"
             )
-        if self.base_fire_damage < 0.0:
+        if self.base_morale_damage < 0.0:
             raise ValueError(
-                f"base_fire_damage must be >= 0, got {self.base_fire_damage!r}"
+                f"base_morale_damage must be >= 0, got {self.base_morale_damage!r}"
+            )
+        if self.base_strength_damage < 0.0:
+            raise ValueError(
+                f"base_strength_damage must be >= 0, got {self.base_strength_damage!r}"
             )
         if self.grand_battery_radius <= 0.0:
             raise ValueError(
@@ -517,11 +537,12 @@ class ArtilleryCorps:
     # ------------------------------------------------------------------
 
     def count_grand_battery_guns(self, unit: ArtilleryUnit) -> int:
-        """Return the number of alive friendly batteries within grand-battery radius.
+        """Return the number of alive friendly batteries in GRAND_BATTERY mission within radius.
 
-        Counts *all* alive friendly units within
-        :attr:`~ArtilleryUnitConfig.grand_battery_radius` of *unit*,
-        including *unit* itself.
+        Only batteries that are alive, on the same team, *and* currently
+        executing :attr:`~ArtilleryMission.GRAND_BATTERY` mission are counted.
+        This prevents idle or off-mission batteries from inflating the stacking
+        bonus.
 
         Parameters
         ----------
@@ -531,13 +552,15 @@ class ArtilleryCorps:
         Returns
         -------
         int
-            Number of guns (≥ 1, always includes *unit* itself).
+            Number of participating guns (≥ 1, always includes *unit* itself).
         """
         count = 0
         for other in self.units:
             if not other.alive:
                 continue
             if other.team != unit.team:
+                continue
+            if other.mission != ArtilleryMission.GRAND_BATTERY:
                 continue
             if other.distance_to(unit.x, unit.y) <= unit.config.grand_battery_radius:
                 count += 1
@@ -556,7 +579,7 @@ class ArtilleryCorps:
         """Fire on the nearest enemy battalion with concentrated grand-battery effect.
 
         Damage is amplified by the number of participating guns:
-        ``morale_damage = base_fire_damage + (n_guns - 1) * grand_battery_bonus``.
+        ``morale_damage = base_morale_damage + (n_guns - 1) * grand_battery_bonus``.
 
         The nearest enemy battalion within :attr:`~ArtilleryUnitConfig.max_range`
         is targeted; if no enemy is in range the unit advances towards the
@@ -579,8 +602,9 @@ class ArtilleryCorps:
         """
         enemy_prefix = "red_" if unit.team == 0 else "blue_"
 
-        # Locate nearest alive enemy battalion
+        # Locate nearest alive enemy battalion (track agent_id for _combat_states)
         best_target = None
+        best_agent_id: Optional[str] = None
         best_dist = float("inf")
         for agent_id, b in inner._battalions.items():
             if not agent_id.startswith(enemy_prefix):
@@ -591,6 +615,7 @@ class ArtilleryCorps:
             if dist < best_dist:
                 best_dist = dist
                 best_target = b
+                best_agent_id = agent_id
 
         if best_target is None:
             return 0.0
@@ -606,15 +631,27 @@ class ArtilleryCorps:
         # Compute stacking morale damage
         n_extra = max(0, n_guns_in_battery - 1)
         morale_dmg = (
-            unit.config.base_fire_damage
+            unit.config.base_morale_damage
             + n_extra * unit.config.grand_battery_bonus
         )
+
+        # Apply to Battalion fields (for observation and mock-test compatibility)
         best_target.morale = max(0.0, best_target.morale - morale_dmg)
         if (
             best_target.morale <= best_target.routing_threshold
             and not best_target.routed
         ):
             best_target.routed = True
+
+        # Also propagate into CombatState so the change persists across inner.step()
+        # (inner._combat_states is the authoritative morale store in MultiBattalionEnv;
+        # battalion fields are overwritten FROM _combat_states at each inner.step()).
+        _cs_dict = getattr(inner, "_combat_states", None)
+        if isinstance(_cs_dict, dict) and best_agent_id in _cs_dict:
+            cs = _cs_dict[best_agent_id]
+            cs.morale = max(0.0, cs.morale - morale_dmg)
+            if cs.morale < MORALE_ROUT_THRESHOLD and not cs.is_routing:
+                cs.is_routing = True
         return morale_dmg
 
     def _execute_counter_battery(
@@ -627,9 +664,9 @@ class ArtilleryCorps:
 
         When a live enemy :class:`ArtilleryUnit` is within
         :attr:`~ArtilleryUnitConfig.max_range`, the battery fires at it
-        with ``base_fire_damage + counter_battery_bonus`` strength damage.
-        When no enemy artillery is in range, it fires morale damage at
-        the nearest enemy infantry battalion.
+        with ``base_strength_damage + counter_battery_bonus`` strength damage.
+        When no enemy artillery is in range, it fires morale damage
+        (``base_morale_damage``) at the nearest enemy infantry battalion.
 
         Parameters
         ----------
@@ -661,8 +698,8 @@ class ArtilleryCorps:
 
         if best_art is not None:
             if best_art_dist <= unit.config.max_range:
-                # Fire counter-battery
-                dmg = unit.config.base_fire_damage + unit.config.counter_battery_bonus
+                # Fire counter-battery: uses base_strength_damage (not base_morale_damage)
+                dmg = unit.config.base_strength_damage + unit.config.counter_battery_bonus
                 silenced_before = not best_art.alive
                 best_art.take_damage(dmg)
                 newly_silenced = (not best_art.alive) and (not silenced_before)
@@ -678,6 +715,7 @@ class ArtilleryCorps:
         # ── Fallback: fire on nearest enemy infantry ──────────────────
         enemy_prefix = "red_" if unit.team == 0 else "blue_"
         best_inf = None
+        best_inf_id: Optional[str] = None
         best_inf_dist = float("inf")
         for agent_id, b in inner._battalions.items():
             if not agent_id.startswith(enemy_prefix):
@@ -688,6 +726,7 @@ class ArtilleryCorps:
             if dist < best_inf_dist:
                 best_inf_dist = dist
                 best_inf = b
+                best_inf_id = agent_id
 
         if best_inf is None:
             return 0, 0.0
@@ -699,13 +738,25 @@ class ArtilleryCorps:
             )
             return 0, 0.0
 
-        best_inf.morale = max(0.0, best_inf.morale - unit.config.base_fire_damage)
+        morale_dmg = unit.config.base_morale_damage
+
+        # Apply to Battalion fields (for observation and mock-test compatibility)
+        best_inf.morale = max(0.0, best_inf.morale - morale_dmg)
         if (
             best_inf.morale <= best_inf.routing_threshold
             and not best_inf.routed
         ):
             best_inf.routed = True
-        return 0, unit.config.base_fire_damage
+
+        # Also propagate into CombatState so the change persists across inner.step()
+        _cs_dict = getattr(inner, "_combat_states", None)
+        if isinstance(_cs_dict, dict) and best_inf_id in _cs_dict:
+            cs = _cs_dict[best_inf_id]
+            cs.morale = max(0.0, cs.morale - morale_dmg)
+            if cs.morale < MORALE_ROUT_THRESHOLD and not cs.is_routing:
+                cs.is_routing = True
+
+        return 0, morale_dmg
 
     def _execute_siege(
         self,
