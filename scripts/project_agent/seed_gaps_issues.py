@@ -87,9 +87,9 @@ forward-pass can go undetected indefinitely.
 
 ### Gap
 
-`benchmarks/` contains `wargames_bench.py`, `historical_benchmark.py`, and
-`transfer_benchmark.py`, but none are wired into CI.  There are no published
-baseline numbers to compare against.
+`benchmarks/` contains `wargames_bench.py`, while `training/` contains
+`historical_benchmark.py` and `transfer_benchmark.py`, but none are wired
+into CI.  There are no published baseline numbers to compare against.
 
 ### Proposed Work
 
@@ -330,16 +330,19 @@ SIM_INTEGRATION_ISSUES: list[dict] = [
         "body": """\
 ### Summary
 
-`envs/sim/supply_network.py` and `envs/sim/logistics.py` implement supply
-consumption and network routing, but neither module is called from any
-environment's `step()` function.  Agents cannot be rewarded or penalised
-based on logistical efficiency.
+`envs/sim/logistics.py` implements logistics effects (e.g., fatigue and ammo
+modifiers, wagon damage) that are already applied in `BattalionEnv` behind the
+`enable_logistics` flag. `envs/sim/supply_network.py` implements supply
+consumption and network routing, but the supply network state is not yet
+consistently coupled to environment rewards and observations across envs.
 
 ### Gap
 
-Logistics modules are well-tested in isolation but zero-integrated with
-the RL training loop.  Agents have no incentive to manage supply lines,
-rendering the modules dead code from a training perspective.
+Logistics effects are partially integrated at the battalion level, but the
+overall supply network is still weakly integrated with the RL training loop.
+Agents have only limited incentive to manage supply lines because supply state
+is not explicitly reflected in reward terms or exposed as a first-class
+observation feature, and higher-level envs do not yet propagate network state.
 
 ### Proposed Work
 
@@ -365,50 +368,7 @@ rendering the modules dead code from a training perspective.
 """ + ATTRIBUTION,
     },
     {
-        "title": "[FEATURE] Apply formation stat modifiers in combat calculations",
-        "labels": [
-            "type: feature", "priority: high",
-            "domain: sim", "v6: simulation", "status: agent-created",
-        ],
-        "milestone": "M13: Physics Simulation",
-        "body": """\
-### Summary
-
-`envs/sim/formations.py` defines formation types (Line, Column, Square,
-Skirmish) and their nominal combat modifiers, but `envs/sim/combat.py`
-does not apply those modifiers during damage resolution.  Formation
-switching exists in the action space but has no effect on outcomes.
-
-### Gap
-
-Agents that learn to switch formations receive no benefit, making the
-formation action dimension noise.  This prevents the emergence of
-historically correct tactics (e.g., forming Square against cavalry,
-using Column for rapid movement).
-
-### Proposed Work
-
-- [ ] Read the active formation from the battalion state in
-  `combat.py:resolve_fire()`
-- [ ] Apply formation-specific accuracy, cover, and movement modifiers as
-  multiplicative scalars (values defined in `formations.py`)
-- [ ] Add formation modifier application to the morale-check path as well
-- [ ] Update docstrings in `formations.py` to document each modifier value
-- [ ] Add unit tests that verify: Line > Column for defensive fire;
-  Square grants cavalry resistance; Skirmish reduces incoming accuracy
-
-### Acceptance Criteria
-
-- [ ] `resolve_fire()` returns different damage values for the same range
-  depending on the defender's formation
-- [ ] Morale checks differ between formations as designed
-- [ ] No existing tests are broken by the integration
-- [ ] The formation observation features correlate with combat outcomes in
-  a short training smoke-test
-""" + ATTRIBUTION,
-    },
-    {
-        "title": "[FEATURE] Complete weather effects integration into physics and reward",
+        "title": "[FEATURE] Complete weather visibility and temporal dynamics integration",
         "labels": [
             "type: feature", "priority: medium",
             "domain: sim", "v6: simulation", "status: agent-created",
@@ -418,33 +378,36 @@ using Column for rapid movement).
 ### Summary
 
 `envs/sim/weather.py` defines weather states (Rain, Fog, Snow, Clear) and
-nominal effect magnitudes, but the effects are not applied in movement
-speed calculations, weapon accuracy, or visibility radius.
+nominal effect magnitudes. These are already wired into movement speed and
+accuracy (and associated morale stressors) when `enable_weather=True`, but
+visibility radius and temporal dynamics are still only partially integrated.
 
 ### Gap
 
 Weather is observable in the agent's observation (when `enable_weather=True`)
-but has no causal effect, making it an uninformative feature that wastes
-observation space and can confuse the policy network.
+and already influences movement and accuracy, but it does not yet affect
+fog-of-war / visibility radius and typically remains static over an entire
+episode. This leaves weather underutilized as a tactical signal and limits
+the richness of scenarios the environment can present.
 
 ### Proposed Work
 
-- [ ] Apply `WeatherState.movement_modifier` to battalion speed in
-  `battalion.py`
-- [ ] Apply `WeatherState.accuracy_modifier` to fire accuracy in
-  `combat.py`
 - [ ] Apply `WeatherState.visibility_modifier` to the fog-of-war radius
   in `BattalionEnv._compute_visibility()`
-- [ ] Add a weather transition model (Markov chain) so weather changes
-  during an episode
-- [ ] Expose `weather_step()` in `BattalionEnv.step()`
-- [ ] Add tests verifying that rain reduces accuracy and movement speed
+- [ ] Add a weather transition model (e.g., simple Markov chain) so weather
+  can change during an episode
+- [ ] Ensure weather transitions are consistently reflected in observations
+  and any reward components that depend on detection or engagement ranges
+- [ ] Add tests verifying that adverse weather (e.g., Rain, Fog, Snow)
+  reduces effective visibility compared to Clear and that transitions occur
+  according to the configured model
 
 ### Acceptance Criteria
 
-- [ ] Accuracy and movement speed measurably differ between Clear and Rain
-- [ ] Fog weather reduces unit visibility radius as configured
-- [ ] Weather transitions follow the configured Markov matrix
+- [ ] Fog weather reduces unit visibility radius as configured by
+  `WeatherState.visibility_modifier`
+- [ ] Weather transitions follow the configured Markov matrix during an
+  episode
 - [ ] All existing tests pass; weather is still optional
   (`enable_weather=False` keeps existing behaviour)
 """ + ATTRIBUTION,
@@ -512,15 +475,16 @@ DOCS_ISSUES: list[dict] = [
         "body": """\
 ### Summary
 
-`README.md` still states "Current Version: v1" in the custom instruction
-header and the roadmap section describes v2–v5 as future work, but the
-codebase has already implemented v1 through v5 features.
+Portions of `README.md` (versioning, roadmap, and Quick Start sections)
+appear out of date relative to the current v5+ training configs, environments,
+and automation scripts present in this repository.
 
 ### Gap
 
-New contributors and potential collaborators will receive a misleading
-impression of project maturity.  The mismatch also means the "Quick Start"
-instructions may not reflect the actual installed modules and CLI entry-points.
+New contributors and potential collaborators may get an outdated impression of
+project maturity and current workflows.  This also increases the risk that the
+"Quick Start" instructions and example commands will not match the actual
+installed modules and CLI entry-points.
 
 ### Proposed Work
 
@@ -533,7 +497,8 @@ instructions may not reflect the actual installed modules and CLI entry-points.
 
 ### Acceptance Criteria
 
-- [ ] No references to "Current Version: v1" when v5 is implemented
+- [ ] README versioning, roadmap, and Quick Start sections accurately
+  reflect the current v5+ milestone and implemented features
 - [ ] All code snippets in the README execute without error on a fresh
   virtualenv install
 - [ ] Docs link checker (if any) reports zero broken links
