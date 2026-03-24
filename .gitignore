@@ -19,3 +19,6 @@ htmlcov/
 server/__pycache__/
 frontend/node_modules/
 frontend/dist/
+
+# MkDocs build output
+site/
