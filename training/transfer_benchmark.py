@@ -393,8 +393,15 @@ class TransferBenchmark:
                 from stable_baselines3 import PPO  # type: ignore
 
                 return PPO.load(path)
-            except Exception:
+            except ImportError:
+                # Allow running without Stable-Baselines3 by falling back.
                 return None
+            except Exception as exc:
+                # If the file exists but cannot be loaded, surface the error
+                # instead of silently downgrading to the baseline.
+                raise RuntimeError(
+                    f"Failed to load policy checkpoint from {path}"
+                ) from exc
         return policy
 
     def _finetune(
@@ -404,6 +411,12 @@ class TransferBenchmark:
     ) -> Tuple[Optional[Any], int]:
         """Fine-tune *policy* on *terrain* for up to config.finetune_steps.
 
+        Creates a :class:`~envs.battalion_env.BattalionEnv` with the target
+        GIS terrain and attaches it to the policy (via ``set_env``) before
+        calling ``learn``.  This ensures that fine-tuning is actually
+        performed on the target map rather than on whatever environment the
+        policy was originally trained with.
+
         Returns the (possibly updated) policy and the number of gradient
         steps actually taken.  When *policy* is ``None`` or lacks a
         ``learn`` method, returns ``(policy, 0)`` unchanged.
@@ -411,7 +424,13 @@ class TransferBenchmark:
         if policy is None or not hasattr(policy, "learn"):
             return policy, 0
         try:
+            from envs.battalion_env import BattalionEnv
+
+            ft_env = BattalionEnv(terrain=terrain, randomize_terrain=False)
+            if hasattr(policy, "set_env"):
+                policy.set_env(ft_env)
             policy.learn(total_timesteps=self.config.finetune_steps)
+            ft_env.close()
             return policy, self.config.finetune_steps
         except Exception:
             return policy, 0
@@ -433,43 +452,96 @@ class TransferBenchmark:
 
         Each episode dict has ``{"winner": int | None, "steps": int}``.
 
+        When *policy* has a ``predict`` method (i.e., a Stable-Baselines3–
+        compatible learned policy), evaluation is driven via
+        :class:`~envs.battalion_env.BattalionEnv` with the target terrain
+        fixed and terrain randomisation disabled.  The winner is inferred
+        from the ``blue_routed`` / ``red_routed`` fields in the final
+        ``info`` dict.
+
         When *policy* is ``None`` (or any object without a ``predict``
-        method), the :class:`~envs.sim.engine.SimEngine` built-in scripted
-        logic is used as a deterministic baseline: each battalion advances
-        toward the opposing force and engages at close range.  This is
-        sufficient for CI and acceptance-criterion checks without a trained
-        checkpoint.  Pass a Stable-Baselines3–compatible policy to drive the
-        blue battalion with learned behaviour.
+        method), the :class:`~envs.sim.engine.SimEngine` deterministic
+        scripted baseline is used.  Each episode uses a separate RNG seeded
+        from :attr:`_EVAL_SEED_OFFSET` so results are fully reproducible.
+        Note: without a morale config the scripted engine will typically run
+        to ``max_steps`` as a draw; use a learned policy for meaningful
+        win-rate measurements.
         """
         from envs.sim.engine import SimEngine
         from envs.sim.battalion import Battalion
 
         cfg = self.config
-        results = []
-        rng = np.random.default_rng(cfg.procedural_seed ^ self._EVAL_SEED_OFFSET)
+        results: List[Dict] = []
+        base_seed = int(cfg.procedural_seed ^ self._EVAL_SEED_OFFSET)
 
-        for _ in range(cfg.n_eval_episodes):
-            # Spawn one battalion on each side at opposite ends of the map
-            blue = Battalion(
-                x=terrain.width * 0.25,
-                y=terrain.height * 0.50,
-                theta=0.0,
-                strength=1.0,
-                team=0,
-            )
-            red = Battalion(
-                x=terrain.width * 0.75,
-                y=terrain.height * 0.50,
-                theta=float(np.pi),
-                strength=1.0,
-                team=1,
-            )
-            engine = SimEngine(blue, red, terrain=terrain, max_steps=cfg.max_steps_per_episode)
-            result = engine.run()
-            results.append({
-                "winner": result.winner,
-                "steps": result.steps,
-            })
+        # Treat any object with a .predict method as a learned policy; otherwise
+        # fall back to the built-in scripted SimEngine baseline.
+        use_learned_policy = hasattr(policy, "predict")
+
+        if use_learned_policy:
+            # Import here to avoid a hard dependency when only the scripted
+            # baseline is used (e.g., in lightweight CI contexts).
+            from envs.battalion_env import BattalionEnv
+
+        for ep_idx in range(cfg.n_eval_episodes):
+            if use_learned_policy:
+                # Evaluate the learned policy in a Gymnasium environment with a
+                # fixed terrain and deterministic seeding.
+                env = BattalionEnv(terrain=terrain, randomize_terrain=False)
+                obs, _info = env.reset(seed=base_seed + ep_idx)
+
+                terminated = False
+                truncated = False
+                steps = 0
+                last_info: Dict[str, Any] = {}
+
+                while not (terminated or truncated):
+                    action, _ = policy.predict(obs, deterministic=True)
+                    obs, _reward, terminated, truncated, last_info = env.step(action)
+                    steps += 1
+
+                env.close()
+
+                # Infer winner from the final info dict.
+                blue_routed = last_info.get("blue_routed", False)
+                red_routed = last_info.get("red_routed", False)
+                winner: Optional[int]
+                if terminated and red_routed and not blue_routed:
+                    winner = 0  # blue wins
+                elif terminated and blue_routed and not red_routed:
+                    winner = 1  # red wins
+                else:
+                    winner = None  # draw or truncated
+
+                results.append({"winner": winner, "steps": steps})
+            else:
+                # Scripted baseline: use SimEngine with a per-episode RNG for
+                # reproducible evaluations.
+                episode_rng = np.random.default_rng(base_seed + ep_idx)
+                blue = Battalion(
+                    x=terrain.width * 0.25,
+                    y=terrain.height * 0.50,
+                    theta=0.0,
+                    strength=1.0,
+                    team=0,
+                )
+                red = Battalion(
+                    x=terrain.width * 0.75,
+                    y=terrain.height * 0.50,
+                    theta=float(np.pi),
+                    strength=1.0,
+                    team=1,
+                )
+                engine = SimEngine(
+                    blue,
+                    red,
+                    terrain=terrain,
+                    max_steps=cfg.max_steps_per_episode,
+                    rng=episode_rng,
+                )
+                result = engine.run()
+                results.append({"winner": result.winner, "steps": result.steps})
+
         return results
 
     @staticmethod

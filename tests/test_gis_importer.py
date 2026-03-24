@@ -386,7 +386,7 @@ class TestGISTerrainBuilder(unittest.TestCase):
             "Ridge elevation should exceed the southern French position",
         )
 
-    def test_cover_weight_default_1_0(self) -> None:
+    def test_cover_weight_defaults(self) -> None:
         b = GISTerrainBuilder(site="waterloo", rows=10, cols=10)
         self.assertEqual(b.forest_cover_weight, 1.0)
         self.assertEqual(b.settlement_cover_weight, 0.5)

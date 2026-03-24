@@ -22,9 +22,9 @@ Architecture
 :class:`OSMLayerImporter`
     Parses an OSM XML file for road, forest, and settlement (town) polygon
     features within the bounding box and rasterises each into a binary mask
-    at the requested grid resolution.  Requires only the Python standard
-    library (``xml.etree.ElementTree``); advanced polygon rasterisation via
-    ``shapely`` is used when available but is never required.
+    at the requested grid resolution.  Rasterisation is implemented using
+    only the Python standard library (``xml.etree.ElementTree``) so that no
+    third-party geometry libraries are required.
 
 :class:`GISTerrainBuilder`
     High-level façade that calls :class:`SRTMImporter` and
@@ -76,13 +76,6 @@ try:
     _HAVE_RASTERIO = True
 except ImportError:  # pragma: no cover
     _HAVE_RASTERIO = False
-
-try:
-    from shapely.geometry import box as _shapely_box  # type: ignore
-    from shapely.geometry import Polygon as _ShapelyPolygon  # type: ignore
-    _HAVE_SHAPELY = True
-except ImportError:  # pragma: no cover
-    _HAVE_SHAPELY = False
 
 # Add project root to sys.path so we can import envs regardless of how the
 # module is invoked.
