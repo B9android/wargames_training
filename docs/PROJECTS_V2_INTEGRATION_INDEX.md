@@ -118,7 +118,7 @@ All in `scripts/project_agent/`:
 - **[validate_projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/validate_projects_v2.py)** — Pre-flight validation script
 
 ### Workflows
-- **[.github/workflows/agent-project-syncer.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/agent-project-syncer.yml)** — Triggered on label/milestone changes
+- **[.github/workflows/orchestration.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/orchestration.yml)** — Triggered on label/milestone changes
 
 ### Configuration
 - **[configs/orchestration.yaml](https://github.com/B9android/wargames_training/blob/main/configs/orchestration.yaml)** — State machines, policies, field relationships

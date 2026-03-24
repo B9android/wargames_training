@@ -27,7 +27,7 @@ naive HRL.
 The three phases are managed by
 [`training/hrl_curriculum.py`](https://github.com/B9android/wargames_training/blob/main/training/hrl_curriculum.py) and the
 corresponding config files under
-[`configs/hrl/`](../configs/hrl/).
+[`configs/hrl/`](https://github.com/B9android/wargames_training/tree/main/configs/hrl).
 
 ---
 

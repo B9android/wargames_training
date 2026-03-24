@@ -64,7 +64,7 @@ All in `scripts/project_agent/`:
 - **[pr_linker.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/pr_linker.py)** — Modified: +projects_v2 integration
 
 ### Workflows
-- **[.github/workflows/agent-project-syncer.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/agent-project-syncer.yml)** — Triggered on label/milestone changes
+- **[.github/workflows/orchestration.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/orchestration.yml)** — Triggered on issues/PR/label/milestone events
 
 ### Documentation
 - **[PROJECTS_V2_TESTING_GUIDE.md](PROJECTS_V2_TESTING_GUIDE.md)** — Comprehensive testing with 10+ test cases
@@ -339,7 +339,7 @@ See [PROJECTS_V2_TESTING_GUIDE.md](PROJECTS_V2_TESTING_GUIDE.md) for full test s
 - [pr_linker.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/pr_linker.py)
 
 ### Workflows
-- [.github/workflows/agent-project-syncer.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/agent-project-syncer.yml)
+- [.github/workflows/orchestration.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/orchestration.yml)
 
 ---
 
