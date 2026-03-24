@@ -25,9 +25,9 @@ agent from exploiting an unstable lower-level policy — a common failure mode i
 naive HRL.
 
 The three phases are managed by
-[`training/hrl_curriculum.py`](../training/hrl_curriculum.py) and the
+[`training/hrl_curriculum.py`](https://github.com/B9android/wargames_training/blob/main/training/hrl_curriculum.py) and the
 corresponding config files under
-[`configs/hrl/`](../configs/hrl/).
+[`configs/hrl/`](https://github.com/B9android/wargames_training/tree/main/configs/hrl).
 
 ---
 
@@ -55,7 +55,7 @@ Once **both** criteria are met simultaneously:
 1. The MAPPO checkpoint is saved to
    `checkpoints/hrl/phase1_battalion/mappo_policy_final.pt`.
 2. All parameters are frozen using
-   [`training/utils/freeze_policy.py`](../training/utils/freeze_policy.py):
+   [`training/utils/freeze_policy.py`](https://github.com/B9android/wargames_training/blob/main/training/utils/freeze_policy.py):
    ```python
    from training.utils.freeze_policy import freeze_mappo_policy, assert_frozen
    freeze_mappo_policy(policy)
@@ -142,7 +142,7 @@ The final checkpoint is saved to
 ## Promotion Criteria — Programmatic Enforcement
 
 All promotion checks are implemented in
-[`training/hrl_curriculum.py`](../training/hrl_curriculum.py) via the
+[`training/hrl_curriculum.py`](https://github.com/B9android/wargames_training/blob/main/training/hrl_curriculum.py) via the
 `HRLCurriculumScheduler` class:
 
 ```python
@@ -174,7 +174,7 @@ The `should_promote()` method enforces:
 
 ## Freezing Utilities
 
-[`training/utils/freeze_policy.py`](../training/utils/freeze_policy.py)
+[`training/utils/freeze_policy.py`](https://github.com/B9android/wargames_training/blob/main/training/utils/freeze_policy.py)
 exposes five public functions:
 
 | Function                  | Purpose                                                        |
@@ -236,7 +236,7 @@ tagged with `hrl`, `curriculum`, and `phaseN`.
 ## CI Integration Test
 
 A small-scenario integration test is provided in
-[`tests/test_hrl_curriculum.py`](../tests/test_hrl_curriculum.py).
+[`tests/test_hrl_curriculum.py`](https://github.com/B9android/wargames_training/blob/main/tests/test_hrl_curriculum.py).
 
 It trains each phase for approximately **512 environment steps** (well within
 the CI time budget) on a small 300 × 300 m map, verifies that frozen weights

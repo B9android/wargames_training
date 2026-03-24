@@ -300,6 +300,6 @@ state.events.issue_created | select(.number, .version, .sprint)
 ## Documentation
 
 - **Full Testing Guide**: [PROJECTS_V2_TESTING_GUIDE.md](PROJECTS_V2_TESTING_GUIDE.md)
-- **Projects v2 Client API**: [scripts/project_agent/projects_v2.py](../scripts/project_agent/projects_v2.py)
-- **Common Utilities**: [scripts/project_agent/common.py](../scripts/project_agent/common.py)
-- **Orchestration Config**: [configs/orchestration.yaml](../configs/orchestration.yaml)
+- **Projects v2 Client API**: [scripts/project_agent/projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/projects_v2.py)
+- **Common Utilities**: [scripts/project_agent/common.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/common.py)
+- **Orchestration Config**: [configs/orchestration.yaml](https://github.com/B9android/wargames_training/blob/main/configs/orchestration.yaml)

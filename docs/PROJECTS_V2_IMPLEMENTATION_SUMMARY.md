@@ -51,28 +51,28 @@ GitHub Projects v2 Board
 ## Files Created
 
 ### Core Abstraction
-- **[projects_v2.py](../scripts/project_agent/projects_v2.py)** — GraphQL client with caching, retry logic, field management
-- **[sprint_assigner.py](../scripts/project_agent/sprint_assigner.py)** — Helper for sprint auto-assignment
+- **[projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/projects_v2.py)** — GraphQL client with caching, retry logic, field management
+- **[sprint_assigner.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/sprint_assigner.py)** — Helper for sprint auto-assignment
 
 ### Agents
 All in `scripts/project_agent/`:
-- **[project_syncer.py](../scripts/project_agent/project_syncer.py)** — Label → Field sync (NEW)
-- **[issue_writer.py](../scripts/project_agent/issue_writer.py)** — Modified: +projects_v2 integration
-- **[epic_decomposer.py](../scripts/project_agent/epic_decomposer.py)** — Modified: +projects_v2 integration
-- **[triage_agent.py](../scripts/project_agent/triage_agent.py)** — Modified: +projects_v2 integration
-- **[sprint_manager.py](../scripts/project_agent/sprint_manager.py)** — Modified: +projects_v2 integration
-- **[pr_linker.py](../scripts/project_agent/pr_linker.py)** — Modified: +projects_v2 integration
+- **[project_syncer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/project_syncer.py)** — Label → Field sync (NEW)
+- **[issue_writer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/issue_writer.py)** — Modified: +projects_v2 integration
+- **[epic_decomposer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/epic_decomposer.py)** — Modified: +projects_v2 integration
+- **[triage_agent.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/triage_agent.py)** — Modified: +projects_v2 integration
+- **[sprint_manager.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/sprint_manager.py)** — Modified: +projects_v2 integration
+- **[pr_linker.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/pr_linker.py)** — Modified: +projects_v2 integration
 
 ### Workflows
-- **[.github/workflows/agent-project-syncer.yml](../../.github/workflows/agent-project-syncer.yml)** — Triggered on label/milestone changes
+- **[.github/workflows/orchestration.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/orchestration.yml)** — Triggered on issues/PR/label/milestone events
 
 ### Documentation
 - **[PROJECTS_V2_TESTING_GUIDE.md](PROJECTS_V2_TESTING_GUIDE.md)** — Comprehensive testing with 10+ test cases
 - **[PROJECTS_V2_QUICK_REFERENCE.md](PROJECTS_V2_QUICK_REFERENCE.md)** — Field mappings, patterns, troubleshooting
 
 ### Utilities
-- **[validate_projects_v2.py](../scripts/project_agent/validate_projects_v2.py)** — Pre-flight validation script
-- **[common.py](../scripts/project_agent/common.py)** — Modified: +PROJECTS_V2_FIELDS constants
+- **[validate_projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/validate_projects_v2.py)** — Pre-flight validation script
+- **[common.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/common.py)** — Modified: +PROJECTS_V2_FIELDS constants
 
 ---
 
@@ -324,22 +324,22 @@ See [PROJECTS_V2_TESTING_GUIDE.md](PROJECTS_V2_TESTING_GUIDE.md) for full test s
 ### Documentation
 - [PROJECTS_V2_QUICK_REFERENCE.md](PROJECTS_V2_QUICK_REFERENCE.md) — Quick start, field mappings, troubleshooting
 - [PROJECTS_V2_TESTING_GUIDE.md](PROJECTS_V2_TESTING_GUIDE.md) — Full test suite with 10+ test cases
-- [orchestration.yaml](../configs/orchestration.yaml) — State machines & policies
+- [orchestration.yaml](https://github.com/B9android/wargames_training/blob/main/configs/orchestration.yaml) — State machines & policies
 
 ### Source Code
-- [projects_v2.py](../scripts/project_agent/projects_v2.py) — Core abstraction (GraphQL client)
-- [project_syncer.py](../scripts/project_agent/project_syncer.py) — Reactive label sync
-- [validate_projects_v2.py](../scripts/project_agent/validate_projects_v2.py) — Pre-flight validation
+- [projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/projects_v2.py) — Core abstraction (GraphQL client)
+- [project_syncer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/project_syncer.py) — Reactive label sync
+- [validate_projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/validate_projects_v2.py) — Pre-flight validation
 
 ### Agents
-- [issue_writer.py](../scripts/project_agent/issue_writer.py)
-- [epic_decomposer.py](../scripts/project_agent/epic_decomposer.py)
-- [triage_agent.py](../scripts/project_agent/triage_agent.py)
-- [sprint_manager.py](../scripts/project_agent/sprint_manager.py)
-- [pr_linker.py](../scripts/project_agent/pr_linker.py)
+- [issue_writer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/issue_writer.py)
+- [epic_decomposer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/epic_decomposer.py)
+- [triage_agent.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/triage_agent.py)
+- [sprint_manager.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/sprint_manager.py)
+- [pr_linker.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/pr_linker.py)
 
 ### Workflows
-- [.github/workflows/agent-project-syncer.yml](../../.github/workflows/agent-project-syncer.yml)
+- [.github/workflows/orchestration.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/orchestration.yml)
 
 ---
 

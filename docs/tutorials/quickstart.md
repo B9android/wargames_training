@@ -79,4 +79,4 @@ summary.write_markdown()           # → docs/wargames_bench_leaderboard.md
 - **[Training Guide](training.md)** — PPO, self-play, and league training
 - **[Benchmark Guide](benchmark.md)** — WargamesBench deep-dive
 - **[API Reference](../api/index.md)** — full API documentation
-- **[Contributing](../../CONTRIBUTING.md)** — how to contribute
+- **[Contributing](../CONTRIBUTING.md)** — how to contribute

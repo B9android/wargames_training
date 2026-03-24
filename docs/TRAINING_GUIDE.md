@@ -7,7 +7,7 @@ experiments for the `wargames_training` project.
 
 ## Prerequisites
 
-Complete the [Getting Started](../README.md#getting-started) steps in the README first:
+Complete the [Getting Started](https://github.com/B9android/wargames_training#getting-started) steps in the README first:
 
 ```bash
 git clone https://github.com/B9android/wargames_training.git
@@ -344,4 +344,4 @@ python training/train.py --config-name experiment_myname
 ```
 
 Add a `[EXP]` GitHub issue before starting any significant experiment — see
-[CONTRIBUTING.md](../CONTRIBUTING.md#opening-issues).
+[CONTRIBUTING.md](https://github.com/B9android/wargames_training/blob/main/CONTRIBUTING.md#opening-issues).
