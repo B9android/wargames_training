@@ -65,10 +65,11 @@ __all__ = [
 ]
 
 # ---------------------------------------------------------------------------
-# Observation feature names (12-dimensional BattalionEnv observation)
+# Observation feature names (17-dimensional BattalionEnv base observation)
 # ---------------------------------------------------------------------------
 
-#: Human-readable names for each of the 12 BattalionEnv observation dimensions.
+#: Human-readable names for each of the 17 BattalionEnv base observation
+#: dimensions (formations, logistics, and weather all disabled).
 #: Index order matches :meth:`~envs.battalion_env.BattalionEnv._get_obs`.
 OBSERVATION_FEATURES: Tuple[str, ...] = (
     "blue_x",        # [0]  Blue battalion x-position (normalised 0–1)
@@ -83,6 +84,11 @@ OBSERVATION_FEATURES: Tuple[str, ...] = (
     "red_strength",  # [9]  Red strength (0–1)
     "red_morale",    # [10] Red morale (0–1)
     "step_norm",     # [11] Normalised episode progress (0–1)
+    "blue_elev",     # [12] Blue battalion terrain elevation (normalised 0–1)
+    "blue_cover",    # [13] Blue battalion terrain cover (0–1)
+    "red_elev",      # [14] Red battalion terrain elevation (normalised 0–1)
+    "red_cover",     # [15] Red battalion terrain cover (0–1)
+    "los",           # [16] Line-of-sight flag (0 blocked, 1 clear)
 )
 
 
