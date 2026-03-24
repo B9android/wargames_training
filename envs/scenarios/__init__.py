@@ -1,4 +1,4 @@
-"""Historical scenario loading and outcome comparison for E5.4."""
+"""Historical scenario loading, batch import, and outcome comparison (E5.4, E11.1)."""
 
 from envs.scenarios.historical import (
     HistoricalScenario,
@@ -9,6 +9,10 @@ from envs.scenarios.historical import (
     ComparisonResult,
     load_scenario,
 )
+from envs.scenarios.importer import (
+    BatchScenarioImporter,
+    BattleRecord,
+)
 
 __all__ = [
     "HistoricalScenario",
@@ -18,4 +22,7 @@ __all__ = [
     "OutcomeComparator",
     "ComparisonResult",
     "load_scenario",
+    # E11.1 batch importer
+    "BatchScenarioImporter",
+    "BattleRecord",
 ]
