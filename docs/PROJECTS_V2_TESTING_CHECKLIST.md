@@ -29,7 +29,7 @@ Use this checklist to track progress through validation, staging, and production
   - [ ] Field IDs cached successfully
   - [ ] ProjectsV2Client initialization works
 
-**Blocker?** Stop here. See [PROJECTS_V2_QUICK_REFERENCE.md - Troubleshooting](docs/PROJECTS_V2_QUICK_REFERENCE.md#troubleshooting-steps)
+**Blocker?** Stop here. See [PROJECTS_V2_QUICK_REFERENCE.md - Troubleshooting](PROJECTS_V2_QUICK_REFERENCE.md#troubleshooting-steps)
 
 ---
 
@@ -38,7 +38,7 @@ Use this checklist to track progress through validation, staging, and production
 **Objective**: Validate projects_v2.py GraphQL layer works independently
 
 ### Test 1.1: Field ID Caching
-- [ ] Run field ID cache test from [PROJECTS_V2_TESTING_GUIDE.md#test-11](docs/PROJECTS_V2_TESTING_GUIDE.md#test-11-field-id-caching)
+- [ ] Run field ID cache test from [PROJECTS_V2_TESTING_GUIDE.md#test-11](PROJECTS_V2_TESTING_GUIDE.md#test-11-field-id-caching)
 - [ ] Fields cached successfully
 - [ ] Second run reuses cache (no new API calls)
 - [ ] Log output shows all 7 expected fields
@@ -186,7 +186,7 @@ If NO, which agents failed? _________________________________
 
 ### E2E Test: Full Lifecycle
 
-Follow the complete flow from [PROJECTS_V2_TESTING_GUIDE.md#scenario-e2e-1](docs/PROJECTS_V2_TESTING_GUIDE.md#scenario-e2e-1-full-issue-lifecycle):
+Follow the complete flow from [PROJECTS_V2_TESTING_GUIDE.md#scenario-e2e-1](PROJECTS_V2_TESTING_GUIDE.md#scenario-e2e-1-full-issue-lifecycle):
 
 - [ ] **Step 1**: Create epic (result: EPIC #___)
 - [ ] **Step 2**: Decompose epic (result: CHILD #___)
@@ -277,8 +277,8 @@ Once Phase 6 passes:
   - [ ] Verify board sync within 5 seconds
 
 - [ ] **Step 5**: Document for team
-  - [ ] Share [PROJECTS_V2_QUICK_REFERENCE.md](docs/PROJECTS_V2_QUICK_REFERENCE.md)
-  - [ ] Share [PROJECTS_V2_IMPLEMENTATION_SUMMARY.md](docs/PROJECTS_V2_IMPLEMENTATION_SUMMARY.md)
+  - [ ] Share [PROJECTS_V2_QUICK_REFERENCE.md](PROJECTS_V2_QUICK_REFERENCE.md)
+  - [ ] Share [PROJECTS_V2_IMPLEMENTATION_SUMMARY.md](PROJECTS_V2_IMPLEMENTATION_SUMMARY.md)
   - [ ] Brief team on label mappings & field sync
 
 - [ ] **Step 6**: Monitor continuously
@@ -296,21 +296,21 @@ Once Phase 6 passes:
 - Step 1: Check custom fields exist on board (GitHub UI)
 - Step 2: Verify field names match PROJECTS_V2_FIELDS in common.py
 - Step 3: Re-run validation script
-- Link: [PROJECTS_V2_QUICK_REFERENCE.md#common-issues--fixes](docs/PROJECTS_V2_QUICK_REFERENCE.md#common-issues--fixes)
+- Link: [PROJECTS_V2_QUICK_REFERENCE.md#common-issues--fixes](PROJECTS_V2_QUICK_REFERENCE.md#common-issues--fixes)
 
 **Issue**: "Issue doesn't appear on board"
 - Step 1: Check issue is in correct project (verify project ID)
 - Step 2: Run issue_writer manually to add it
 - Step 3: Check W&B logs for sync errors
-- Link: [PROJECTS_V2_QUICK_REFERENCE.md#troubleshooting-steps](docs/PROJECTS_V2_QUICK_REFERENCE.md#troubleshooting-steps)
+- Link: [PROJECTS_V2_QUICK_REFERENCE.md#troubleshooting-steps](PROJECTS_V2_QUICK_REFERENCE.md#troubleshooting-steps)
 
 **Issue**: "GraphQL timeout"
 - Step 1: Check rate limit: `gh api rate-limit --format=json`
 - Step 2: Wait 60 seconds, retry
 - Step 3: Check network connectivity
-- Link: [PROJECTS_V2_TESTING_GUIDE.md#troubleshooting](docs/PROJECTS_V2_TESTING_GUIDE.md#troubleshooting)
+- Link: [PROJECTS_V2_TESTING_GUIDE.md#troubleshooting](PROJECTS_V2_TESTING_GUIDE.md#troubleshooting)
 
-**More help?** See [PROJECTS_V2_QUICK_REFERENCE.md](docs/PROJECTS_V2_QUICK_REFERENCE.md)
+**More help?** See [PROJECTS_V2_QUICK_REFERENCE.md](PROJECTS_V2_QUICK_REFERENCE.md)
 
 ---
 
@@ -335,6 +335,6 @@ ________________________________________________________________________
 
 ---
 
-**Questions?** Check [PROJECTS_V2_QUICK_REFERENCE.md](docs/PROJECTS_V2_QUICK_REFERENCE.md)  
+**Questions?** Check [PROJECTS_V2_QUICK_REFERENCE.md](PROJECTS_V2_QUICK_REFERENCE.md)  
 **Need to debug?** Run `python scripts/project_agent/validate_projects_v2.py`  
-**Have issues?** See [PROJECTS_V2_TESTING_GUIDE.md#troubleshooting](docs/PROJECTS_V2_TESTING_GUIDE.md#troubleshooting)
+**Have issues?** See [PROJECTS_V2_TESTING_GUIDE.md#troubleshooting](PROJECTS_V2_TESTING_GUIDE.md#troubleshooting)

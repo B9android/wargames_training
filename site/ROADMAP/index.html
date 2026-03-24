@@ -1,0 +1,4115 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reinforcement learning research platform for Napoleonic-era battalion simulation. Includes WargamesBench — the standardised benchmark suite for reproducible comparison of wargame AI methods.
+">
+      
+      
+      
+        <link rel="canonical" href="https://b9android.github.io/wargames_training/ROADMAP/">
+      
+      
+        <link rel="prev" href="../ENVIRONMENT_SPEC/">
+      
+      
+        <link rel="next" href="../CHANGELOG/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Wargames Training — Project Roadmap - Wargames Training</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#wargames-training-project-roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Wargames Training" class="md-header__button md-logo" aria-label="Wargames Training" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wargames Training
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Wargames Training — Project Roadmap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/B9android/wargames_training" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    B9android/wargames_training
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/quickstart/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../wargames_bench_leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Benchmark Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../TRAINING_GUIDE/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../CONTRIBUTING/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Wargames Training" class="md-nav__button md-logo" aria-label="Wargames Training" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Wargames Training
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/B9android/wargames_training" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    B9android/wargames_training
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick-Start Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WargamesBench Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/envs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environments API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wargames_bench_leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TRAINING_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Training Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ENVIRONMENT_SPEC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Environment Specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Project Roadmap
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wargames Training — Project Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#version-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v1-foundation-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1: Foundation (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1: Foundation (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v2-multi-agent-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v2: Multi-Agent (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v2: Multi-Agent (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v3-hierarchical-rl-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v3: Hierarchical RL (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v3: Hierarchical RL (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v4-league-training-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v4: League Training (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v4: League Training (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v5-analysis-interface-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v5: Analysis &amp; Interface (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v5: Analysis &amp; Interface (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v6-physics-accurate-simulation-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v6: Physics-Accurate Simulation (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v6: Physics-Accurate Simulation (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v7-operational-scale-corps-command-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v7: Operational Scale — Corps Command (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v7: Operational Scale — Corps Command (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v8-transformer-policy-attention-architecture-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v8: Transformer Policy &amp; Attention Architecture (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v8: Transformer Policy &amp; Attention Architecture (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v9-human-in-the-loop-decision-support-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v9: Human-in-the-Loop &amp; Decision Support (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v9: Human-in-the-Loop &amp; Decision Support (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v10-multi-domain-joint-operations-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v10: Multi-Domain &amp; Joint Operations (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v10: Multi-Domain &amp; Joint Operations (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v11-real-world-data-transfer-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v11: Real-World Data &amp; Transfer (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v11: Real-World Data &amp; Transfer (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v11)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v12-foundation-model-open-research-platform-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v12: Foundation Model &amp; Open Research Platform (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v12: Foundation Model &amp; Open Research Platform (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v12)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sprint-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint Schedule">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v1-sprints-active" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1 Sprints (Active)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v2-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v2 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v3-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v3 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v4-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v4 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v5-sprints-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v5 Sprints (Complete ✅)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v6-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v6 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v7-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v7 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v8-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v8 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v9-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v9 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v10-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v10 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v11-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v11 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v12-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v12 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRIBUTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CODE_OF_CONDUCT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Of Conduct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#version-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v1-foundation-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1: Foundation (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1: Foundation (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v2-multi-agent-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v2: Multi-Agent (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v2: Multi-Agent (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v3-hierarchical-rl-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v3: Hierarchical RL (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v3: Hierarchical RL (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v4-league-training-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v4: League Training (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v4: League Training (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v5-analysis-interface-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v5: Analysis &amp; Interface (Complete ✅)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v5: Analysis &amp; Interface (Complete ✅)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v6-physics-accurate-simulation-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v6: Physics-Accurate Simulation (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v6: Physics-Accurate Simulation (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v7-operational-scale-corps-command-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v7: Operational Scale — Corps Command (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v7: Operational Scale — Corps Command (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v8-transformer-policy-attention-architecture-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v8: Transformer Policy &amp; Attention Architecture (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v8: Transformer Policy &amp; Attention Architecture (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v9-human-in-the-loop-decision-support-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v9: Human-in-the-Loop &amp; Decision Support (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v9: Human-in-the-Loop &amp; Decision Support (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v9)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v10-multi-domain-joint-operations-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v10: Multi-Domain &amp; Joint Operations (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v10: Multi-Domain &amp; Joint Operations (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v10)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v11-real-world-data-transfer-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v11: Real-World Data &amp; Transfer (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v11: Real-World Data &amp; Transfer (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v11)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v12-foundation-model-open-research-platform-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v12: Foundation Model &amp; Open Research Platform (Planned 🔲)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v12: Foundation Model &amp; Open Research Platform (Planned 🔲)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epics_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Epics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#milestones_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Milestones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-research-questions_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Research Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sprint-schedule-v12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule (v12)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sprint-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint Schedule
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint Schedule">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v1-sprints-active" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1 Sprints (Active)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v2-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v2 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v3-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v3 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v4-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v4 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v5-sprints-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v5 Sprints (Complete ✅)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v6-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v6 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v7-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v7 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v8-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v8 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v9-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v9 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v10-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v10 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v11-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v11 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v12-sprints-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v12 Sprints (Planned)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="wargames-training-project-roadmap">Wargames Training — Project Roadmap<a class="headerlink" href="#wargames-training-project-roadmap" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Living document.</strong> Updated by agents and maintainers.
+Last updated: auto-updated by weekly report agent.</p>
+</blockquote>
+<hr />
+<h2 id="version-overview">Version Overview<a class="headerlink" href="#version-overview" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Theme</th>
+<th>Status</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>Foundation — 1v1 battalion</td>
+<td>✅ Complete</td>
+<td>M4</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>Multi-Agent — MARL 2v2+</td>
+<td>✅ Complete</td>
+<td>M6</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td>Hierarchy — Brigade/Division HRL</td>
+<td>✅ Complete</td>
+<td>M8</td>
+</tr>
+<tr>
+<td><strong>v4</strong></td>
+<td>League — AlphaStar-style training</td>
+<td>✅ Complete</td>
+<td>M10</td>
+</tr>
+<tr>
+<td><strong>v5</strong></td>
+<td>Real-World Interface &amp; Analysis</td>
+<td>✅ Complete</td>
+<td>M12</td>
+</tr>
+<tr>
+<td><strong>v6</strong></td>
+<td>Physics-Accurate Simulation</td>
+<td>🔲 Planned</td>
+<td>M14</td>
+</tr>
+<tr>
+<td><strong>v7</strong></td>
+<td>Operational Scale (Corps / Army)</td>
+<td>🔲 Planned</td>
+<td>M16</td>
+</tr>
+<tr>
+<td><strong>v8</strong></td>
+<td>Transformer Policy &amp; Architecture</td>
+<td>🔲 Planned</td>
+<td>M18</td>
+</tr>
+<tr>
+<td><strong>v9</strong></td>
+<td>Human-in-the-Loop &amp; Decision Support</td>
+<td>🔲 Planned</td>
+<td>M20</td>
+</tr>
+<tr>
+<td><strong>v10</strong></td>
+<td>Multi-Domain &amp; Joint Operations</td>
+<td>🔲 Planned</td>
+<td>M22</td>
+</tr>
+<tr>
+<td><strong>v11</strong></td>
+<td>Real-World Data &amp; Transfer</td>
+<td>🔲 Planned</td>
+<td>M24</td>
+</tr>
+<tr>
+<td><strong>v12</strong></td>
+<td>Foundation Model &amp; Open Platform</td>
+<td>🔲 Planned</td>
+<td>M26</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v1-foundation-complete">v1: Foundation (Complete ✅)<a class="headerlink" href="#v1-foundation-complete" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> A single battalion agent that reliably defeats scripted opponents
+in 1v1 continuous 2D battles, generalizes across randomized parameters,
+and has a working self-play loop.</p>
+<h3 id="epics">Epics<a class="headerlink" href="#epics" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <strong>E1.1</strong> — Project Bootstrap &amp; Tooling</li>
+<li>[x] <strong>E1.2</strong> — Core Simulation Engine</li>
+<li>[x] <strong>E1.3</strong> — Gymnasium Environment (1v1)</li>
+<li>[x] <strong>E1.4</strong> — Baseline Training Loop (PPO + scripted opponent)</li>
+<li>[x] <strong>E1.5</strong> — Terrain &amp; Environmental Randomization</li>
+<li>[x] <strong>E1.6</strong> — Reward Shaping &amp; Curriculum Design</li>
+<li>[x] <strong>E1.7</strong> — Self-Play Implementation</li>
+<li>[x] <strong>E1.8</strong> — Evaluation Framework &amp; Elo Tracking</li>
+<li>[x] <strong>E1.9</strong> — Visualization &amp; Replay System</li>
+<li>[x] <strong>E1.10</strong> — v1 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones">Milestones<a class="headerlink" href="#milestones" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M0: Project Bootstrap ✅</li>
+<li>M1: 1v1 Competence ✅</li>
+<li>M2: Terrain &amp; Generalization ✅</li>
+<li>M3: Self-Play Baseline ✅</li>
+<li>M4: v1 Complete ✅</li>
+</ul>
+<hr />
+<h2 id="v2-multi-agent-complete">v2: Multi-Agent (Complete ✅)<a class="headerlink" href="#v2-multi-agent-complete" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Multiple battalions per side coordinate using MAPPO.
+Emergent flanking, fire concentration, and mutual support.</p>
+<h3 id="epics_1">Epics<a class="headerlink" href="#epics_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <strong>E2.1</strong> — PettingZoo Multi-Agent Environment</li>
+<li>[x] <strong>E2.2</strong> — MAPPO Implementation (Centralized Critic)</li>
+<li>[x] <strong>E2.3</strong> — 2v2 Curriculum</li>
+<li>[x] <strong>E2.4</strong> — Coordination Metrics &amp; Analysis</li>
+<li>[x] <strong>E2.5</strong> — Scale to NvN (up to 6v6)</li>
+<li>[x] <strong>E2.6</strong> — Multi-Agent Self-Play</li>
+<li>[x] <strong>E2.7</strong> — v2 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_1">Milestones<a class="headerlink" href="#milestones_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M5: 2v2 MARL ✅</li>
+<li>M6: v2 Complete ✅</li>
+</ul>
+<h3 id="key-research-questions">Key Research Questions<a class="headerlink" href="#key-research-questions" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does parameter sharing (shared policy across all battalions) outperform
+  independent policies?</li>
+<li>What observation radius produces optimal coordination without
+  information overload?</li>
+<li>Does emergent flanking behavior appear without explicit reward for it?</li>
+</ul>
+<h3 id="sprint-schedule-v2">Sprint Schedule (v2)<a class="headerlink" href="#sprint-schedule-v2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S10</td>
+<td>19–20</td>
+<td>PettingZoo environment (2v2)</td>
+<td>E2.1</td>
+</tr>
+<tr>
+<td>S11</td>
+<td>21–22</td>
+<td>MAPPO implementation</td>
+<td>E2.2</td>
+</tr>
+<tr>
+<td>S12</td>
+<td>23–24</td>
+<td>2v2 curriculum + coordination metrics</td>
+<td>E2.3, E2.4</td>
+</tr>
+<tr>
+<td>S13</td>
+<td>25–26</td>
+<td>NvN scaling + multi-agent self-play</td>
+<td>E2.5, E2.6</td>
+</tr>
+<tr>
+<td>S14</td>
+<td>27–28</td>
+<td>v2 polish + release</td>
+<td>E2.7</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v3-hierarchical-rl-complete">v3: Hierarchical RL (Complete ✅)<a class="headerlink" href="#v3-hierarchical-rl-complete" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Brigade and division commanders issue macro-commands to frozen
+battalion policies. HRL architecture matching Black (NPS 2024).</p>
+<h3 id="epics_2">Epics<a class="headerlink" href="#epics_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <strong>E3.1</strong> — SMDP / Options Framework</li>
+<li>[x] <strong>E3.2</strong> — Brigade Commander Layer</li>
+<li>[x] <strong>E3.3</strong> — Division Commander Layer</li>
+<li>[x] <strong>E3.4</strong> — Hierarchical Curriculum (bottom-up training)</li>
+<li>[x] <strong>E3.5</strong> — Temporal Abstraction Tuning</li>
+<li>[x] <strong>E3.6</strong> — Multi-Model Policy Library (per echelon)</li>
+<li>[x] <strong>E3.7</strong> — HRL Evaluation vs. Flat MARL</li>
+<li>[x] <strong>E3.8</strong> — v3 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_2">Milestones<a class="headerlink" href="#milestones_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M7: HRL Battalion→Brigade ✅</li>
+<li>M8: v3 Complete ✅</li>
+</ul>
+<h3 id="key-research-questions_1">Key Research Questions<a class="headerlink" href="#key-research-questions_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does hierarchical decomposition outperform flat MARL at scale?</li>
+<li>What is the optimal temporal abstraction ratio between echelons?</li>
+<li>Can brigade commanders discover novel operational maneuvers?</li>
+</ul>
+<h3 id="sprint-schedule-v3">Sprint Schedule (v3)<a class="headerlink" href="#sprint-schedule-v3" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S15</td>
+<td>29–30</td>
+<td>SMDP / Options framework</td>
+<td>E3.1</td>
+</tr>
+<tr>
+<td>S16</td>
+<td>31–32</td>
+<td>Brigade commander layer + HRL curriculum</td>
+<td>E3.2, E3.4</td>
+</tr>
+<tr>
+<td>S17</td>
+<td>33–34</td>
+<td>Division commander + HRL evaluation</td>
+<td>E3.3, E3.7</td>
+</tr>
+<tr>
+<td>S18</td>
+<td>35–36</td>
+<td>Temporal abstraction + policy library + v3 release</td>
+<td>E3.5, E3.6, E3.8</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v4-league-training-complete">v4: League Training (Complete ✅)<a class="headerlink" href="#v4-league-training-complete" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> AlphaStar-style league with main agents, exploiters, and
+league exploiters. Nash equilibrium sampling. Strategy diversity metrics.</p>
+<h3 id="epics_3">Epics<a class="headerlink" href="#epics_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <strong>E4.1</strong> — League Infrastructure (agent pool, matchmaking)</li>
+<li>[x] <strong>E4.2</strong> — Main Agent Training Loop</li>
+<li>[x] <strong>E4.3</strong> — Main Exploiter Agents</li>
+<li>[x] <strong>E4.4</strong> — League Exploiter Agents</li>
+<li>[x] <strong>E4.5</strong> — Nash Distribution Sampling</li>
+<li>[x] <strong>E4.6</strong> — Strategy Diversity Metrics</li>
+<li>[x] <strong>E4.7</strong> — Distributed Training (Ray)</li>
+<li>[x] <strong>E4.8</strong> — v4 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_3">Milestones<a class="headerlink" href="#milestones_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M9: League Training ✅</li>
+<li>M10: v4 Complete ✅</li>
+</ul>
+<h3 id="key-research-questions_2">Key Research Questions<a class="headerlink" href="#key-research-questions_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Can we achieve Nash equilibrium sampling in a multi-agent wargame setting?</li>
+<li>Does a diverse league produce demonstrably more robust main agents?</li>
+<li>What level of distribution is required for a commercially viable league?</li>
+</ul>
+<h3 id="sprint-schedule-v4">Sprint Schedule (v4)<a class="headerlink" href="#sprint-schedule-v4" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S19</td>
+<td>37–38</td>
+<td>League infrastructure + matchmaking</td>
+<td>E4.1</td>
+</tr>
+<tr>
+<td>S20</td>
+<td>39–40</td>
+<td>Main agent + exploiter training</td>
+<td>E4.2, E4.3</td>
+</tr>
+<tr>
+<td>S21</td>
+<td>41–42</td>
+<td>League exploiters + Nash sampling + diversity</td>
+<td>E4.4, E4.5, E4.6</td>
+</tr>
+<tr>
+<td>S22</td>
+<td>43–44</td>
+<td>Distributed training (Ray/RLlib) + v4 release</td>
+<td>E4.7, E4.8</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v5-analysis-interface-complete">v5: Analysis &amp; Interface (Complete ✅)<a class="headerlink" href="#v5-analysis-interface-complete" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Turn the trained system into a useful wargaming tool.
+Human-vs-AI play, COA analysis, strategy visualization.</p>
+<h3 id="epics_4">Epics<a class="headerlink" href="#epics_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <strong>E5.1</strong> — Human-playable interface (<code>envs/human_env.py</code>, <code>scripts/play.py</code>)</li>
+<li>[x] <strong>E5.2</strong> — Course of Action (COA) generator (<code>analysis/coa_generator.py</code>, <code>api/coa_endpoint.py</code>)</li>
+<li>[x] <strong>E5.3</strong> — Strategy explainability (<code>analysis/saliency.py</code>, <code>notebooks/explainability_demo.ipynb</code>)</li>
+<li>[x] <strong>E5.4</strong> — Historical scenario validation (<code>envs/scenarios/historical.py</code>, <code>configs/scenarios/historical/</code>)</li>
+<li>[x] <strong>E5.5</strong> — Export trained policies for deployment (<code>scripts/export_policy.py</code>, <code>docker/policy_server/</code>)</li>
+</ul>
+<h3 id="milestones_4">Milestones<a class="headerlink" href="#milestones_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M11: Interface &amp; Analysis ✅</li>
+<li>M12: v5 Complete ✅</li>
+</ul>
+<h3 id="key-research-questions_3">Key Research Questions<a class="headerlink" href="#key-research-questions_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Do trained policies reproduce historically documented tactics?</li>
+<li>Can the COA generator surface novel strategies missed by human planners?</li>
+<li>How much does explainability improve operator trust in AI-generated COAs?</li>
+</ul>
+<hr />
+<h2 id="v6-physics-accurate-simulation-planned">v6: Physics-Accurate Simulation (Planned 🔲)<a class="headerlink" href="#v6-physics-accurate-simulation-planned" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Replace the abstract 2D simulation with a historically-grounded
+physics model: terrain elevation, line-of-sight, realistic weapon ranges and
+reload cycles, formation mechanics, morale cascades, supply consumption, and
+weather effects.  This is the foundation that makes all subsequent versions
+tactically meaningful.</p>
+<h3 id="epics_5">Epics<a class="headerlink" href="#epics_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>E6.1</strong> — Terrain Elevation &amp; Line-of-Sight Engine</li>
+<li>[ ] <strong>E6.2</strong> — Realistic Weapon Ranges, Accuracy &amp; Reload Cycles</li>
+<li>[ ] <strong>E6.3</strong> — Morale, Cohesion &amp; Rout Mechanics</li>
+<li>[ ] <strong>E6.4</strong> — Formation System (Line, Column, Square, Skirmish)</li>
+<li>[ ] <strong>E6.5</strong> — Supply, Ammunition &amp; Fatigue Model</li>
+<li>[ ] <strong>E6.6</strong> — Weather &amp; Time-of-Day Effects</li>
+<li>[ ] <strong>E6.7</strong> — v6 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_5">Milestones<a class="headerlink" href="#milestones_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M13: Physics Simulation</li>
+<li>M14: v6 Complete</li>
+</ul>
+<h3 id="key-research-questions_4">Key Research Questions<a class="headerlink" href="#key-research-questions_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does terrain-aware training produce qualitatively different emergent tactics?</li>
+<li>What is the minimum physics fidelity required for historically-plausible agent behaviour?</li>
+<li>Can agents discover fire-and-movement doctrine without explicit reward?</li>
+</ul>
+<h3 id="sprint-schedule-v6">Sprint Schedule (v6)<a class="headerlink" href="#sprint-schedule-v6" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S26</td>
+<td>45–46</td>
+<td>Terrain engine + weapon system</td>
+<td>E6.1, E6.2</td>
+</tr>
+<tr>
+<td>S27</td>
+<td>47–48</td>
+<td>Formations + morale + rout</td>
+<td>E6.3, E6.4</td>
+</tr>
+<tr>
+<td>S28</td>
+<td>49–50</td>
+<td>Logistics + weather + v6 release</td>
+<td>E6.5, E6.6, E6.7</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v7-operational-scale-corps-command-planned">v7: Operational Scale — Corps Command (Planned 🔲)<a class="headerlink" href="#v7-operational-scale-corps-command-planned" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Extend the HRL stack to corps level (3–5 divisions per side on a
+20–50 km² map).  Introduce road networks, strategic supply chains, and
+operational objectives (capture, interdict, fix-and-flank).</p>
+<h3 id="epics_6">Epics<a class="headerlink" href="#epics_6" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>E7.1</strong> — Corps-Level Operational Environment</li>
+<li>[ ] <strong>E7.2</strong> — Strategic Supply &amp; Logistics Network</li>
+<li>[ ] <strong>E7.3</strong> — Multi-Corps Self-Play &amp; League Extension</li>
+<li>[ ] <strong>E7.4</strong> — v7 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_6">Milestones<a class="headerlink" href="#milestones_6" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M15: Corps Command</li>
+<li>M16: v7 Complete</li>
+</ul>
+<h3 id="key-research-questions_5">Key Research Questions<a class="headerlink" href="#key-research-questions_5" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does corps-level HRL discover Napoleon's corps maneuver system independently?</li>
+<li>What map scale is needed to make supply interdiction a decisive operational factor?</li>
+<li>Does Nash equilibrium sampling still prevent strategy collapse at corps scale?</li>
+</ul>
+<h3 id="sprint-schedule-v7">Sprint Schedule (v7)<a class="headerlink" href="#sprint-schedule-v7" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S29</td>
+<td>51–52</td>
+<td>Corps env + road network + objectives</td>
+<td>E7.1</td>
+</tr>
+<tr>
+<td>S30</td>
+<td>53–54</td>
+<td>Strategic supply + corps league</td>
+<td>E7.2, E7.3</td>
+</tr>
+<tr>
+<td>S31</td>
+<td>55–56</td>
+<td>v7 release</td>
+<td>E7.4</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v8-transformer-policy-attention-architecture-planned">v8: Transformer Policy &amp; Attention Architecture (Planned 🔲)<a class="headerlink" href="#v8-transformer-policy-attention-architecture-planned" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Replace fixed-size concatenation observations with variable-length
+entity-token sequences processed by a multi-head self-attention transformer.
+Add recurrent memory for fog-of-war scenarios.  Systematic scaling study.</p>
+<h3 id="epics_7">Epics<a class="headerlink" href="#epics_7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>E8.1</strong> — Entity-Based Observation &amp; Transformer Policy</li>
+<li>[ ] <strong>E8.2</strong> — Memory Module (LSTM / Temporal Context)</li>
+<li>[ ] <strong>E8.3</strong> — Model Scaling &amp; Hyperparameter Study</li>
+<li>[ ] <strong>E8.4</strong> — v8 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_7">Milestones<a class="headerlink" href="#milestones_7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M17: Transformer Policy</li>
+<li>M18: v8 Complete</li>
+</ul>
+<h3 id="key-research-questions_6">Key Research Questions<a class="headerlink" href="#key-research-questions_6" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does entity-based transformer encoding outperform flat MLP at 8v8+?</li>
+<li>Does recurrent memory provide meaningful advantage under fog-of-war?</li>
+<li>What is the optimal model size for the performance–latency Pareto frontier?</li>
+</ul>
+<h3 id="sprint-schedule-v8">Sprint Schedule (v8)<a class="headerlink" href="#sprint-schedule-v8" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S32</td>
+<td>57–58</td>
+<td>Entity encoder + transformer policy</td>
+<td>E8.1</td>
+</tr>
+<tr>
+<td>S33</td>
+<td>59–60</td>
+<td>Memory module + scaling study + v8 release</td>
+<td>E8.2, E8.3, E8.4</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v9-human-in-the-loop-decision-support-planned">v9: Human-in-the-Loop &amp; Decision Support (Planned 🔲)<a class="headerlink" href="#v9-human-in-the-loop-decision-support-planned" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Build a web-based wargaming interface, an AI-assisted COA planning
+tool at corps scale, and an after-action review system with DAgger-style
+human feedback integration.</p>
+<h3 id="epics_8">Epics<a class="headerlink" href="#epics_8" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>E9.1</strong> — Interactive Web-Based Wargame Interface</li>
+<li>[ ] <strong>E9.2</strong> — AI-Assisted Course of Action (COA) Planning Tool</li>
+<li>[ ] <strong>E9.3</strong> — After-Action Review &amp; Training Feedback Loop</li>
+<li>[ ] <strong>E9.4</strong> — v9 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_8">Milestones<a class="headerlink" href="#milestones_8" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M19: Decision Support</li>
+<li>M20: v9 Complete</li>
+</ul>
+<h3 id="key-research-questions_7">Key Research Questions<a class="headerlink" href="#key-research-questions_7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Do AI-generated COAs outperform expert human planners on novel scenarios?</li>
+<li>Does DAgger-style human feedback improve performance on human-designed scenarios?</li>
+<li>What level of explainability is required for operator trust in AI COAs?</li>
+</ul>
+<h3 id="sprint-schedule-v9">Sprint Schedule (v9)<a class="headerlink" href="#sprint-schedule-v9" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S34</td>
+<td>61–62</td>
+<td>Web interface + AI policy server</td>
+<td>E9.1</td>
+</tr>
+<tr>
+<td>S35</td>
+<td>63–64</td>
+<td>COA tool + AAR + v9 release</td>
+<td>E9.2, E9.3, E9.4</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v10-multi-domain-joint-operations-planned">v10: Multi-Domain &amp; Joint Operations (Planned 🔲)<a class="headerlink" href="#v10-multi-domain-joint-operations-planned" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Add naval units, elevate cavalry and artillery to independent
+operational arms, and enable joint combined-arms operations (land + sea).</p>
+<h3 id="epics_9">Epics<a class="headerlink" href="#epics_9" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>E10.1</strong> — Naval Unit Type &amp; Coastal Operations</li>
+<li>[ ] <strong>E10.2</strong> — Cavalry Arm as Independent Maneuver Force</li>
+<li>[ ] <strong>E10.3</strong> — Artillery Arm: Grand Battery &amp; Counter-Battery</li>
+<li>[ ] <strong>E10.4</strong> — v10 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_9">Milestones<a class="headerlink" href="#milestones_9" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M21: Joint Operations</li>
+<li>M22: v10 Complete</li>
+</ul>
+<h3 id="key-research-questions_8">Key Research Questions<a class="headerlink" href="#key-research-questions_8" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does emergent joint combined-arms doctrine appear without explicit reward?</li>
+<li>Does naval fire support change amphibious assault tactics discovered by agents?</li>
+<li>Does cavalry reconnaissance measurably improve corps-level decision quality?</li>
+</ul>
+<h3 id="sprint-schedule-v10">Sprint Schedule (v10)<a class="headerlink" href="#sprint-schedule-v10" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S36</td>
+<td>65–66</td>
+<td>Naval units + coastal operations</td>
+<td>E10.1</td>
+</tr>
+<tr>
+<td>S37</td>
+<td>67–68</td>
+<td>Cavalry corps + grand battery + v10 release</td>
+<td>E10.2, E10.3, E10.4</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v11-real-world-data-transfer-planned">v11: Real-World Data &amp; Transfer (Planned 🔲)<a class="headerlink" href="#v11-real-world-data-transfer-planned" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Import 50+ historical Napoleonic battle OOBs and GIS terrain for
+real battle sites.  Collect expert demonstrations via the v9 interface.
+Validate and fine-tune agents on real-world data.</p>
+<h3 id="epics_10">Epics<a class="headerlink" href="#epics_10" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>E11.1</strong> — Historical Battle Database &amp; Scenario Importer</li>
+<li>[ ] <strong>E11.2</strong> — GIS Terrain Import (real-world maps)</li>
+<li>[ ] <strong>E11.3</strong> — Expert Demonstration Collection &amp; Imitation Learning</li>
+<li>[ ] <strong>E11.4</strong> — v11 Documentation &amp; Release</li>
+</ul>
+<h3 id="milestones_10">Milestones<a class="headerlink" href="#milestones_10" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M23: Real-World Transfer</li>
+<li>M24: v11 Complete</li>
+</ul>
+<h3 id="key-research-questions_9">Key Research Questions<a class="headerlink" href="#key-research-questions_9" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does zero-shot transfer to real terrain lose less than 20 % win rate vs. procedural?</li>
+<li>Does behaviour cloning from expert demonstrations accelerate RL convergence?</li>
+<li>Do agents reproduce historical Napoleonic maneuvers on real battlefield terrain?</li>
+</ul>
+<h3 id="sprint-schedule-v11">Sprint Schedule (v11)<a class="headerlink" href="#sprint-schedule-v11" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S38</td>
+<td>69–70</td>
+<td>Historical database + GIS import</td>
+<td>E11.1, E11.2</td>
+</tr>
+<tr>
+<td>S39</td>
+<td>71–72</td>
+<td>Expert demonstrations + BC pre-training + v11 release</td>
+<td>E11.3, E11.4</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v12-foundation-model-open-research-platform-planned">v12: Foundation Model &amp; Open Research Platform (Planned 🔲)<a class="headerlink" href="#v12-foundation-model-open-research-platform-planned" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Train WFM-1 — a single large transformer policy generalising across
+all scenarios, scales, and unit types.  Open-source the full stack as a
+reproducible research benchmark (WargamesBench).  Submit the system paper.</p>
+<h3 id="epics_11">Epics<a class="headerlink" href="#epics_11" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>E12.1</strong> — Wargames Foundation Model (WFM-1)</li>
+<li>[ ] <strong>E12.2</strong> — Open Research Platform &amp; Public Benchmark (WargamesBench)</li>
+<li>[ ] <strong>E12.3</strong> — Modern-Era Extension (v12 Stretch Goal)</li>
+<li>[ ] <strong>E12.4</strong> — v12 Documentation, Paper &amp; Release</li>
+</ul>
+<h3 id="milestones_11">Milestones<a class="headerlink" href="#milestones_11" title="Permanent link">&para;</a></h3>
+<ul>
+<li>M25: Foundation Model</li>
+<li>M26: v12 Complete</li>
+</ul>
+<h3 id="key-research-questions_10">Key Research Questions<a class="headerlink" href="#key-research-questions_10" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Can a single foundation model generalise across battalion, brigade, and corps echelons?</li>
+<li>Does multi-task training on all scenario types improve zero-shot generalisation?</li>
+<li>Can WFM-1 transfer to a new historical era (WW1) with &lt; 50k fine-tuning steps?</li>
+</ul>
+<h3 id="sprint-schedule-v12">Sprint Schedule (v12)<a class="headerlink" href="#sprint-schedule-v12" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+<th>Epics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S40</td>
+<td>73–74</td>
+<td>WFM-1 architecture + multi-task training</td>
+<td>E12.1</td>
+</tr>
+<tr>
+<td>S41</td>
+<td>75–76</td>
+<td>Open platform + paper + v12 LTS release</td>
+<td>E12.2, E12.3, E12.4</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sprint-schedule">Sprint Schedule<a class="headerlink" href="#sprint-schedule" title="Permanent link">&para;</a></h2>
+<p>Sprints are 2 weeks. Sprint planning happens every other Monday.</p>
+<h3 id="v1-sprints-active">v1 Sprints (Active)<a class="headerlink" href="#v1-sprints-active" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S01</td>
+<td>1–2</td>
+<td>Bootstrap, env setup, first training run</td>
+</tr>
+<tr>
+<td>S02</td>
+<td>3–4</td>
+<td>Sim engine, combat resolution</td>
+</tr>
+<tr>
+<td>S03</td>
+<td>5–6</td>
+<td>Reward shaping, curriculum L1–L3</td>
+</tr>
+<tr>
+<td>S04</td>
+<td>7–8</td>
+<td>Terrain system, curriculum L4</td>
+</tr>
+<tr>
+<td>S05</td>
+<td>9–10</td>
+<td>Generalization, randomized params</td>
+</tr>
+<tr>
+<td>S06</td>
+<td>11–12</td>
+<td>Self-play infrastructure</td>
+</tr>
+<tr>
+<td>S07</td>
+<td>13–14</td>
+<td>Self-play training, Elo tracking</td>
+</tr>
+<tr>
+<td>S08</td>
+<td>15–16</td>
+<td>Evaluation, visualization, v1 polish</td>
+</tr>
+<tr>
+<td>S09</td>
+<td>17–18</td>
+<td>v1 release, v2 planning</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v2-sprints-planned">v2 Sprints (Planned)<a class="headerlink" href="#v2-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S10</td>
+<td>19–20</td>
+<td>PettingZoo multi-agent environment (2v2)</td>
+</tr>
+<tr>
+<td>S11</td>
+<td>21–22</td>
+<td>MAPPO implementation</td>
+</tr>
+<tr>
+<td>S12</td>
+<td>23–24</td>
+<td>2v2 curriculum + coordination metrics</td>
+</tr>
+<tr>
+<td>S13</td>
+<td>25–26</td>
+<td>NvN scaling + multi-agent self-play</td>
+</tr>
+<tr>
+<td>S14</td>
+<td>27–28</td>
+<td>v2 polish + release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v3-sprints-planned">v3 Sprints (Planned)<a class="headerlink" href="#v3-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S15</td>
+<td>29–30</td>
+<td>SMDP / Options framework</td>
+</tr>
+<tr>
+<td>S16</td>
+<td>31–32</td>
+<td>Brigade commander layer + HRL curriculum</td>
+</tr>
+<tr>
+<td>S17</td>
+<td>33–34</td>
+<td>Division commander + HRL evaluation</td>
+</tr>
+<tr>
+<td>S18</td>
+<td>35–36</td>
+<td>Temporal abstraction + policy library + v3 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v4-sprints-planned">v4 Sprints (Planned)<a class="headerlink" href="#v4-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S19</td>
+<td>37–38</td>
+<td>League infrastructure + matchmaking</td>
+</tr>
+<tr>
+<td>S20</td>
+<td>39–40</td>
+<td>Main agent + exploiter training</td>
+</tr>
+<tr>
+<td>S21</td>
+<td>41–42</td>
+<td>League exploiters + Nash sampling + diversity</td>
+</tr>
+<tr>
+<td>S22</td>
+<td>43–44</td>
+<td>Distributed training (Ray/RLlib) + v4 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v5-sprints-complete">v5 Sprints (Complete ✅)<a class="headerlink" href="#v5-sprints-complete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S23 (v5)</td>
+<td>—</td>
+<td>Human interface + COA generator</td>
+</tr>
+<tr>
+<td>S24 (v5)</td>
+<td>—</td>
+<td>Explainability + historical validation</td>
+</tr>
+<tr>
+<td>S25 (v5)</td>
+<td>—</td>
+<td>Policy export + v5 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v6-sprints-planned">v6 Sprints (Planned)<a class="headerlink" href="#v6-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S26</td>
+<td>45–46</td>
+<td>Terrain engine + weapon system</td>
+</tr>
+<tr>
+<td>S27</td>
+<td>47–48</td>
+<td>Formations + morale + rout</td>
+</tr>
+<tr>
+<td>S28</td>
+<td>49–50</td>
+<td>Logistics + weather + v6 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v7-sprints-planned">v7 Sprints (Planned)<a class="headerlink" href="#v7-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S29</td>
+<td>51–52</td>
+<td>Corps env + road network + objectives</td>
+</tr>
+<tr>
+<td>S30</td>
+<td>53–54</td>
+<td>Strategic supply + corps league</td>
+</tr>
+<tr>
+<td>S31</td>
+<td>55–56</td>
+<td>v7 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v8-sprints-planned">v8 Sprints (Planned)<a class="headerlink" href="#v8-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S32</td>
+<td>57–58</td>
+<td>Entity encoder + transformer policy</td>
+</tr>
+<tr>
+<td>S33</td>
+<td>59–60</td>
+<td>Memory module + scaling study + v8 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v9-sprints-planned">v9 Sprints (Planned)<a class="headerlink" href="#v9-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S34</td>
+<td>61–62</td>
+<td>Web interface + AI policy server</td>
+</tr>
+<tr>
+<td>S35</td>
+<td>63–64</td>
+<td>COA tool + AAR + v9 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v10-sprints-planned">v10 Sprints (Planned)<a class="headerlink" href="#v10-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S36</td>
+<td>65–66</td>
+<td>Naval units + coastal operations</td>
+</tr>
+<tr>
+<td>S37</td>
+<td>67–68</td>
+<td>Cavalry corps + grand battery + v10 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v11-sprints-planned">v11 Sprints (Planned)<a class="headerlink" href="#v11-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S38</td>
+<td>69–70</td>
+<td>Historical database + GIS import</td>
+</tr>
+<tr>
+<td>S39</td>
+<td>71–72</td>
+<td>Expert demonstrations + BC pre-training + v11 release</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v12-sprints-planned">v12 Sprints (Planned)<a class="headerlink" href="#v12-sprints-planned" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Weeks</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S40</td>
+<td>73–74</td>
+<td>WFM-1 architecture + multi-task training</td>
+</tr>
+<tr>
+<td>S41</td>
+<td>75–76</td>
+<td>Open platform + paper + v12 LTS release</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../ENVIRONMENT_SPEC/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wargames Training — Environment Specification">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Wargames Training — Environment Specification
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../CHANGELOG/" class="md-footer__link md-footer__link--next" aria-label="Next: Changelog">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Changelog
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Wargames Training Contributors
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/B9android/wargames_training" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/wargames-training/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.instant", "navigation.instant.progress", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.annotate", "content.code.copy", "content.tooltips", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -98,30 +98,30 @@ What's in it:
 ## Source Code
 
 ### Core Abstraction
-- **[projects_v2.py](../scripts/project_agent/projects_v2.py)** — GraphQL client with field ID caching, retry logic, batch mutations
-- **[sprint_assigner.py](../scripts/project_agent/sprint_assigner.py)** — Helper for sprint auto-assignment
+- **[projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/projects_v2.py)** — GraphQL client with field ID caching, retry logic, batch mutations
+- **[sprint_assigner.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/sprint_assigner.py)** — Helper for sprint auto-assignment
 
 ### Agents (6 total)
 All in `scripts/project_agent/`:
 
 | Agent | Purpose | Trigger | Board Action |
 |-------|---------|---------|---------|
-| [issue_writer.py](../scripts/project_agent/issue_writer.py) | Create issue | Issue created | Add to project + Version/Sprint |
-| [epic_decomposer.py](../scripts/project_agent/epic_decomposer.py) | Decompose epic | Manual dispatch | Add children + inherit Version |
-| [triage_agent.py](../scripts/project_agent/triage_agent.py) | Triage issue | Rule-based | Set Version from labels |
-| [sprint_manager.py](../scripts/project_agent/sprint_manager.py) | Manage sprints | Sprint lifecycle | Auto-assign backlog |
-| [pr_linker.py](../scripts/project_agent/pr_linker.py) | Link PR to issue | PR merge | Update Status + Git Commit |
-| [project_syncer.py](../scripts/project_agent/project_syncer.py) | Sync labels | Label applied | Update field(s) |
+| [issue_writer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/issue_writer.py) | Create issue | Issue created | Add to project + Version/Sprint |
+| [epic_decomposer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/epic_decomposer.py) | Decompose epic | Manual dispatch | Add children + inherit Version |
+| [triage_agent.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/triage_agent.py) | Triage issue | Rule-based | Set Version from labels |
+| [sprint_manager.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/sprint_manager.py) | Manage sprints | Sprint lifecycle | Auto-assign backlog |
+| [pr_linker.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/pr_linker.py) | Link PR to issue | PR merge | Update Status + Git Commit |
+| [project_syncer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/project_syncer.py) | Sync labels | Label applied | Update field(s) |
 
 ### Utilities
-- **[common.py](../scripts/project_agent/common.py)** — Shared constants & helpers (PROJECTS_V2_FIELDS)
-- **[validate_projects_v2.py](../scripts/project_agent/validate_projects_v2.py)** — Pre-flight validation script
+- **[common.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/common.py)** — Shared constants & helpers (PROJECTS_V2_FIELDS)
+- **[validate_projects_v2.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/validate_projects_v2.py)** — Pre-flight validation script
 
 ### Workflows
-- **[.github/workflows/agent-project-syncer.yml](../../.github/workflows/agent-project-syncer.yml)** — Triggered on label/milestone changes
+- **[.github/workflows/agent-project-syncer.yml](https://github.com/B9android/wargames_training/blob/main/.github/workflows/agent-project-syncer.yml)** — Triggered on label/milestone changes
 
 ### Configuration
-- **[configs/orchestration.yaml](../configs/orchestration.yaml)** — State machines, policies, field relationships
+- **[configs/orchestration.yaml](https://github.com/B9android/wargames_training/blob/main/configs/orchestration.yaml)** — State machines, policies, field relationships
 
 ---
 
@@ -202,12 +202,12 @@ See [PROJECTS_V2_QUICK_REFERENCE.md - Marker-Based Deduplication](PROJECTS_V2_QU
 
 ### Add a new field to project board
 1. Create field in GitHub Projects v2 UI
-2. Add field name to PROJECTS_V2_FIELDS in [common.py](../scripts/project_agent/common.py)
+2. Add field name to PROJECTS_V2_FIELDS in [common.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/common.py)
 3. Update agent scripts to populate field (call `update_field_value()`)
 4. Add test case to [PROJECTS_V2_TESTING_GUIDE.md](PROJECTS_V2_TESTING_GUIDE.md)
 
 ### Add a new label mapping
-1. Add mapping to `load_label_to_field_mappings()` in [project_syncer.py](../scripts/project_agent/project_syncer.py)
+1. Add mapping to `load_label_to_field_mappings()` in [project_syncer.py](https://github.com/B9android/wargames_training/blob/main/scripts/project_agent/project_syncer.py)
 2. Test: Label issue with new label, run project_syncer, verify field updated
 3. Document in [PROJECTS_V2_QUICK_REFERENCE.md - Field Mappings](PROJECTS_V2_QUICK_REFERENCE.md#field-mappings)
 

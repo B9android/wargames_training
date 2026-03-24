@@ -1,0 +1,52 @@
+/* ── Wargames Training — MkDocs Material custom styles ──────────────────── */
+
+/* ── Typography: bolder headings with accent left-border on h1 ──────────── */
+.md-typeset h1 {
+  border-left: 4px solid var(--md-accent-fg-color);
+  padding-left: 0.6rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset h2 {
+  font-weight: 700;
+}
+
+/* ── Feature grid cards — lift on hover ─────────────────────────────────── */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid.cards > ol > li {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid.cards > ol > li:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Admonition: vivid left accent stripe ────────────────────────────────── */
+.md-typeset .admonition,
+.md-typeset details {
+  border-left-width: 4px;
+}
+
+/* ── Code blocks: consistent padding ────────────────────────────────────── */
+.md-typeset pre > code {
+  padding: 1rem 1.2rem;
+}
+
+/* ── Nav tabs: subtle bottom indicator on active tab ─────────────────────── */
+.md-tabs__link--active {
+  border-bottom: 2px solid var(--md-accent-fg-color);
+}
+
+/* ── Footer prev/next: de-emphasize secondary text ──────────────────────── */
+.md-footer-nav__direction {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* ── Version status table: color ✅ complete rows faintly ─────────────────── */
+.md-typeset table tbody tr td:last-child {
+  white-space: nowrap;
+}
