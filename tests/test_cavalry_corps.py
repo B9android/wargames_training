@@ -647,6 +647,23 @@ class TestCavalryCorpsStepRaiding(unittest.TestCase):
         report = corps.step(inner, sn)
         self.assertEqual(report.revealed_enemy_positions, [])
 
+    def test_raider_interdicts_depot_crossed_into_range_this_step(self) -> None:
+        """Raider starting just outside raid_radius but moving in-range should interdict."""
+        # Place unit exactly one step away from entering raid_radius
+        raid_radius = 200.0
+        depot_x = 8_500.0
+        # Start unit half a cavalry step's distance away from the raid_radius edge
+        # (so it's currently out of range but moves into range in one step)
+        start_x = depot_x - raid_radius - DEFAULT_CAVALRY_SPEED * 0.5
+        cfg = CavalryUnitConfig(raid_radius=raid_radius)
+        unit = _make_unit(x=start_x, y=2_500.0, mission=CavalryMission.RAIDING, config=cfg)
+        corps = CavalryCorps(units=[unit], map_width=MAP_W, map_height=MAP_H)
+        sn = _make_supply_network_with_red_depot(depot_x=depot_x, depot_y=2_500.0)
+        report = corps.step(_make_inner(), sn)
+        # After moving, unit should be within raid_radius and depot should be interdicted
+        self.assertEqual(report.depots_raided, 1)
+        self.assertFalse(sn.depots[0].alive)
+
 
 # ---------------------------------------------------------------------------
 # 14. CavalryCorps — step with PURSUIT mission
@@ -763,6 +780,24 @@ class TestCavalryCorpsEnvSpaces(unittest.TestCase):
     def test_invalid_n_cavalry_brigades(self) -> None:
         with self.assertRaises(ValueError):
             CavalryCorpsEnv(n_cavalry_brigades=0)
+
+    def test_prebuilt_corps_derives_n_cavalry_brigades(self) -> None:
+        """When cavalry_corps is provided, n_cavalry_brigades comes from it."""
+        corps = CavalryCorps.generate_default(MAP_W, MAP_H, n_brigades=3, team=0)
+        env = CavalryCorpsEnv(
+            n_divisions=2, n_brigades_per_division=2, n_blue_per_brigade=2,
+            cavalry_corps=corps,
+        )
+        # n_cavalry_brigades should be derived from the supplied corps (3 units)
+        self.assertEqual(env.n_cavalry_brigades, 3)
+        self.assertEqual(len(env.action_space.nvec), env.n_divisions + 3)
+        env.close()
+
+    def test_prebuilt_corps_empty_raises(self) -> None:
+        """A pre-built corps with no units should raise ValueError."""
+        empty_corps = CavalryCorps(units=[], map_width=MAP_W, map_height=MAP_H)
+        with self.assertRaises(ValueError):
+            _make_env(cavalry_corps=empty_corps)
 
 
 # ---------------------------------------------------------------------------

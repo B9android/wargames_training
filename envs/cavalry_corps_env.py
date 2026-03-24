@@ -208,23 +208,35 @@ class CavalryCorpsEnv(CorpsEnv):
         )
 
         # ── Cavalry configuration ────────────────────────────────────
-        if int(n_cavalry_brigades) < 1:
-            raise ValueError(
-                f"n_cavalry_brigades must be >= 1, got {n_cavalry_brigades!r}"
-            )
-        self.n_cavalry_brigades: int = int(n_cavalry_brigades)
-
-        self._cavalry: CavalryCorps = (
-            cavalry_corps
-            if cavalry_corps is not None
-            else CavalryCorps.generate_default(
+        if cavalry_corps is not None:
+            # Derive n_cavalry_brigades from the provided corps to ensure
+            # the action/observation spaces are consistent with the sim state.
+            try:
+                n_cav_from_corps = len(cavalry_corps.units)
+            except AttributeError as exc:
+                raise ValueError(
+                    "Provided cavalry_corps must be a valid CavalryCorps instance "
+                    "with a 'units' attribute."
+                ) from exc
+            if n_cav_from_corps < 1:
+                raise ValueError(
+                    "Provided cavalry_corps must contain at least one cavalry unit."
+                )
+            self.n_cavalry_brigades: int = int(n_cav_from_corps)
+            self._cavalry: CavalryCorps = cavalry_corps
+        else:
+            if int(n_cavalry_brigades) < 1:
+                raise ValueError(
+                    f"n_cavalry_brigades must be >= 1, got {n_cavalry_brigades!r}"
+                )
+            self.n_cavalry_brigades: int = int(n_cavalry_brigades)
+            self._cavalry: CavalryCorps = CavalryCorps.generate_default(
                 map_width=self.map_width,
                 map_height=self.map_height,
                 n_brigades=self.n_cavalry_brigades,
                 team=0,
                 config=cav_config,
             )
-        )
         self._last_cav_report: CavalryReport = CavalryReport([], 0, 0, 0.0)
 
         # ── Override action space ────────────────────────────────────

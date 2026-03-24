@@ -70,8 +70,6 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import List, Optional, Tuple
 
-import numpy as np
-
 __all__ = [
     "CavalryMission",
     "CavalryUnitConfig",
@@ -482,8 +480,9 @@ class CavalryCorps:
             map_width=self.map_width, map_height=self.map_height,
         )
 
-        # Interdict if close enough
-        if best_dist <= unit.config.raid_radius and best_depot.alive:
+        # Interdict if close enough (based on post-move position)
+        new_dist = unit.distance_to(best_depot.x, best_depot.y)
+        if new_dist <= unit.config.raid_radius and best_depot.alive:
             best_depot.interdict()
             return 1, 0.0
 
@@ -538,8 +537,9 @@ class CavalryCorps:
             map_width=self.map_width, map_height=self.map_height,
         )
 
-        # Deal pursuit damage if within engagement range
-        if best_dist <= unit.config.pursuit_radius and best_target.strength > 0.0:
+        # Deal pursuit damage if within engagement range (after movement)
+        post_move_dist = unit.distance_to(best_target.x, best_target.y)
+        if post_move_dist <= unit.config.pursuit_radius and best_target.strength > 0.0:
             best_target.take_damage(unit.config.pursuit_damage_per_step)
             return 1, unit.config.pursuit_damage_per_step
 
