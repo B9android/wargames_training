@@ -8,6 +8,17 @@
 
 ---
 
+## Navigate
+
+- [Quickstart](tutorials/quickstart.md)
+- [Training Guide](tutorials/training.md)
+- [WargamesBench Guide](tutorials/benchmark.md)
+- [API Reference](api/index.md)
+- [Leaderboard](wargames_bench_leaderboard.md)
+- [Roadmap](ROADMAP.md)
+
+---
+
 <div class="grid cards" markdown>
 
 -   :material-map-legend: __Gymnasium Environments__
@@ -104,8 +115,11 @@
 | **v7** | Operational Scale (Corps / Army) | 🔲 Planned |
 | **v8** | Transformer Policy & Architecture | 🔲 Planned |
 | **v9** | Human-in-the-Loop & Decision Support | 🔲 Planned |
+| **v10** | Multi-Domain & Joint Operations | 🔲 Planned |
+| **v11** | Real-World Data & Transfer | 🔲 Planned |
+| **v12** | Foundation Model & Open Platform | 🔲 Planned |
 
-See the full [:octicons-arrow-right-24: Roadmap](ROADMAP.md) for v10–v12.
+See the full [:octicons-arrow-right-24: Roadmap](ROADMAP.md) for milestone detail and epic breakdown.
 
 ---
 

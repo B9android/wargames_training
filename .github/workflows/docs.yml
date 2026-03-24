@@ -8,22 +8,31 @@ on:
       - "mkdocs.yml"
       - "requirements.txt"
       - "pyproject.toml"
-  workflow_dispatch:       # allow manual re-deploys
+  workflow_dispatch:
 
 permissions:
-  contents: write          # needed to push to gh-pages branch
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history for git-revision-date plugin (future use)
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
       - name: Install docs dependencies
         run: |
@@ -33,5 +42,21 @@ jobs:
             "mkdocstrings[python]>=0.24" \
             pymdown-extensions
 
-      - name: Build & deploy
-        run: mkdocs gh-deploy --force --clean --verbose
+      - name: Build docs site
+        run: mkdocs build --strict
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

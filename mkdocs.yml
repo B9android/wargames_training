@@ -12,16 +12,14 @@ copyright: "Copyright &copy; Wargames Training Contributors"
 theme:
   name: material
   palette:
-    # Dark mode is listed first — it becomes the default
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+    # Unconditional default palette entry keeps the site dark by default.
+    - scheme: slate
       primary: deep purple
       accent: deep orange
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    - scheme: default
       primary: deep purple
       accent: deep orange
       toggle:
