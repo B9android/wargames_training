@@ -1,0 +1,4006 @@
+[
+  {
+    "id": "waterloo_1815",
+    "name": "Battle of Waterloo (1815)",
+    "date": "1815-06-18",
+    "location": "Belgium",
+    "description": "Wellington's Anglo-Allied army defended the ridge of Mont-Saint-Jean against Napoleon's last major offensive effort.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Anglo-Allied (Wellington)",
+      "red": "French Grande Armee (Napoleon)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 1815,
+      "n_hills": 4,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "1st_division_guard",
+          "x": 400.0,
+          "y": 650.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        },
+        {
+          "id": "best_division",
+          "x": 550.0,
+          "y": 640.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "prussian_iv_corps",
+          "x": 750.0,
+          "y": 600.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "old_guard_1st",
+          "x": 380.0,
+          "y": 300.0,
+          "theta": 1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "old_guard_2nd",
+          "x": 480.0,
+          "y": 280.0,
+          "theta": 1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "d_erlon_i_corps",
+          "x": 300.0,
+          "y": 350.0,
+          "theta": 1.5708,
+          "strength": 0.55
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.36,
+      "red_casualties": 0.68,
+      "duration_steps": 420,
+      "description": "Wellington repulsed the Imperial Guard assault, triggering French collapse."
+    }
+  },
+  {
+    "id": "austerlitz_1805",
+    "name": "Battle of Austerlitz (1805)",
+    "date": "1805-12-02",
+    "location": "Moravia",
+    "description": "Napoleon lured the Russo-Austrian Coalition into attacking his weakened right wing, then stormed the Pratzen Heights.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Russo-Austrian Coalition (Kutuzov)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 1805,
+      "n_hills": 5,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "soult_iv_corps_1",
+          "x": 450.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "bernadotte_i_corps",
+          "x": 400.0,
+          "y": 550.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "davout_iii_corps",
+          "x": 280.0,
+          "y": 300.0,
+          "theta": 1.5708,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "kollowrath_centre",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "weyrother_left_wing",
+          "x": 600.0,
+          "y": 300.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "guards_reserve",
+          "x": 720.0,
+          "y": 620.0,
+          "theta": 3.1416,
+          "strength": 1.0
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.12,
+      "red_casualties": 0.47,
+      "duration_steps": 380,
+      "description": "Soult stormed the Pratzen Heights, splitting the Allied army."
+    }
+  },
+  {
+    "id": "borodino_1812",
+    "name": "Battle of Borodino (1812)",
+    "date": "1812-09-07",
+    "location": "Russia",
+    "description": "The bloodiest single day of the Napoleonic Wars. Napoleon withheld his Guard; the Russians fell back in good order.",
+    "source": "Nafziger OOBs",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Russian Imperial Army (Kutuzov)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 1812,
+      "n_hills": 3,
+      "n_forests": 4
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "davout_i_corps",
+          "x": 300.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "ney_iii_corps",
+          "x": 500.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "eugene_iv_corps",
+          "x": 600.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.85
+        }
+      ],
+      "red": [
+        {
+          "id": "bagration_2nd_army",
+          "x": 350.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "raevsky_vii_corps",
+          "x": 550.0,
+          "y": 620.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "platov_cossacks",
+          "x": 700.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": null,
+      "blue_casualties": 0.28,
+      "red_casualties": 0.45,
+      "duration_steps": 500,
+      "description": "Tactically indecisive. Both sides suffered catastrophic losses."
+    }
+  },
+  {
+    "id": "jena_1806",
+    "name": "Battle of Jena (1806)",
+    "date": "1806-10-14",
+    "location": "Prussia",
+    "description": "Napoleon pinned and destroyed Hohenlohe's Prussian force at Jena.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Prussian Army (Hohenlohe)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 1806,
+      "n_hills": 3,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "lannes_v_corps",
+          "x": 300.0,
+          "y": 400.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "soult_iv_corps",
+          "x": 500.0,
+          "y": 420.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "augereau_vii_corps",
+          "x": 400.0,
+          "y": 380.0,
+          "theta": 0.0,
+          "strength": 0.95
+        }
+      ],
+      "red": [
+        {
+          "id": "hohenlohe_main",
+          "x": 600.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "tauenzien_advance",
+          "x": 700.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "ruchel_reserve",
+          "x": 650.0,
+          "y": 650.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.05,
+      "red_casualties": 0.6,
+      "duration_steps": 300,
+      "description": "Decisive French victory. The Prussian army was routed."
+    }
+  },
+  {
+    "id": "eylau_1807",
+    "name": "Battle of Eylau (1807)",
+    "date": "1807-02-07",
+    "location": "East Prussia",
+    "description": "A bloody winter battle in a blizzard. Murat's massive cavalry charge stabilised the French centre.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Russian Army (Bennigsen)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 1807,
+      "n_hills": 2,
+      "n_forests": 1
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "soult_iv_corps",
+          "x": 450.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "augereau_vii_corps",
+          "x": 350.0,
+          "y": 430.0,
+          "theta": 0.0,
+          "strength": 0.7
+        },
+        {
+          "id": "murat_cavalry_reserve",
+          "x": 500.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.95
+        }
+      ],
+      "red": [
+        {
+          "id": "bennigsen_main",
+          "x": 600.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 1.0
+        },
+        {
+          "id": "ostermann_advance",
+          "x": 550.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "lestocq_prussians",
+          "x": 700.0,
+          "y": 620.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": null,
+      "blue_casualties": 0.3,
+      "red_casualties": 0.28,
+      "duration_steps": 480,
+      "description": "Pyrrhic French tactical victory. Both armies suffered massive casualties in appalling winter conditions."
+    }
+  },
+  {
+    "id": "friedland_1807",
+    "name": "Battle of Friedland (1807)",
+    "date": "1807-06-14",
+    "location": "East Prussia",
+    "description": "Napoleon caught Bennigsen's Russian army with its back to the Alle River and crushed it, forcing Russia to seek peace at Tilsit.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Russian Army (Bennigsen)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18070614,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "ney_vi_corps",
+          "x": 300.0,
+          "y": 400.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "lannes_v_corps",
+          "x": 400.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "mortier_viii_corps",
+          "x": 500.0,
+          "y": 430.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "bennigsen_main",
+          "x": 650.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "bagration_advance",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "gorchakov_reserve",
+          "x": 700.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.08,
+      "red_casualties": 0.4,
+      "duration_steps": 360,
+      "description": "Crushing French victory. Russia sued for peace at Tilsit."
+    }
+  },
+  {
+    "id": "wagram_1809",
+    "name": "Battle of Wagram (1809)",
+    "date": "1809-07-05",
+    "location": "Austria",
+    "description": "A two-day engagement on the Marchfeld plain that broke Austrian resistance and ended the War of the Fifth Coalition.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Austrian Army (Archduke Charles)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 1809,
+      "n_hills": 2,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "davout_iii_corps",
+          "x": 250.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "oudinot_ii_corps",
+          "x": 450.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "macdonald_ix_corps",
+          "x": 550.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "charles_main_army",
+          "x": 600.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 1.0
+        },
+        {
+          "id": "rosenberg_iv_corps",
+          "x": 700.0,
+          "y": 540.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "bellegarde_i_corps",
+          "x": 550.0,
+          "y": 620.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.23,
+      "red_casualties": 0.32,
+      "duration_steps": 600,
+      "description": "Costly French victory. Austria signed the Treaty of Schoenbrunn."
+    }
+  },
+  {
+    "id": "aspern_essling_1809",
+    "name": "Battle of Aspern-Essling (1809)",
+    "date": "1809-05-21",
+    "location": "Austria",
+    "description": "Napoleon's first major defeat. Austrian forces caught the French crossing the Danube and inflicted a serious reverse.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Austrian Army (Archduke Charles)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18090521,
+      "n_hills": 1,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "masséna_iv_corps",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "lannes_ii_corps",
+          "x": 500.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "bessieres_cavalry",
+          "x": 450.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "charles_main",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 1.0
+        },
+        {
+          "id": "hiller_vi_corps",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.95
+        },
+        {
+          "id": "rosenberg_iv_corps",
+          "x": 700.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.22,
+      "red_casualties": 0.15,
+      "duration_steps": 480,
+      "description": "Austrian victory. Napoleon was forced to retreat back across the Danube."
+    }
+  },
+  {
+    "id": "salamanca_1812",
+    "name": "Battle of Salamanca (1812)",
+    "date": "1812-07-22",
+    "location": "Spain",
+    "description": "Wellington exploited a gap in the French line and delivered a crushing blow to Marmont's Army of Portugal.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Anglo-Portuguese Army (Wellington)",
+      "red": "French Army of Portugal (Marmont)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18120722,
+      "n_hills": 4,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "pakenham_3rd_division",
+          "x": 300.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "leith_5th_division",
+          "x": 400.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "cole_4th_division",
+          "x": 500.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "thomières_division",
+          "x": 550.0,
+          "y": 600.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "maucune_division",
+          "x": 600.0,
+          "y": 580.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "brennier_division",
+          "x": 650.0,
+          "y": 560.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.13,
+      "red_casualties": 0.38,
+      "duration_steps": 240,
+      "description": "Wellington's most complete battlefield victory."
+    }
+  },
+  {
+    "id": "vitoria_1813",
+    "name": "Battle of Vitoria (1813)",
+    "date": "1813-06-21",
+    "location": "Spain",
+    "description": "Wellington's coordinated four-column assault shattered King Joseph's army and ended French rule in Spain.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Allied Army (Wellington)",
+      "red": "French Army of Spain (King Joseph)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18130621,
+      "n_hills": 3,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "hill_corps",
+          "x": 250.0,
+          "y": 400.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "graham_corps",
+          "x": 300.0,
+          "y": 600.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "wellington_centre",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "reille_army_of_portugal",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "joseph_main",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "gazan_army_of_south",
+          "x": 700.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.07,
+      "red_casualties": 0.48,
+      "duration_steps": 480,
+      "description": "Decisive Allied victory. France lost Spain."
+    }
+  },
+  {
+    "id": "dresden_1813",
+    "name": "Battle of Dresden (1813)",
+    "date": "1813-08-26",
+    "location": "Germany",
+    "description": "Napoleon's last major offensive victory, routing a larger Allied army attacking his Saxon capital.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Army of Bohemia (Schwarzenberg)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18130826,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "napoleon_guard",
+          "x": 450.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "victor_ii_corps",
+          "x": 350.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "murat_cavalry",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "wittgenstein_russians",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "kleist_prussians",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "schwarzenberg_main",
+          "x": 700.0,
+          "y": 580.0,
+          "theta": 3.1416,
+          "strength": 0.95
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.1,
+      "red_casualties": 0.38,
+      "duration_steps": 420,
+      "description": "French victory but strategically inconclusive."
+    }
+  },
+  {
+    "id": "leipzig_1813",
+    "name": "Battle of Leipzig (1813)",
+    "date": "1813-10-16",
+    "location": "Germany",
+    "description": "The Battle of the Nations. Four Allied armies converged on Napoleon from all sides over three days.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Allied Armies (Schwarzenberg/Blucher)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18131016,
+      "n_hills": 1,
+      "n_forests": 4
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "napoleon_guard_reserve",
+          "x": 500.0,
+          "y": 500.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "victor_ii_corps",
+          "x": 400.0,
+          "y": 450.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        },
+        {
+          "id": "poniatowski_viii_corps",
+          "x": 450.0,
+          "y": 480.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "schwarzenberg_bohemia",
+          "x": 500.0,
+          "y": 250.0,
+          "theta": 1.5708,
+          "strength": 1.0
+        },
+        {
+          "id": "blücher_silesia",
+          "x": 500.0,
+          "y": 750.0,
+          "theta": -1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "bernadotte_north",
+          "x": 750.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.6,
+      "red_casualties": 0.25,
+      "duration_steps": 720,
+      "description": "Catastrophic French defeat. Germany was liberated."
+    }
+  },
+  {
+    "id": "ligny_1815",
+    "name": "Battle of Ligny (1815)",
+    "date": "1815-06-16",
+    "location": "Belgium",
+    "description": "Napoleon's last victory. The French defeated Blucher's Prussians two days before Waterloo.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Prussian Army (Blucher)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18150616,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "napoleon_guard",
+          "x": 400.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "vandamme_iii_corps",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "gerard_iv_corps",
+          "x": 500.0,
+          "y": 460.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "blucher_main",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "zieten_i_corps",
+          "x": 550.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "pirch_ii_corps",
+          "x": 650.0,
+          "y": 580.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.12,
+      "red_casualties": 0.25,
+      "duration_steps": 360,
+      "description": "French victory. Blucher was wounded but the Prussians remained a coherent force."
+    }
+  },
+  {
+    "id": "quatre_bras_1815",
+    "name": "Battle of Quatre Bras (1815)",
+    "date": "1815-06-16",
+    "location": "Belgium",
+    "description": "Ney's attack on Wellington's position at the Quatre Bras crossroads. Ultimately inconclusive.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Anglo-Allied (Wellington)",
+      "red": "French Army (Ney)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18150617,
+      "n_hills": 3,
+      "n_forests": 4
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "picton_5th_division",
+          "x": 400.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "pack_brigade",
+          "x": 450.0,
+          "y": 620.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        },
+        {
+          "id": "netherlands_division",
+          "x": 500.0,
+          "y": 610.0,
+          "theta": -1.5708,
+          "strength": 0.7
+        }
+      ],
+      "red": [
+        {
+          "id": "reille_ii_corps",
+          "x": 400.0,
+          "y": 350.0,
+          "theta": 1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "jerome_division",
+          "x": 350.0,
+          "y": 380.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "kellermann_cavalry",
+          "x": 450.0,
+          "y": 360.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": null,
+      "blue_casualties": 0.17,
+      "red_casualties": 0.18,
+      "duration_steps": 420,
+      "description": "Tactically inconclusive. Wellington withdrew to his Waterloo position overnight."
+    }
+  },
+  {
+    "id": "marengo_1800",
+    "name": "Battle of Marengo (1800)",
+    "date": "1800-06-14",
+    "location": "Italy",
+    "description": "Napoleon nearly lost the battle until Desaix's corps returned just in time, a dramatic reversal.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army of Reserve (Napoleon)",
+      "red": "Austrian Army (Melas)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18000614,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "desaix_division",
+          "x": 200.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "victor_corps",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.6
+        },
+        {
+          "id": "lannes_corps",
+          "x": 300.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.65
+        }
+      ],
+      "red": [
+        {
+          "id": "melas_main",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "ott_vanguard",
+          "x": 600.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "kaim_division",
+          "x": 700.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.24,
+      "red_casualties": 0.35,
+      "duration_steps": 420,
+      "description": "French victory after near-defeat. Desaix's counterattack reversed the battle."
+    }
+  },
+  {
+    "id": "arcola_1796",
+    "name": "Battle of Arcola (1796)",
+    "date": "1796-11-15",
+    "location": "Italy",
+    "description": "Three-day battle at the Alpone marshes. Napoleon's crossing of the Arcola bridge under fire.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Napoleon)",
+      "red": "Austrian Army (Alvinczy)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17961115,
+      "n_hills": 1,
+      "n_forests": 4
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "augereau_division",
+          "x": 300.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "massena_division",
+          "x": 400.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "napoleon_reserve",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        }
+      ],
+      "red": [
+        {
+          "id": "alvinczy_main",
+          "x": 600.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.95
+        },
+        {
+          "id": "provera_corps",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "mittrowsky_division",
+          "x": 700.0,
+          "y": 540.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.2,
+      "red_casualties": 0.3,
+      "duration_steps": 480,
+      "description": "French victory after three days of fierce fighting across the marshes."
+    }
+  },
+  {
+    "id": "rivoli_1797",
+    "name": "Battle of Rivoli (1797)",
+    "date": "1797-01-14",
+    "location": "Italy",
+    "description": "Napoleon defeated each Austrian column in detail as they arrived on the plateau.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Napoleon)",
+      "red": "Austrian Army (Alvinczy)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17970114,
+      "n_hills": 5,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "massena_division",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "joubert_division",
+          "x": 450.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "rey_division",
+          "x": 350.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "alvinczy_main_column",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "lusignan_flank_column",
+          "x": 500.0,
+          "y": 300.0,
+          "theta": 1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "quosdanovich_column",
+          "x": 700.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.07,
+      "red_casualties": 0.45,
+      "duration_steps": 360,
+      "description": "Decisive French victory. Austria's final attempt to relieve Mantua was crushed."
+    }
+  },
+  {
+    "id": "smolensk_1812",
+    "name": "Battle of Smolensk (1812)",
+    "date": "1812-08-17",
+    "location": "Russia",
+    "description": "Napoleon hoped for a decisive battle at Smolensk, but Barclay de Tolly withdrew after bitter street fighting.",
+    "source": "Nafziger OOBs",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Russian Army (Barclay de Tolly)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18120817,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "ney_iii_corps",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "davout_i_corps",
+          "x": 300.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "poniatowski_v_corps",
+          "x": 400.0,
+          "y": 460.0,
+          "theta": 0.0,
+          "strength": 0.85
+        }
+      ],
+      "red": [
+        {
+          "id": "barclay_main",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "dokhturov_vi_corps",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "raevsky_vii_corps",
+          "x": 700.0,
+          "y": 570.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.12,
+      "red_casualties": 0.18,
+      "duration_steps": 420,
+      "description": "Tactical French victory but strategic failure. Russia preserved her army."
+    }
+  },
+  {
+    "id": "lutzen_1813",
+    "name": "Battle of Lutzen (1813)",
+    "date": "1813-05-02",
+    "location": "Germany",
+    "description": "Napoleon's first battle after the Russian disaster, fought with inexperienced conscripts.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Allied Army (Wittgenstein/Blucher)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18130502,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "ney_iii_corps",
+          "x": 400.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "marmont_vi_corps",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "macdonald_xi_corps",
+          "x": 450.0,
+          "y": 460.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "wittgenstein_russians",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "blucher_prussians",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "york_prussians",
+          "x": 700.0,
+          "y": 570.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.18,
+      "red_casualties": 0.2,
+      "duration_steps": 480,
+      "description": "French victory but without decisive pursuit. Napoleon lacked cavalry."
+    }
+  },
+  {
+    "id": "bautzen_1813",
+    "name": "Battle of Bautzen (1813)",
+    "date": "1813-05-20",
+    "location": "Germany",
+    "description": "Napoleon's flanking manoeuvre nearly trapped the Allied army, but Ney failed to arrive in time.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Allied Army (Wittgenstein)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18130520,
+      "n_hills": 3,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "napoleon_guard_main",
+          "x": 400.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "ney_north_column",
+          "x": 600.0,
+          "y": 650.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "oudinot_xii_corps",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.85
+        }
+      ],
+      "red": [
+        {
+          "id": "wittgenstein_main",
+          "x": 600.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "miloradovich_advance",
+          "x": 550.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "barclay_reserve",
+          "x": 650.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.15,
+      "red_casualties": 0.22,
+      "duration_steps": 480,
+      "description": "French victory but without decisive pursuit."
+    }
+  },
+  {
+    "id": "eckmuhl_1809",
+    "name": "Battle of Eckmuhl (1809)",
+    "date": "1809-04-22",
+    "location": "Bavaria",
+    "description": "Napoleon's rapid concentration and strike at the Austrian right flank, saving Davout's corps.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Austrian Army (Archduke Charles)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18090422,
+      "n_hills": 3,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "davout_iii_corps",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "napoleon_reserve",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "lannes_ii_corps",
+          "x": 400.0,
+          "y": 460.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "charles_main",
+          "x": 500.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "rosenberg_iv_corps",
+          "x": 550.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "lichtenstein_cavalry",
+          "x": 600.0,
+          "y": 600.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.08,
+      "red_casualties": 0.25,
+      "duration_steps": 360,
+      "description": "French victory. Archduke Charles withdrew across the Danube."
+    }
+  },
+  {
+    "id": "talavera_1809",
+    "name": "Battle of Talavera (1809)",
+    "date": "1809-07-27",
+    "location": "Spain",
+    "description": "Wellington repelled repeated French attacks on his position but could not destroy Victor's army.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Anglo-Spanish Army (Wellington)",
+      "red": "French Army (Victor/Joseph)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18090727,
+      "n_hills": 3,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "sherbrooke_1st_division",
+          "x": 400.0,
+          "y": 620.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "campbell_4th_division",
+          "x": 500.0,
+          "y": 640.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "cuesta_spaniards",
+          "x": 350.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.6
+        }
+      ],
+      "red": [
+        {
+          "id": "victor_i_corps",
+          "x": 400.0,
+          "y": 350.0,
+          "theta": 1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "sebastiani_iv_corps",
+          "x": 500.0,
+          "y": 370.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "joseph_reserve",
+          "x": 450.0,
+          "y": 400.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.25,
+      "red_casualties": 0.2,
+      "duration_steps": 480,
+      "description": "Allied defensive victory. Wellington earned his viscountcy."
+    }
+  },
+  {
+    "id": "albuera_1811",
+    "name": "Battle of Albuera (1811)",
+    "date": "1811-05-16",
+    "location": "Spain",
+    "description": "One of the bloodiest battles of the Peninsular War. Beresford's allied force defeated Soult's flanking attack.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Allied Army (Beresford)",
+      "red": "French Army of the South (Soult)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18110516,
+      "n_hills": 3,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "stewart_2nd_division",
+          "x": 450.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "cole_4th_division",
+          "x": 500.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "blake_spaniards",
+          "x": 400.0,
+          "y": 560.0,
+          "theta": -1.5708,
+          "strength": 0.65
+        }
+      ],
+      "red": [
+        {
+          "id": "girard_v_corps",
+          "x": 400.0,
+          "y": 350.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "godinot_division",
+          "x": 450.0,
+          "y": 380.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "latour_maubourg_cavalry",
+          "x": 500.0,
+          "y": 360.0,
+          "theta": 1.5708,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.37,
+      "red_casualties": 0.4,
+      "duration_steps": 360,
+      "description": "Allied victory at tremendous cost. Both sides suffered horrific casualties."
+    }
+  },
+  {
+    "id": "berezina_1812",
+    "name": "Battle of the Berezina (1812)",
+    "date": "1812-11-26",
+    "location": "Russia",
+    "description": "The French Grand Armee's desperate crossing of the frozen Berezina River while surrounded.",
+    "source": "Nafziger OOBs",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Russian Army (Chichagov/Wittgenstein)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18121126,
+      "n_hills": 1,
+      "n_forests": 5
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "oudinot_ii_corps",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.5
+        },
+        {
+          "id": "victor_ix_corps",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.55
+        },
+        {
+          "id": "napoleon_guard_remnants",
+          "x": 450.0,
+          "y": 510.0,
+          "theta": 0.0,
+          "strength": 0.4
+        }
+      ],
+      "red": [
+        {
+          "id": "chichagov_danube_army",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "wittgenstein_north",
+          "x": 400.0,
+          "y": 750.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        },
+        {
+          "id": "platov_cossacks",
+          "x": 450.0,
+          "y": 250.0,
+          "theta": 1.5708,
+          "strength": 0.7
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.5,
+      "red_casualties": 0.2,
+      "duration_steps": 480,
+      "description": "The core of the Grand Armee escaped, though with massive losses."
+    }
+  },
+  {
+    "id": "hanau_1813",
+    "name": "Battle of Hanau (1813)",
+    "date": "1813-10-30",
+    "location": "Germany",
+    "description": "Napoleon fought through Bavarian-Austrian forces blocking his retreat to France after Leipzig.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Austro-Bavarian Army (Wrede)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18131030,
+      "n_hills": 2,
+      "n_forests": 4
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "old_guard",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.75
+        },
+        {
+          "id": "bertrand_iv_corps",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.65
+        },
+        {
+          "id": "drouot_artillery",
+          "x": 400.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "wrede_main",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "bavarian_corps",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "austrian_reserve",
+          "x": 700.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.1,
+      "red_casualties": 0.35,
+      "duration_steps": 300,
+      "description": "French victory. Napoleon cleared the road to France."
+    }
+  },
+  {
+    "id": "montmirail_1814",
+    "name": "Battle of Montmirail (1814)",
+    "date": "1814-02-11",
+    "location": "France",
+    "description": "The centrepiece of Napoleon's Six Days campaign. He defeated Sacken's Russians and York's Prussians in succession.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army (Napoleon)",
+      "red": "Allied Army (Sacken/York)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140211,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "old_guard_division",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "friant_guard_division",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "grouchy_cavalry",
+          "x": 450.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "sacken_russians",
+          "x": 600.0,
+          "y": 520.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "york_prussians",
+          "x": 650.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "olsufiev_corps",
+          "x": 700.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.07,
+      "red_casualties": 0.3,
+      "duration_steps": 360,
+      "description": "Brilliant French victory during the Six Days campaign."
+    }
+  },
+  {
+    "id": "vauchamps_1814",
+    "name": "Battle of Vauchamps (1814)",
+    "date": "1814-02-14",
+    "location": "France",
+    "description": "The final battle of Napoleon's Six Days campaign. Grouchy's cavalry cut off Blucher's retreating Prussians.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army (Napoleon/Grouchy)",
+      "red": "Prussian Army (Blucher)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140214,
+      "n_hills": 2,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "grouchy_cavalry_corps",
+          "x": 700.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "napoleon_guard",
+          "x": 300.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "marmont_vi_corps",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "blucher_main",
+          "x": 500.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "kleist_corps",
+          "x": 550.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        },
+        {
+          "id": "kapzevich_corps",
+          "x": 600.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.7
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.05,
+      "red_casualties": 0.35,
+      "duration_steps": 300,
+      "description": "Crushing French victory. The Six Days ended in triumph."
+    }
+  },
+  {
+    "id": "la_rothiere_1814",
+    "name": "Battle of La Rothiere (1814)",
+    "date": "1814-02-01",
+    "location": "France",
+    "description": "Napoleon was overwhelmed by converging Allied forces and suffered a defensive defeat.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army (Napoleon)",
+      "red": "Allied Army (Blucher/Schwarzenberg)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140201,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "victor_ii_corps",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.7
+        },
+        {
+          "id": "marmont_vi_corps",
+          "x": 450.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.65
+        },
+        {
+          "id": "napoleon_guard",
+          "x": 500.0,
+          "y": 510.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "blucher_silesia",
+          "x": 500.0,
+          "y": 700.0,
+          "theta": -1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "schwarzenberg_bohemia",
+          "x": 600.0,
+          "y": 300.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "wittgenstein_corps",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.25,
+      "red_casualties": 0.12,
+      "duration_steps": 420,
+      "description": "Allied victory. Napoleon was outnumbered 3:1."
+    }
+  },
+  {
+    "id": "castiglione_1796",
+    "name": "Battle of Castiglione (1796)",
+    "date": "1796-08-05",
+    "location": "Italy",
+    "description": "Napoleon concentrated against Wurmser's dispersed columns and defeated each in turn.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Napoleon)",
+      "red": "Austrian Army (Wurmser)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17960805,
+      "n_hills": 3,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "massena_division",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "augereau_division",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "despinoy_division",
+          "x": 450.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "wurmser_main",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "quosdanovich_corps",
+          "x": 600.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "meszaros_cavalry",
+          "x": 700.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.1,
+      "red_casualties": 0.28,
+      "duration_steps": 360,
+      "description": "French victory. Wurmser's relieving army was defeated."
+    }
+  },
+  {
+    "id": "bassano_1796",
+    "name": "Battle of Bassano (1796)",
+    "date": "1796-09-08",
+    "location": "Italy",
+    "description": "Napoleon struck Wurmser's retreating column at Bassano, capturing his artillery and forcing Wurmser into Mantua.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Napoleon)",
+      "red": "Austrian Army (Wurmser)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17960908,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "massena_division",
+          "x": 500.0,
+          "y": 400.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "augereau_division",
+          "x": 300.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "kilmaine_cavalry",
+          "x": 400.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "wurmser_column",
+          "x": 500.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "davidovich_column",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        },
+        {
+          "id": "wurmser_rearguard",
+          "x": 550.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.7
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.05,
+      "red_casualties": 0.42,
+      "duration_steps": 300,
+      "description": "Complete French victory. Wurmser was trapped in Mantua."
+    }
+  },
+  {
+    "id": "novi_1799",
+    "name": "Battle of Novi (1799)",
+    "date": "1799-08-15",
+    "location": "Italy",
+    "description": "Suvorov's Austro-Russian forces decisively defeated the French Army of Italy.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Moreau)",
+      "red": "Austro-Russian Army (Suvorov)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17990815,
+      "n_hills": 4,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "moreau_main",
+          "x": 400.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "perignon_division",
+          "x": 450.0,
+          "y": 620.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "grouchy_cavalry",
+          "x": 500.0,
+          "y": 590.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "suvorov_main",
+          "x": 400.0,
+          "y": 300.0,
+          "theta": 1.5708,
+          "strength": 1.0
+        },
+        {
+          "id": "melas_column",
+          "x": 350.0,
+          "y": 320.0,
+          "theta": 1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "bagration_advance",
+          "x": 450.0,
+          "y": 310.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.4,
+      "red_casualties": 0.15,
+      "duration_steps": 480,
+      "description": "Decisive Allied victory. The French Army of Italy was shattered."
+    }
+  },
+  {
+    "id": "trebbia_1799",
+    "name": "Battle of Trebbia (1799)",
+    "date": "1799-06-17",
+    "location": "Italy",
+    "description": "Suvorov's rapid march caught Macdonald's French army on the Trebbia River.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Macdonald)",
+      "red": "Austro-Russian Army (Suvorov)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17990617,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "macdonald_main",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "montrichard_division",
+          "x": 450.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "oliver_division",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "suvorov_main",
+          "x": 650.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 1.0
+        },
+        {
+          "id": "bagration_advance_guard",
+          "x": 600.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "rohan_austrians",
+          "x": 700.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.35,
+      "red_casualties": 0.18,
+      "duration_steps": 540,
+      "description": "Allied victory over three days. Macdonald escaped with the remnants of his army."
+    }
+  },
+  {
+    "id": "ulm_1805",
+    "name": "Battle of Ulm (1805)",
+    "date": "1805-10-17",
+    "location": "Germany",
+    "description": "Napoleon's strategic encirclement trapped Mack's Austrian army without a pitched battle.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Austrian Army (Mack)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18051017,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "ney_vi_corps",
+          "x": 300.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 1.0
+        },
+        {
+          "id": "soult_iv_corps",
+          "x": 700.0,
+          "y": 400.0,
+          "theta": 1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "murat_cavalry",
+          "x": 500.0,
+          "y": 300.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "mack_main",
+          "x": 500.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "riesch_corps",
+          "x": 450.0,
+          "y": 520.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        },
+        {
+          "id": "werneck_corps",
+          "x": 550.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.7
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.02,
+      "red_casualties": 0.9,
+      "duration_steps": 480,
+      "description": "French strategic masterpiece. 30,000 Austrians surrendered."
+    }
+  },
+  {
+    "id": "auerstedt_1806",
+    "name": "Battle of Auerstedt (1806)",
+    "date": "1806-10-14",
+    "location": "Prussia",
+    "description": "Davout's single corps defeated the main Prussian army in the most astonishing feat of arms of the Napoleonic Wars.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French III Corps (Davout)",
+      "red": "Prussian Main Army (Brunswick)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18061014,
+      "n_hills": 3,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "gudin_division",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 1.0
+        },
+        {
+          "id": "friant_division",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.95
+        },
+        {
+          "id": "morand_division",
+          "x": 400.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.95
+        }
+      ],
+      "red": [
+        {
+          "id": "brunswick_main",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.95
+        },
+        {
+          "id": "schmettau_division",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "wartensleben_corps",
+          "x": 700.0,
+          "y": 540.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.15,
+      "red_casualties": 0.55,
+      "duration_steps": 480,
+      "description": "Extraordinary French victory. Davout's 26,000 defeated 50,000 Prussians."
+    }
+  },
+  {
+    "id": "heilsberg_1807",
+    "name": "Battle of Heilsberg (1807)",
+    "date": "1807-06-10",
+    "location": "East Prussia",
+    "description": "The French attacked a heavily fortified Russian camp at Heilsberg and were repulsed with heavy losses.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Murat/Soult)",
+      "red": "Russian Army (Bennigsen)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18070610,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "soult_corps",
+          "x": 350.0,
+          "y": 450.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "murat_cavalry",
+          "x": 400.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "lannes_corps",
+          "x": 450.0,
+          "y": 460.0,
+          "theta": 0.0,
+          "strength": 0.9
+        }
+      ],
+      "red": [
+        {
+          "id": "bennigsen_main",
+          "x": 600.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "gortchakov_advance",
+          "x": 550.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "bagration_reserve",
+          "x": 650.0,
+          "y": 620.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.22,
+      "red_casualties": 0.1,
+      "duration_steps": 360,
+      "description": "Russian defensive victory. French frontal attacks on the entrenchments were repulsed."
+    }
+  },
+  {
+    "id": "hohenlinden_1800",
+    "name": "Battle of Hohenlinden (1800)",
+    "date": "1800-12-03",
+    "location": "Bavaria",
+    "description": "Moreau's French army used the forest terrain to trap Archduke John's Austrians in a near-perfect ambush.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army of the Rhine (Moreau)",
+      "red": "Austrian Army (Archduke John)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18001203,
+      "n_hills": 2,
+      "n_forests": 6
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "richepanse_division",
+          "x": 700.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "ney_division",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "grouchy_cavalry",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "john_main",
+          "x": 500.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "kollowrath_advance",
+          "x": 550.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "kienmayer_rearguard",
+          "x": 600.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.05,
+      "red_casualties": 0.4,
+      "duration_steps": 360,
+      "description": "Decisive French victory. Austria sued for peace."
+    }
+  },
+  {
+    "id": "maloyaroslavets_1812",
+    "name": "Battle of Maloyaroslavets (1812)",
+    "date": "1812-10-24",
+    "location": "Russia",
+    "description": "Eugene's corps fought for control of Maloyaroslavets. Napoleon chose to retreat via Smolensk.",
+    "source": "Nafziger OOBs",
+    "factions": {
+      "blue": "French Army of Italy (Eugene)",
+      "red": "Russian Army (Kutuzov/Dokhturov)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18121024,
+      "n_hills": 2,
+      "n_forests": 4
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "eugene_iv_corps",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "broussier_division",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.75
+        },
+        {
+          "id": "delzons_division",
+          "x": 450.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.7
+        }
+      ],
+      "red": [
+        {
+          "id": "dokhturov_vi_corps",
+          "x": 600.0,
+          "y": 560.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "raevsky_vii_corps",
+          "x": 650.0,
+          "y": 530.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "platov_cossacks",
+          "x": 700.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.18,
+      "red_casualties": 0.22,
+      "duration_steps": 420,
+      "description": "Tactical French victory but strategic decision to retreat sealed the campaign's failure."
+    }
+  },
+  {
+    "id": "wavre_1815",
+    "name": "Battle of Wavre (1815)",
+    "date": "1815-06-18",
+    "location": "Belgium",
+    "description": "Grouchy pinned Thielmann's Prussian corps at Wavre, failing to prevent Blucher from marching to Waterloo.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Right Wing (Grouchy)",
+      "red": "Prussian III Corps (Thielmann)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18150619,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "vandamme_iii_corps",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "gerard_iv_corps",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "exelmans_cavalry",
+          "x": 350.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "thielmann_iii_corps",
+          "x": 600.0,
+          "y": 560.0,
+          "theta": -1.5708,
+          "strength": 0.75
+        },
+        {
+          "id": "borcke_brigade",
+          "x": 650.0,
+          "y": 530.0,
+          "theta": 3.1416,
+          "strength": 0.7
+        },
+        {
+          "id": "losthin_brigade",
+          "x": 700.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.65
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.1,
+      "red_casualties": 0.18,
+      "duration_steps": 420,
+      "description": "French tactical victory at Wavre but strategic defeat at Waterloo."
+    }
+  },
+  {
+    "id": "fuentes_onoro_1811",
+    "name": "Battle of Fuentes de Onoro (1811)",
+    "date": "1811-05-03",
+    "location": "Spain",
+    "description": "Wellington successfully defended the village of Fuentes de Onoro in two days of fighting.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Anglo-Portuguese Army (Wellington)",
+      "red": "French Army of Portugal (Massena)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18110503,
+      "n_hills": 3,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "craufurd_light_division",
+          "x": 400.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "spencer_1st_division",
+          "x": 450.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "picton_3rd_division",
+          "x": 500.0,
+          "y": 590.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        }
+      ],
+      "red": [
+        {
+          "id": "junot_viii_corps",
+          "x": 500.0,
+          "y": 350.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "reynier_ii_corps",
+          "x": 450.0,
+          "y": 370.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "montbrun_cavalry",
+          "x": 600.0,
+          "y": 360.0,
+          "theta": 1.5708,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.12,
+      "red_casualties": 0.14,
+      "duration_steps": 480,
+      "description": "Allied defensive victory. Massena failed to relieve Almeida."
+    }
+  },
+  {
+    "id": "arcis_sur_aube_1814",
+    "name": "Battle of Arcis-sur-Aube (1814)",
+    "date": "1814-03-20",
+    "location": "France",
+    "description": "Napoleon's last offensive operation of the 1814 campaign, fighting Schwarzenberg's main army.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army (Napoleon)",
+      "red": "Army of Bohemia (Schwarzenberg)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140320,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "old_guard",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.75
+        },
+        {
+          "id": "sebastiani_cavalry",
+          "x": 400.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.7
+        },
+        {
+          "id": "oudinot_corps",
+          "x": 450.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.65
+        }
+      ],
+      "red": [
+        {
+          "id": "schwarzenberg_main",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.95
+        },
+        {
+          "id": "gyulai_iii_corps",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "wrede_corps",
+          "x": 700.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.2,
+      "red_casualties": 0.12,
+      "duration_steps": 360,
+      "description": "French defeat. Napoleon retreated; the 1814 campaign was nearly over."
+    }
+  },
+  {
+    "id": "tolentino_1815",
+    "name": "Battle of Tolentino (1815)",
+    "date": "1815-05-02",
+    "location": "Italy",
+    "description": "Murat's desperate offensive into central Italy was crushed by the Austrians.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "Neapolitan Army (Murat)",
+      "red": "Austrian Army (Bianchi)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18150502,
+      "n_hills": 3,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "murat_main",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "carrascosa_division",
+          "x": 400.0,
+          "y": 520.0,
+          "theta": 0.0,
+          "strength": 0.7
+        },
+        {
+          "id": "neapolitan_cavalry",
+          "x": 450.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.65
+        }
+      ],
+      "red": [
+        {
+          "id": "bianchi_main",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "mohr_division",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "merville_cavalry",
+          "x": 700.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.3,
+      "red_casualties": 0.1,
+      "duration_steps": 360,
+      "description": "Austrian victory. Murat fled; Naples fell to the Bourbons."
+    }
+  },
+  {
+    "id": "ratisbon_1809",
+    "name": "Battle of Ratisbon (1809)",
+    "date": "1809-04-23",
+    "location": "Bavaria",
+    "description": "The decisive engagement of Napoleon's spring 1809 campaign. Napoleon was slightly wounded.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Grande Armee (Napoleon)",
+      "red": "Austrian Rearguard (Charles)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18090423,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "lannes_corps",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "ney_vi_corps",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "davout_iii_corps",
+          "x": 500.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.95
+        }
+      ],
+      "red": [
+        {
+          "id": "kolowrath_i_corps",
+          "x": 600.0,
+          "y": 560.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "liechtenstein_cavalry",
+          "x": 650.0,
+          "y": 530.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        },
+        {
+          "id": "charles_rearguard",
+          "x": 700.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.06,
+      "red_casualties": 0.2,
+      "duration_steps": 300,
+      "description": "French victory. Charles's army crossed the Danube."
+    }
+  },
+  {
+    "id": "lonato_1796",
+    "name": "Battle of Lonato (1796)",
+    "date": "1796-08-03",
+    "location": "Italy",
+    "description": "Napoleon defeated Quosdanovich's Austrian advance guard before facing Wurmser at Castiglione.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Napoleon)",
+      "red": "Austrian Corps (Quosdanovich)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17960803,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "massena_division",
+          "x": 350.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "sauret_division",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "kilmaine_cavalry",
+          "x": 450.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "quosdanovich_main",
+          "x": 600.0,
+          "y": 540.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "lipthay_brigade",
+          "x": 650.0,
+          "y": 510.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "ott_brigade",
+          "x": 700.0,
+          "y": 560.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.06,
+      "red_casualties": 0.25,
+      "duration_steps": 300,
+      "description": "French victory. Quosdanovich's corps was routed."
+    }
+  },
+  {
+    "id": "millesimo_1796",
+    "name": "Battle of Millesimo (1796)",
+    "date": "1796-04-13",
+    "location": "Italy",
+    "description": "Napoleon separated the Austrian and Piedmontese armies, opening the Italian campaign.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Napoleon)",
+      "red": "Austrian/Piedmontese Forces"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17960413,
+      "n_hills": 4,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "augereau_division",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "laharpe_division",
+          "x": 400.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "serurier_division",
+          "x": 450.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "provera_brigade",
+          "x": 550.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "colli_piedmontese",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "beaulieu_austrians",
+          "x": 650.0,
+          "y": 600.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.08,
+      "red_casualties": 0.3,
+      "duration_steps": 360,
+      "description": "French victory opened the Italian campaign."
+    }
+  },
+  {
+    "id": "lodi_1796",
+    "name": "Battle of Lodi (1796)",
+    "date": "1796-05-10",
+    "location": "Italy",
+    "description": "Napoleon's famous bridge crossing over the Adda river under Austrian fire.",
+    "source": "Corsican Ogre",
+    "factions": {
+      "blue": "French Army of Italy (Napoleon)",
+      "red": "Austrian Rearguard (Sebottendorf)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 17960510,
+      "n_hills": 1,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "massena_division",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "berthier_grenadiers",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "kilmaine_cavalry",
+          "x": 400.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "sebottendorf_rearguard",
+          "x": 600.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        },
+        {
+          "id": "wukassovich_brigade",
+          "x": 650.0,
+          "y": 490.0,
+          "theta": 3.1416,
+          "strength": 0.7
+        },
+        {
+          "id": "austrian_artillery_bridge",
+          "x": 700.0,
+          "y": 510.0,
+          "theta": 3.1416,
+          "strength": 0.65
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.07,
+      "red_casualties": 0.28,
+      "duration_steps": 240,
+      "description": "French victory. The road to Milan was open."
+    }
+  },
+  {
+    "id": "paris_1814",
+    "name": "Battle of Paris (1814)",
+    "date": "1814-03-30",
+    "location": "France",
+    "description": "The Allied assault on Paris while Napoleon marched to its relief.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Paris Garrison (Marmont/Mortier)",
+      "red": "Allied Army (Schwarzenberg/Blucher)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140330,
+      "n_hills": 2,
+      "n_forests": 2
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "marmont_vi_corps",
+          "x": 400.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.6
+        },
+        {
+          "id": "mortier_young_guard",
+          "x": 450.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.55
+        },
+        {
+          "id": "paris_national_guard",
+          "x": 500.0,
+          "y": 590.0,
+          "theta": -1.5708,
+          "strength": 0.4
+        }
+      ],
+      "red": [
+        {
+          "id": "schwarzenberg_main",
+          "x": 500.0,
+          "y": 300.0,
+          "theta": 1.5708,
+          "strength": 0.95
+        },
+        {
+          "id": "blucher_silesia",
+          "x": 400.0,
+          "y": 350.0,
+          "theta": 1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "york_prussians",
+          "x": 600.0,
+          "y": 320.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.35,
+      "red_casualties": 0.1,
+      "duration_steps": 420,
+      "description": "Allied victory. Paris capitulated; Napoleon abdicated on April 6."
+    }
+  },
+  {
+    "id": "kulm_1813",
+    "name": "Battle of Kulm (1813)",
+    "date": "1813-08-29",
+    "location": "Bohemia",
+    "description": "Allied forces surrounded and captured Vandamme's corps retreating from Dresden.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Allied Army (Ostermann/Kleist)",
+      "red": "French I Corps (Vandamme)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18130829,
+      "n_hills": 4,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "ostermann_russians",
+          "x": 400.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "kleist_prussians",
+          "x": 600.0,
+          "y": 450.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "wittgenstein_reserve",
+          "x": 500.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "vandamme_main",
+          "x": 500.0,
+          "y": 500.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "haxo_division",
+          "x": 450.0,
+          "y": 480.0,
+          "theta": 1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "mouton_division",
+          "x": 550.0,
+          "y": 520.0,
+          "theta": 1.5708,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.12,
+      "red_casualties": 0.8,
+      "duration_steps": 420,
+      "description": "Allied victory. Vandamme and 10,000 troops were captured."
+    }
+  },
+  {
+    "id": "dennewitz_1813",
+    "name": "Battle of Dennewitz (1813)",
+    "date": "1813-09-06",
+    "location": "Prussia",
+    "description": "Ney's attempt to march on Berlin was defeated by Bulow's Prussian corps.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "Prussian Army of the North (Bulow)",
+      "red": "French IV Corps (Bertrand/Ney)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18130906,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "bulow_iii_corps",
+          "x": 550.0,
+          "y": 580.0,
+          "theta": -1.5708,
+          "strength": 0.9
+        },
+        {
+          "id": "tauentzien_iv_corps",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": -1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "winzingerode_cavalry",
+          "x": 500.0,
+          "y": 600.0,
+          "theta": -1.5708,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "bertrand_iv_corps",
+          "x": 400.0,
+          "y": 420.0,
+          "theta": 1.5708,
+          "strength": 0.85
+        },
+        {
+          "id": "oudinot_xii_corps",
+          "x": 450.0,
+          "y": 400.0,
+          "theta": 1.5708,
+          "strength": 0.8
+        },
+        {
+          "id": "ney_reserve_cavalry",
+          "x": 500.0,
+          "y": 430.0,
+          "theta": 1.5708,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.1,
+      "red_casualties": 0.3,
+      "duration_steps": 420,
+      "description": "Allied victory. Berlin was saved."
+    }
+  },
+  {
+    "id": "brienne_1814",
+    "name": "Battle of Brienne (1814)",
+    "date": "1814-01-29",
+    "location": "France",
+    "description": "Napoleon's first battle of the 1814 campaign, a surprise attack on Blucher's headquarters.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army (Napoleon)",
+      "red": "Prussian Army (Blucher)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140129,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "napoleon_guard",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "ney_young_guard",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.75
+        },
+        {
+          "id": "victor_ii_corps",
+          "x": 400.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.7
+        }
+      ],
+      "red": [
+        {
+          "id": "blucher_headquarters",
+          "x": 600.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        },
+        {
+          "id": "sacken_corps",
+          "x": 650.0,
+          "y": 490.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "olsufiev_corps",
+          "x": 700.0,
+          "y": 540.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": null,
+      "blue_casualties": 0.18,
+      "red_casualties": 0.2,
+      "duration_steps": 420,
+      "description": "Indecisive. Napoleon captured the castle briefly but was driven back."
+    }
+  },
+  {
+    "id": "champaubert_1814",
+    "name": "Battle of Champaubert (1814)",
+    "date": "1814-02-10",
+    "location": "France",
+    "description": "The opening battle of the Six Days campaign. Napoleon caught and destroyed Olsufiev's isolated Russian corps.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army (Napoleon)",
+      "red": "Russian Corps (Olsufiev)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140210,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "old_guard",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.9
+        },
+        {
+          "id": "marmont_corps",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.85
+        },
+        {
+          "id": "guard_cavalry",
+          "x": 400.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.8
+        }
+      ],
+      "red": [
+        {
+          "id": "olsufiev_corps_isolated",
+          "x": 600.0,
+          "y": 500.0,
+          "theta": 3.1416,
+          "strength": 0.65
+        },
+        {
+          "id": "liprandi_brigade",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.6
+        },
+        {
+          "id": "russian_rearguard",
+          "x": 700.0,
+          "y": 480.0,
+          "theta": 3.1416,
+          "strength": 0.55
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.04,
+      "red_casualties": 0.7,
+      "duration_steps": 240,
+      "description": "Complete French victory. Olsufiev's corps was annihilated; he was taken prisoner."
+    }
+  },
+  {
+    "id": "bar_sur_aube_1814",
+    "name": "Battle of Bar-sur-Aube (1814)",
+    "date": "1814-02-27",
+    "location": "France",
+    "description": "Oudinot and Macdonald were defeated by Schwarzenberg's converging Austrians.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Corps (Oudinot/Macdonald)",
+      "red": "Army of Bohemia (Schwarzenberg)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140227,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "oudinot_xii_corps",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.75
+        },
+        {
+          "id": "macdonald_xi_corps",
+          "x": 400.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.7
+        },
+        {
+          "id": "gerard_support",
+          "x": 450.0,
+          "y": 510.0,
+          "theta": 0.0,
+          "strength": 0.65
+        }
+      ],
+      "red": [
+        {
+          "id": "schwarzenberg_main",
+          "x": 600.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.9
+        },
+        {
+          "id": "wrede_bavarians",
+          "x": 650.0,
+          "y": 520.0,
+          "theta": 3.1416,
+          "strength": 0.85
+        },
+        {
+          "id": "wittgenstein_russians",
+          "x": 700.0,
+          "y": 560.0,
+          "theta": 3.1416,
+          "strength": 0.8
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 1,
+      "blue_casualties": 0.22,
+      "red_casualties": 0.1,
+      "duration_steps": 420,
+      "description": "Allied victory. The French were pushed back on Paris."
+    }
+  },
+  {
+    "id": "saint_dizier_1814",
+    "name": "Battle of Saint-Dizier (1814)",
+    "date": "1814-03-26",
+    "location": "France",
+    "description": "Napoleon's final offensive manoeuvre of the 1814 campaign, attacking Allied communications.",
+    "source": "Napoleon's Battles",
+    "factions": {
+      "blue": "French Army (Napoleon)",
+      "red": "Prussian Detachment (Winzingerode)"
+    },
+    "terrain": {
+      "type": "generated",
+      "width": 1000.0,
+      "height": 1000.0,
+      "rows": 20,
+      "cols": 20,
+      "seed": 18140326,
+      "n_hills": 2,
+      "n_forests": 3
+    },
+    "units": {
+      "blue": [
+        {
+          "id": "napoleon_guard",
+          "x": 300.0,
+          "y": 480.0,
+          "theta": 0.0,
+          "strength": 0.8
+        },
+        {
+          "id": "macdonald_corps",
+          "x": 350.0,
+          "y": 500.0,
+          "theta": 0.0,
+          "strength": 0.7
+        },
+        {
+          "id": "sebastiani_cavalry",
+          "x": 400.0,
+          "y": 490.0,
+          "theta": 0.0,
+          "strength": 0.75
+        }
+      ],
+      "red": [
+        {
+          "id": "winzingerode_main",
+          "x": 600.0,
+          "y": 540.0,
+          "theta": 3.1416,
+          "strength": 0.75
+        },
+        {
+          "id": "cossack_detachment",
+          "x": 650.0,
+          "y": 510.0,
+          "theta": 3.1416,
+          "strength": 0.65
+        },
+        {
+          "id": "prussian_hussars",
+          "x": 700.0,
+          "y": 550.0,
+          "theta": 3.1416,
+          "strength": 0.7
+        }
+      ]
+    },
+    "historical_outcome": {
+      "winner": 0,
+      "blue_casualties": 0.05,
+      "red_casualties": 0.25,
+      "duration_steps": 300,
+      "description": "French tactical victory, but strategically irrelevant — Paris fell the same day."
+    }
+  }
+]
