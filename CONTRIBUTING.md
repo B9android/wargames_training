@@ -163,3 +163,87 @@ Short version:
 | Orchestration Runbook | [`docs/ORCHESTRATION_RUNBOOK.md`](docs/ORCHESTRATION_RUNBOOK.md) |
 | Default Config | [`configs/default.yaml`](configs/default.yaml) |
 | W&B Project | [wandb.ai — wargames_training](https://wandb.ai) |
+
+---
+
+## Installing from Source (Open Research Platform)
+
+As of E12.2 the project is installable as a Python package:
+
+```bash
+git clone https://github.com/B9android/wargames_training.git
+cd wargames_training
+pip install -e ".[dev]"          # editable install with dev tools
+# or
+pip install wargames-training    # latest release from PyPI
+```
+
+Optional extras:
+
+```bash
+pip install "wargames-training[distributed]"  # ray[rllib] for multi-GPU
+pip install "wargames-training[docs]"          # MkDocs for documentation
+pip install "wargames-training[all]"           # everything
+```
+
+---
+
+## Running WargamesBench
+
+WargamesBench is the standardised 20-scenario benchmark suite for reproducible
+comparison of wargame AI methods.  Results are reproducible within ± 2 % win
+rate when the same seeds are used.
+
+```bash
+# Quick dry-run (5 episodes × 4 scenarios)
+python -m benchmarks.wargames_bench --episodes 5 --scenarios 4
+
+# Full canonical benchmark
+wargames-bench --episodes 100 --label my_policy
+
+# Programmatic usage
+from benchmarks import WargamesBench, BenchConfig
+bench = WargamesBench(BenchConfig(n_eval_episodes=10, n_scenarios=4))
+summary = bench.run(policy=None)
+print(summary)
+```
+
+Report your results by opening a PR that appends a row to
+`docs/wargames_bench_leaderboard.md`.  All submitted results must include:
+
+1. The WargamesBench version (Git tag) used.
+2. The exact command or script that produced the results.
+3. The `--label` used to identify the policy.
+
+---
+
+## Building the Documentation Website
+
+```bash
+pip install "wargames-training[docs]"
+mkdocs serve      # local preview at http://127.0.0.1:8000
+mkdocs build      # static site in site/
+```
+
+---
+
+## Community
+
+- **GitHub Discussions** — design questions, research ideas, benchmark results
+- **Issues** — use the appropriate `[BUG]` / `[FEAT]` / `[EXP]` / `[EPIC]` prefix
+
+Please read the [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+
+---
+
+## WargamesBench Submission Guidelines
+
+When submitting benchmark results for the public leaderboard:
+
+1. Use `wargames-bench --episodes 100` (the canonical setting).
+2. Report mean win rate and standard deviation across all 20 scenarios.
+3. Include the Git commit SHA of the policy checkpoint.
+4. Do not modify `BENCH_SCENARIOS` in `benchmarks/wargames_bench.py` — use a
+   separate config if you need custom scenarios.
+5. Results must be reproducible: run the benchmark twice with the same seed and
+   confirm win rates agree within ± 2 %.
