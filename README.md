@@ -1,10 +1,13 @@
 # Wargames Training
 
-Reinforcement learning research project training AI agents to control Napoleonic-era military battalions in a continuous 2D simulation.
+Reinforcement learning research project for training AI agents to control
+Napoleonic-era military battalions in a continuous 2D simulation.
 
 ## Overview
 
-Agents are trained using PPO, self-play, and eventually league training and hierarchical RL. The atomic unit is a battalion (1D line segment on a 2D plane).
+The core atomic unit is a battalion (a 1D line segment on a 2D plane). The
+training stack supports PPO-first workflows and extends into self-play,
+multi-agent, league, and hierarchical RL pipelines.
 
 ### Tech Stack
 
@@ -13,7 +16,7 @@ Agents are trained using PPO, self-play, and eventually league training and hier
 - **W&B** for experiment tracking
 - **JAX/NumPy** for simulation performance
 
-## Getting Started
+## Quick Start
 
 ### 1 — Clone the repository
 
@@ -63,7 +66,7 @@ wandb:
 pytest tests/ -q
 ```
 
-### 6 — Launch a training run
+### 6 — Launch a baseline training run
 
 ```bash
 python training/train.py
@@ -81,22 +84,36 @@ python training/evaluate.py \
     --n-episodes 100
 ```
 
-Supported opponents: `scripted_l1` … `scripted_l5`, `random`, or a path to
+Supported opponents: `scripted_l1` ... `scripted_l5`, `random`, or a path to
 any `.zip` checkpoint.
 
-## Project Structure
+## Common Commands
+
+```bash
+# Run full unit tests
+pytest tests/ -q
+
+# Run offline training (no W&B upload)
+WANDB_MODE=offline python training/train.py
+
+# Evaluate a custom checkpoint
+python training/evaluate.py --checkpoint <path_to_model.zip> --opponent scripted_l3 --n-episodes 50
+```
+
+## Repository Layout
 
 ```
 wargames_training/
-├── configs/             # YAML config files (default.yaml, experiment_*.yaml)
-├── envs/                # Gymnasium environments and simulation engine
-│   └── sim/             # Core sim: battalion, combat, terrain modules
-├── models/              # Neural network architectures
-├── notebooks/           # Jupyter notebooks for analysis and debugging
-├── scripts/
-│   └── project_agent/   # GitHub automation agents
-├── tests/               # Unit tests
-└── training/            # Training scripts and callbacks
+├── configs/             # YAML config files (training, curricula, orchestration)
+├── envs/                # Gymnasium and PettingZoo environments + simulation core
+├── models/              # Policy/value network architectures
+├── training/            # Train/eval entry points and callbacks
+├── analysis/            # Explainability and course-of-action analysis tools
+├── api/                 # Inference and COA-serving endpoints
+├── frontend/            # Vite-based front-end client
+├── docs/                # Project docs, guides, and architecture notes
+├── scripts/             # Automation scripts and project agents
+└── tests/               # Unit and integration tests
 ```
 
 ## GitHub Labels & Milestones
@@ -144,6 +161,16 @@ while keeping `main` always runnable.
 | **[Training Guide](docs/TRAINING_GUIDE.md)** | Hyperparameters reference, curriculum, self-play, W&B tips |
 | **[Environment Spec](docs/ENVIRONMENT_SPEC.md)** | Observation/action space, reward function, scripted opponents |
 
+## Documentation Index
+
+- [Training Guide](docs/TRAINING_GUIDE.md)
+- [Environment Spec](docs/ENVIRONMENT_SPEC.md)
+- [Multi-Agent Guide](docs/multi_agent_guide.md)
+- [League Training Guide](docs/league_training_guide.md)
+- [HRL Architecture](docs/hrl_architecture.md)
+- [Metrics Reference](docs/metrics_reference.md)
+- [Project Report](docs/PROJECT_REPORT.md)
+
 ## For Operators
 
 The project uses GitHub Actions for automated orchestration of experiments, milestones, and releases.
@@ -173,18 +200,15 @@ The project uses GitHub Actions for automated orchestration of experiments, mile
 - Every training run **must** be logged to W&B with a config dict
 - Every significant training run should have a corresponding GitHub issue using the `[EXP]` template
 
-## Current Version: v5
+## Project Status
 
-All five planned versions (v1–v5) are code-complete. The project now covers
-single-battalion PPO, MAPPO multi-agent, hierarchical RL (brigade/division),
-AlphaStar-style league training with Nash equilibrium sampling, and a full
-analysis and deployment layer (COA generator, SHAP explainability, historical
-scenario validation, ONNX policy export).
+The repository includes single-battalion, multi-agent, league, and hierarchical
+training pipelines, plus analysis and deployment tooling.
 
-See [`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md) for a comprehensive
-state-of-the-project report, known gaps, and the recommended next steps toward
-**v6: Combined Arms & Expanded Realism**.
+For the authoritative status, known gaps, and roadmap direction, see
+[`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md) and
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## License
 
-[Add license here]
+No license file is currently published in this repository.
