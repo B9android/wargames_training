@@ -32,7 +32,7 @@ Evaluated over **20 episodes per level** (deterministic policy, seed 0).
 | `scripted_l4`    | 20   | 0     | 0      | 100 %    |
 | `scripted_l5`    | 5    | 0     | 15     | 25 %     |
 
-The checkpoint **meets the v1 acceptance criterion** of ≥ 80 % win rate against
+The checkpoint **meets the ≥ 80 % win-rate acceptance criterion vs**
 `scripted_l3`.
 
 ## Usage
