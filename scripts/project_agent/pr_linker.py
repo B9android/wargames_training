@@ -1,4 +1,4 @@
-﻿"""PR Linker â€” auto-links PRs to issues and syncs project board status.
+"""PR Linker â€” auto-links PRs to issues and syncs project board status.
 
 Entry point for orchestration.yml:pr_link job.
 All logic is platform-native: no global state, no broad exception catches.

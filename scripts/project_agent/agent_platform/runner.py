@@ -1,4 +1,4 @@
-﻿"""Standard agent runner â€” boilerplate-free entry point for every agent.
+"""Standard agent runner â€” boilerplate-free entry point for every agent.
 
 Usage
 -----

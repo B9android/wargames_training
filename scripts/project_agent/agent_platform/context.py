@@ -1,4 +1,4 @@
-﻿"""Platform agent context â€” parses and validates the environment contract for every agent invocation."""
+"""Platform agent context â€” parses and validates the environment contract for every agent invocation."""
 from __future__ import annotations
 
 import os

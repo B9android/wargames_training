@@ -1,4 +1,4 @@
-﻿"""GraphQL Gateway â€” permanent, GraphQL-first client for all GitHub operations.
+"""GraphQL Gateway â€” permanent, GraphQL-first client for all GitHub operations.
 
 Replaces the old projects_v2.py with a unified, testable gateway.
 All write paths respect DRY_RUN=true.  REST is used only where GraphQL

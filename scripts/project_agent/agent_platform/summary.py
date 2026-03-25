@@ -1,4 +1,4 @@
-﻿"""Platform execution summary â€” three-surface UX output for every agent run.
+"""Platform execution summary â€” three-surface UX output for every agent run.
 
 Surfaces:
   1. Terminal  â€” human-readable ANSI report with timeline, decisions, mutations.

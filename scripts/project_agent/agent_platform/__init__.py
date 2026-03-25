@@ -1,4 +1,4 @@
-﻿"""
+"""
 Agent Platform â€” permanent, non-versioned runtime for all GitHub project agents.
 
 Import surface:

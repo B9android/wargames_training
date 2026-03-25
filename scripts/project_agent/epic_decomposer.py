@@ -1,4 +1,4 @@
-﻿"""Epic Decomposer â€” creates child issues from an epic's Implementation Plan.
+"""Epic Decomposer â€” creates child issues from an epic's Implementation Plan.
 
 Entry point for orchestration.yml:epic_decompose* jobs.
 Platform-native: per-child checkpoints in ExecutionSummary, GraphQL project sync,

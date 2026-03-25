@@ -1,4 +1,4 @@
-﻿"""Triage Agent â€” rule-first triage with optional AI fallback for ambiguous issues."""
+"""Triage Agent â€” rule-first triage with optional AI fallback for ambiguous issues."""
 from __future__ import annotations
 
 import json

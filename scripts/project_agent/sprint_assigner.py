@@ -1,4 +1,4 @@
-﻿"""Sprint Assigner: Helper for auto-assigning issues to active sprint."""
+"""Sprint Assigner: Helper for auto-assigning issues to active sprint."""
 
 from __future__ import annotations
 
