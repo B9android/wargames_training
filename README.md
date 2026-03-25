@@ -166,6 +166,8 @@ while keeping `main` always runnable.
 
 ## Documentation Index
 
+> 📖 **[See the API reference](https://b9android.github.io/wargames_training/api/)** — auto-generated docs for `envs`, `models`, `training`, and `analysis`.
+
 - [Training Guide](docs/TRAINING_GUIDE.md)
 - [Environment Spec](docs/ENVIRONMENT_SPEC.md)
 - [Multi-Agent Guide](docs/multi_agent_guide.md)
