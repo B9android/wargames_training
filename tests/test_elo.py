@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_elo.py
 """Tests for training/elo.py."""
 

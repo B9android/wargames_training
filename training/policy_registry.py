@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/policy_registry.py
 """Versioned policy registry for the multi-echelon HRL stack (E3.6).
 

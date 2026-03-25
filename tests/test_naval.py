@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_naval.py
 """Tests for envs/sim/naval.py — Naval Unit Type & Coastal Operations.
 

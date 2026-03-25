@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_multi_battalion_env.py
 """Tests for envs/multi_battalion_env.py — MultiBattalionEnv PettingZoo env."""
 

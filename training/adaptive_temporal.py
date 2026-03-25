@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Adaptive temporal abstraction for hierarchical RL (E3.5).
 
 This module provides :class:`AdaptiveTemporalScheduler` which adjusts the

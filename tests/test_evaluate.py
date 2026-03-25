@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_evaluate.py
 """Tests for training/evaluate.py."""
 

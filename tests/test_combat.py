@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Unit tests for envs/sim/combat.py."""
 
 import math

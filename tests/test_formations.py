@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_formations.py
 """Tests for envs/sim/formations.py — Formation System (E6.4).
 

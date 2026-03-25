@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Wargames Training — training public API.
 
 Stable interfaces for training runners, evaluation utilities, callbacks,

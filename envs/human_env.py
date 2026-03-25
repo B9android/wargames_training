@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/human_env.py
 """Human action input adapter for BattalionEnv.
 

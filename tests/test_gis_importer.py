@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for E11.2 — GIS Terrain Import (real-world maps).
 
 Covers:

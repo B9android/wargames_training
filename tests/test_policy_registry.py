@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_policy_registry.py
 """Tests for training/policy_registry.py (E3.6)."""
 

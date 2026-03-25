@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Headless scenario runner for quick integration checks.
 
 Sets up a deterministic 1v1 battalion scenario, runs it for a fixed number

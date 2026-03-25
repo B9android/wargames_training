@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_model_configs.py
 """Tests for E8.3 model configuration files and latency acceptance criteria.
 

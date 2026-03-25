@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_saliency.py
 """Tests for analysis/saliency.py (Epic E5.3).
 

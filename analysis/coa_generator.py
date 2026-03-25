@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # analysis/coa_generator.py
 """Course of Action (COA) Generator (Epics E5.2 / E9.2).
 

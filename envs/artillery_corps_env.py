@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/artillery_corps_env.py
 """Artillery Corps Environment — CorpsEnv extended with an independent artillery arm.
 

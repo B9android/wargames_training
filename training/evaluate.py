@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/evaluate.py
 """Evaluate a saved PPO checkpoint against a configurable opponent.
 

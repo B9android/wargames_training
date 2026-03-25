@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_team_elo.py
 """Tests for team Elo rating (TeamEloRegistry), TeamOpponentPool,
 evaluate_team_vs_pool, and nash_exploitability_proxy.

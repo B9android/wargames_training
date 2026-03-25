@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/train.py
 """Main PPO training entry point.
 

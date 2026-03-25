@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Checkpoint naming and manifest helpers for training artifacts."""
 
 from __future__ import annotations

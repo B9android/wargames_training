@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/utils/__init__.py
 """Utility helpers for the wargames_training package."""
 

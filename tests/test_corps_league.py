@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_corps_league.py
 """Tests for E7.3 — Multi-Corps Self-Play & League Extension.
 

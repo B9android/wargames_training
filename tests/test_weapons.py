@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for envs/sim/weapons.py — weapon profiles and reload state machine.
 
 Historical accuracy cross-validation against Nafziger (1988):

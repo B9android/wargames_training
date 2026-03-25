@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Experiment kickoff agent: validate readiness, move to in-progress, and comment metadata."""
 
 from __future__ import annotations

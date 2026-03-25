@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/terrain_engine.py
 """Terrain engine: heightmap loader, slope, and Bresenham line-of-sight.
 

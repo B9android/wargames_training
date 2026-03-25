@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Integration tests for the simulation engine (Epic E1.2 acceptance criteria).
 
 Acceptance criteria tested here:

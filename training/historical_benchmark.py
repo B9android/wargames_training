@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Historical benchmark runner for E11.1 — Historical Battle Database.
 
 Runs the deterministic 1v1 :class:`~envs.sim.engine.SimEngine` baseline

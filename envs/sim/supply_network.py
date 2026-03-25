@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/supply_network.py
 """Strategic supply network: depot nodes, convoy routes, and supply radius.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/formations.py
 """Formation system for Napoleonic battalion simulation.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/rendering/__init__.py
 """Rendering utilities for BattalionEnv visualisation and episode recording."""
 

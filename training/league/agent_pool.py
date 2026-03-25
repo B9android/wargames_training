@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/agent_pool.py
 """Agent pool for league training (E4.1).
 

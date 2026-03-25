@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Map generation
 
 from __future__ import annotations

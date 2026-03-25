@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_reward.py
 """Tests for envs/reward.py and curriculum-level integration in BattalionEnv."""
 

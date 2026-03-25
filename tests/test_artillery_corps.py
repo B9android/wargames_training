@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_artillery_corps.py
 """Tests for envs/sim/artillery_corps.py and envs/artillery_corps_env.py.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/cavalry_corps_env.py
 """Cavalry Corps Environment — CorpsEnv extended with an independent cavalry arm.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Historically-grounded weapon profiles for Napoleonic-era combat.
 
 Provides weapon profiles (musket, rifle, cannon, howitzer) with:

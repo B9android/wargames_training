@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # analysis/saliency.py
 """Strategy Explainability — saliency maps and feature importance (Epic E5.3).
 

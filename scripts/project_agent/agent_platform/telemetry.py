@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Platform telemetry — structured logging with correlation IDs and severity."""
 from __future__ import annotations
 

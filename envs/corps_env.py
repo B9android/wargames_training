@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Corps Commander Environment — top-level MDP for corps-level HRL.
 
 :class:`CorpsEnv` extends the HRL stack to the *corps* echelon.  It wraps

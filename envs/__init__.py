@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Wargames Training — environments public API.
 
 Stable interfaces for all simulation environments, reward shaping,

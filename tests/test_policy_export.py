@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_policy_export.py
 """Tests for scripts/export_policy.py — Epic E5.5 policy export.
 

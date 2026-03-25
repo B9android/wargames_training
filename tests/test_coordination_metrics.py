@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_coordination_metrics.py
 """Unit tests for envs/metrics/coordination.py.
 

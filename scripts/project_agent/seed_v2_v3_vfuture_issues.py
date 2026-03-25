@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Seed v2, v3, v4, and v5 roadmap issues: creates all epics and key feature tasks.
 
 Idempotent — skips any issue whose title already exists.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/hrl_curriculum.py
 """E3.4 — Hierarchical Curriculum: bottom-up training scheduler.
 

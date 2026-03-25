@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/metrics/coordination.py
 """Quantitative coordination metrics for multi-battalion combat episodes.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Issue Writer Agent â€” generates and creates follow-up GitHub issues from context."""
 from __future__ import annotations
 

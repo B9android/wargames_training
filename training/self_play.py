@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/self_play.py
 """Self-play training utilities.
 

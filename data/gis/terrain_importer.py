@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """GIS terrain importer for E11.2 — real-world map ingestion.
 
 Converts SRTM elevation rasters (GeoTIFF) and OpenStreetMap (OSM)

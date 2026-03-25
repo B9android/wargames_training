@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_weather.py
 """Tests for envs/sim/weather.py — weather and time-of-day effects.
 

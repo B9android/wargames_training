@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # models/mlp_policy.py
 """Simple MLP actor-critic policy for BattalionEnv.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_curriculum_scheduler.py
 """Tests for training/curriculum_scheduler.py.
 

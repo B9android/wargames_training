@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_self_play.py
 """Tests for training/self_play.py and the red_policy integration in BattalionEnv."""
 

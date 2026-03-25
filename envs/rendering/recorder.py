@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/rendering/recorder.py
 """Episode recorder and replayer for BattalionEnv.
 

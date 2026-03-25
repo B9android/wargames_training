@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/__init__.py
 """League training infrastructure (E4.1, E4.2, E4.3, E4.4, E4.5, E4.6).
 

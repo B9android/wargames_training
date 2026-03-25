@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_hrl_curriculum.py
 """Integration tests for E3.4 — Hierarchical Curriculum (bottom-up training).
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone

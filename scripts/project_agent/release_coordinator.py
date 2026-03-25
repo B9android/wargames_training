@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Release coordinator: sync milestone closeouts into changelog and roadmap."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Platform error taxonomy — typed exceptions for controlled exit paths."""
 from __future__ import annotations
 

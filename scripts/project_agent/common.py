@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Shared helpers for GitHub project agents."""
 
 from __future__ import annotations

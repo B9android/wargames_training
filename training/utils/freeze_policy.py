@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/utils/freeze_policy.py
 """Policy freezing utilities for the E3.4 Hierarchical Curriculum.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/cavalry_corps.py
 """Cavalry corps simulation: reconnaissance, raiding, and pursuit missions.
 

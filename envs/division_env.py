@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Division Commander Environment — top-level MDP for three-echelon HRL.
 
 :class:`DivisionEnv` is a :class:`gymnasium.Env` that sits above the brigade

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Project Syncer â€” sync issue labels/milestone into project board custom fields."""
 from __future__ import annotations
 

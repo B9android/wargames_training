@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # api/coa_endpoint.py
 """Flask REST API for the Course of Action (COA) generator (Epics E5.2 / E9.2).
 

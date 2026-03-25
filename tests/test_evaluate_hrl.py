@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_evaluate_hrl.py
 """Tests for training/evaluate_hrl.py — HRL vs. flat MARL evaluation harness."""
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/naval.py
 """Naval unit types and coastal operations for Napoleonic-era simulation.
 

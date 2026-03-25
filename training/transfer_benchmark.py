@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Transfer performance benchmark for E11.2 — GIS terrain transfer.
 
 Measures how well a policy trained on procedural (random) terrain performs

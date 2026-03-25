@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_wfm1.py
 """Tests for WFM-1 — Wargames Foundation Model 1 (E12.1).
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/distributed_runner.py
 """Distributed rollout runner using a Ray actor pool (E4.7).
 
