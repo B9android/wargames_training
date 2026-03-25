@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-﻿"""Sprint Manager â€” start/close/auto-transition sprint assignments via project fields."""
+"""Sprint Manager — start/close/auto-transition sprint assignments via project fields."""
 from __future__ import annotations
 
 import os

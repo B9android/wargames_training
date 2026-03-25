@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-﻿"""Epic Decomposer â€” creates child issues from an epic's Implementation Plan.
+"""Epic Decomposer — creates child issues from an epic's Implementation Plan.
 
 Entry point for orchestration.yml:epic_decompose* jobs.
 Platform-native: per-child checkpoints in ExecutionSummary, GraphQL project sync,
@@ -115,7 +115,7 @@ def _create_child(
         summary.checkpoint("board_sync", f"#{child.number} synced to project board")
     except Exception as exc:
         log_event("child_project_sync_failed", child=child.number, error=str(exc))
-        # Not fatal â€” child issue was created successfully
+        # Not fatal — child issue was created successfully
 
     return ActionResult(
         "create_child_issue",
@@ -147,7 +147,7 @@ def _decompose(
 
     # Idempotency guard
     if has_marker(epic.body, "decomposition-complete"):
-        summary.decision(f"Epic #{epic_number} already decomposed â€” skipping")
+        summary.decision(f"Epic #{epic_number} already decomposed — skipping")
         log_event("epic_already_decomposed", epic=epic_number)
         results.append(ActionResult("idempotency_check", f"issue #{epic_number}", ActionStatus.SKIPPED,
                                     "Already decomposed"))
@@ -155,7 +155,7 @@ def _decompose(
 
     # Verify it's an epic
     if not any(lbl.lower().startswith("type: epic") for lbl in epic.labels):
-        summary.decision(f"Issue #{epic_number} is not labeled 'type: epic' â€” aborting")
+        summary.decision(f"Issue #{epic_number} is not labeled 'type: epic' — aborting")
         results.append(ActionResult("verify_epic", f"issue #{epic_number}", ActionStatus.FAILED,
                                     "Not labeled as an epic"))
         return results, []
@@ -207,7 +207,7 @@ def _decompose(
 
     # Post decomposition comment
     if created_numbers or ctx.dry_run:
-        refs = "\n".join(f"- #{n}" for n in created_numbers) if created_numbers else "*(dry-run â€” no issues created)*"
+        refs = "\n".join(f"- #{n}" for n in created_numbers) if created_numbers else "*(dry-run — no issues created)*"
         comment = (
             f"## \U0001f9e9 Epic Decomposed\n\n"
             f"Created **{len(created_numbers)}** child issue(s):\n\n"
