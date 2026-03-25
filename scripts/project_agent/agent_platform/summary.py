@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
-﻿"""Platform execution summary â€” three-surface UX output for every agent run.
+"""Platform execution summary — three-surface UX output for every agent run.
 
 Surfaces:
-  1. Terminal  â€” human-readable ANSI report with timeline, decisions, mutations.
-  2. GitHub issue/PR comment markdown â€” explains what happened and why.
-  3. Artifact JSON + markdown â€” downloadable run report for every workflow job.
+  1. Terminal  — human-readable ANSI report with timeline, decisions, mutations.
+  2. GitHub issue/PR comment markdown — explains what happened and why.
+  3. Artifact JSON + markdown — downloadable run report for every workflow job.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from agent_platform.telemetry import log_event
 
 
 # ---------------------------------------------------------------------------
-# Checkpoint â€” inline progress milestone for long-running actions
+# Checkpoint — inline progress milestone for long-running actions
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -76,7 +76,7 @@ class ExecutionSummary:
         lines: list[str] = [
             "",
             f"{prefix}{'='*62}",
-            f"{prefix}  AGENT EXECUTION REPORT â€” {self.agent_name.upper().replace('_', ' ')}",
+            f"{prefix}  AGENT EXECUTION REPORT — {self.agent_name.upper().replace('_', ' ')}",
             f"{prefix}  Target: {self.target}  |  Elapsed: {elapsed:.1f}s  |  DRY_RUN={self.dry_run}",
             f"{prefix}{'='*62}",
         ]
@@ -87,49 +87,49 @@ class ExecutionSummary:
             lines.append(f"{prefix}  PROGRESS")
             for cp in self._checkpoints:
                 tag = f"[+{cp.elapsed:.1f}s]"
-                lines.append(f"{prefix}  {tag:>10}  âœ“ {cp.label}" + (f"  â€” {cp.detail}" if cp.detail else ""))
+                lines.append(f"{prefix}  {tag:>10}  ✓ {cp.label}" + (f"  — {cp.detail}" if cp.detail else ""))
 
         # Decisions
         if self._decisions:
             lines.append(f"{prefix}")
             lines.append(f"{prefix}  DECISIONS")
             for d in self._decisions:
-                lines.append(f"{prefix}    Â· {d}")
+                lines.append(f"{prefix}    · {d}")
 
         # Results
         if r:
             lines.append(f"{prefix}")
             if r.successes:
                 label = "DRY-RUN WOULD" if self.dry_run else "COMPLETED"
-                lines.append(f"{prefix}  âœ… {label} ({len(r.successes)})")
+                lines.append(f"{prefix}  ✅ {label} ({len(r.successes)})")
                 for a in r.successes[:12]:
-                    lines.append(f"{prefix}    Â· {a.action}  â†’  {a.resource_id}")
+                    lines.append(f"{prefix}    · {a.action}  →  {a.resource_id}")
                 if len(r.successes) > 12:
-                    lines.append(f"{prefix}    â€¦ and {len(r.successes)-12} more")
+                    lines.append(f"{prefix}    … and {len(r.successes)-12} more")
 
             if r.failures:
                 lines.append(f"{prefix}")
-                lines.append(f"{prefix}  âŒ FAILED ({len(r.failures)})")
+                lines.append(f"{prefix}  ❌ FAILED ({len(r.failures)})")
                 for a in r.failures[:6]:
-                    lines.append(f"{prefix}    Â· {a.action}  â†’  {a.resource_id}:  {a.error}")
+                    lines.append(f"{prefix}    · {a.action}  →  {a.resource_id}:  {a.error}")
                 if len(r.failures) > 6:
-                    lines.append(f"{prefix}    â€¦ and {len(r.failures)-6} more")
+                    lines.append(f"{prefix}    … and {len(r.failures)-6} more")
 
             if r.skipped:
                 lines.append(f"{prefix}")
-                lines.append(f"{prefix}  â­  SKIPPED ({len(r.skipped)})")
+                lines.append(f"{prefix}  ⏭  SKIPPED ({len(r.skipped)})")
                 for a in r.skipped[:4]:
-                    lines.append(f"{prefix}    Â· {a.error}")
+                    lines.append(f"{prefix}    · {a.error}")
 
             lines.append(f"{prefix}")
             if r.ok:
                 total = len(r.successes)
-                lines.append(f"{prefix}  {'[DRY-RUN] ALL PLANNED' if self.dry_run else 'âœ… ALL'} {total} ACTION(S) SUCCEEDED")
+                lines.append(f"{prefix}  {'[DRY-RUN] ALL PLANNED' if self.dry_run else '✅ ALL'} {total} ACTION(S) SUCCEEDED")
             elif r.partial:
                 ok, bad = len(r.successes), len(r.failures)
-                lines.append(f"{prefix}  âš ï¸  PARTIAL: {ok} succeeded / {bad} failed â€” review errors above")
+                lines.append(f"{prefix}  ⚠️  PARTIAL: {ok} succeeded / {bad} failed — review errors above")
             else:
-                lines.append(f"{prefix}  âŒ FAILED â€” no actions completed successfully")
+                lines.append(f"{prefix}  ❌ FAILED — no actions completed successfully")
 
         lines.append(f"{prefix}{'='*62}")
         lines.append("")
@@ -142,7 +142,7 @@ class ExecutionSummary:
     def render_github_comment(self, *, agent_identity: str = "") -> str:
         """Return GitHub-flavored markdown for posting to an issue or PR."""
         r = self._result
-        prefix = "ðŸ” Dry-run preview" if self.dry_run else "âœ… Completed"
+        prefix = "🔍 Dry-run preview" if self.dry_run else "✅ Completed"
         identity = agent_identity or self.agent_name.replace("_", " ").title()
 
         lines = [
@@ -163,17 +163,17 @@ class ExecutionSummary:
         if r:
             if r.successes:
                 action_label = "Would perform" if self.dry_run else "Performed"
-                lines.append(f"**{prefix} â€” {action_label} {len(r.successes)} action(s):**")
+                lines.append(f"**{prefix} — {action_label} {len(r.successes)} action(s):**")
                 for a in r.successes[:15]:
-                    lines.append(f"- `{a.action}` â†’ {a.resource_id}")
+                    lines.append(f"- `{a.action}` → {a.resource_id}")
                 if len(r.successes) > 15:
-                    lines.append(f"- _(â€¦{len(r.successes)-15} more)_")
+                    lines.append(f"- _(…{len(r.successes)-15} more)_")
                 lines.append("")
 
             if r.failures:
-                lines.append(f"**âš ï¸ {len(r.failures)} action(s) failed:**")
+                lines.append(f"**⚠️ {len(r.failures)} action(s) failed:**")
                 for a in r.failures[:5]:
-                    lines.append(f"- `{a.action}` â†’ {a.resource_id}: _{a.error}_")
+                    lines.append(f"- `{a.action}` → {a.resource_id}: _{a.error}_")
                 lines.append("")
 
             if r.skipped:
@@ -184,7 +184,7 @@ class ExecutionSummary:
 
         # Next actions for the human
         if not self.dry_run and r and r.ok:
-            lines.append("**What to do next:** No action needed â€” automation handled this.")
+            lines.append("**What to do next:** No action needed — automation handled this.")
         elif self.dry_run:
             lines.append("**What to do next:** Re-run this action with `dry_run=false` to apply changes.")
         elif r and r.failures:

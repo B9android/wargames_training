@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-﻿"""Platform agent context â€” parses and validates the environment contract for every agent invocation."""
+"""Platform agent context — parses and validates the environment contract for every agent invocation."""
 from __future__ import annotations
 
 import os
@@ -20,7 +20,7 @@ _UNIVERSAL_REQUIRED = ("GITHUB_TOKEN", "REPO_NAME")
 class AgentContext:
     """Immutable runtime context for one agent invocation.
 
-    Construct via :func:`AgentContext.from_env` â€” never build manually in
+    Construct via :func:`AgentContext.from_env` — never build manually in
     production code.
     """
 
