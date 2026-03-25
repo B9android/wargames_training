@@ -206,6 +206,38 @@ The project uses GitHub Actions for automated orchestration of experiments, mile
 - Every training run **must** be logged to W&B with a config dict
 - Every significant training run should have a corresponding GitHub issue using the `[EXP]` template
 
+## Baseline Results
+
+The first end-to-end v1 training run was completed on the **M1: 1v1** configuration
+using PPO with the default hyperparameters in `configs/default.yaml`.
+The best checkpoint is committed to [`agent-artifacts/v1/best_model.zip`](agent-artifacts/v1/best_model.zip).
+
+### Win-Rate Table — v1 Baseline
+
+Evaluated over **20 episodes per level** (deterministic policy, seed 0).
+
+| Opponent         | Wins | Draws | Losses | **Win Rate** |
+|------------------|------|-------|--------|-------------|
+| `scripted_l1`    | 17   | 3     | 0      | **85 %**    |
+| `scripted_l2`    | 17   | 3     | 0      | **85 %**    |
+| `scripted_l3`    | 20   | 0     | 0      | **100 %** ✅ |
+| `scripted_l4`    | 20   | 0     | 0      | **100 %**   |
+| `scripted_l5`    | 5    | 0     | 15     | **25 %**    |
+
+The v1 baseline **exceeds the ≥ 80 % acceptance criterion against `scripted_l3`**.
+Training against `scripted_l5` remains a stretch goal for the next milestone.
+
+To reproduce:
+
+```bash
+# Re-run evaluation with the committed checkpoint
+python training/evaluate.py \
+    --checkpoint agent-artifacts/v1/best_model.zip \
+    --opponent scripted_l3 \
+    --n-episodes 20 \
+    --seed 0
+```
+
 ## Project Status
 
 The repository includes single-battalion, multi-agent, league, and hierarchical
