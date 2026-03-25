@@ -209,7 +209,11 @@ The project uses GitHub Actions for automated orchestration of experiments, mile
 ## Baseline Results
 
 The first end-to-end v1 training run was completed on the **M1: 1v1** configuration
-using PPO with the default hyperparameters in `configs/default.yaml`.
+using PPO, starting from `configs/default.yaml` but with the following overrides:
+- `curriculum_level = 3` (default: 5)
+- `total_timesteps ≈ 50_000` (default: 1_000_000)
+- `num_envs = 4` (default: 8)
+- `n_steps = 1024` and `batch_size = 256` (defaults: `n_steps = 2048`, `batch_size = 64`)
 The best checkpoint is committed to [`agent-artifacts/v1/best_model.zip`](agent-artifacts/v1/best_model.zip).
 
 ### Win-Rate Table — v1 Baseline
