@@ -362,8 +362,8 @@ print(f"Manifest OK — {len(data)} agent(s)")
 
 ### Nash solver divergence
 
-**Symptom:** `compute_nash_distribution` returns a uniform distribution and logs
-a warning like `"LP solver failed; falling back to regret matching"`.
+**Symptom:** `compute_nash_distribution` returns a uniform distribution; in
+debug logs you may see a message like `"LP solver failed; falling back to regret matching"`.
 
 **Cause:** The payoff matrix contains many `0.5` entries (missing match data),
 making the linear programme degenerate.  This is normal early in training.
