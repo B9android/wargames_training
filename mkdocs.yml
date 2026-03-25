@@ -51,7 +51,7 @@ plugins:
       handlers:
         python:
           options:
-            docstring_style: google
+            docstring_style: numpy
             show_source: true
             show_root_heading: true
 
