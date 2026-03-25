@@ -1,4 +1,4 @@
-"""GitHub REST gateway â€” thin PyGithub wrapper for operations not available in GraphQL.
+"""GitHub REST gateway — thin PyGithub wrapper for operations not available in GraphQL.
 
 All write paths respect dry_run.  Callers receive typed objects rather
 than raw dicts so the rest of the code doesn't depend on github.Github.
@@ -52,7 +52,7 @@ class GitHubGateway:
     """REST-over-PyGithub wrapper.  Instantiate once per agent run."""
 
     def __init__(self, ctx: AgentContext) -> None:
-        from github import Auth, Github  # deferred import â€” keeps module testable
+        from github import Auth, Github  # deferred import — keeps module testable
 
         self._gh = Github(auth=Auth.Token(ctx.github_token), per_page=100)
         self._repo_obj = self._gh.get_repo(ctx.repo_name)
@@ -151,7 +151,7 @@ class GitHubGateway:
                 try:
                     raw.remove_from_labels(name)
                 except Exception:
-                    pass  # label not present â€” idempotent
+                    pass  # label not present — idempotent
             log_event("labels_removed_rest", issue=issue_number, labels=label_names)
         except DryRunViolation:
             raise

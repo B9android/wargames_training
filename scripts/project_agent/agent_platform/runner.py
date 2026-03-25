@@ -1,4 +1,4 @@
-"""Standard agent runner â€” boilerplate-free entry point for every agent.
+"""Standard agent runner — boilerplate-free entry point for every agent.
 
 Usage
 -----
@@ -49,10 +49,10 @@ def run_agent(agent_name: str, fn: AgentFn) -> None:
 
     Exit-code contract
     ------------------
-    0 â€” success (or dry-run preview)
-    1 â€” agent error / contract violation / unexpected exception
-    2 â€” dry-run violation (mutation attempted with DRY_RUN=true)
-    3 â€” policy / state-machine violation
+    0 — success (or dry-run preview)
+    1 — agent error / contract violation / unexpected exception
+    2 — dry-run violation (mutation attempted with DRY_RUN=true)
+    3 — policy / state-machine violation
     """
     begin_run(agent_name)
     target: str | None = None

@@ -1,4 +1,4 @@
-"""PR Linker â€” auto-links PRs to issues and syncs project board status.
+"""PR Linker — auto-links PRs to issues and syncs project board status.
 
 Entry point for orchestration.yml:pr_link job.
 All logic is platform-native: no global state, no broad exception catches.
@@ -19,7 +19,7 @@ from agent_platform.telemetry import log_event
 
 
 # ------------------------------------------------------------------
-# Issue discovery â€” GraphQL first, body-parse fallback
+# Issue discovery — GraphQL first, body-parse fallback
 # ------------------------------------------------------------------
 
 def _find_linked_issue_graphql(gql: GraphQLGateway, pr_number: int) -> int | None:

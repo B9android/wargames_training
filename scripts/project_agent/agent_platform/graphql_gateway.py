@@ -1,4 +1,4 @@
-"""GraphQL Gateway â€” permanent, GraphQL-first client for all GitHub operations.
+"""GraphQL Gateway — permanent, GraphQL-first client for all GitHub operations.
 
 Replaces the old projects_v2.py with a unified, testable gateway.
 All write paths respect DRY_RUN=true.  REST is used only where GraphQL
@@ -14,8 +14,8 @@ from typing import Any
 from agent_platform.errors import AgentError, DryRunViolation, GraphQLError, ResourceNotFound
 from agent_platform.telemetry import log_event
 
-# Default project board title â€” overridable at construction time.
-DEFAULT_PROJECT_TITLE = "Wargames Training â€” Master Board"
+# Default project board title — overridable at construction time.
+DEFAULT_PROJECT_TITLE = "Wargames Training — Master Board"
 
 
 class GraphQLGateway:
@@ -39,7 +39,7 @@ class GraphQLGateway:
 
         # Caches (TTL invalidation done manually via invalidate_cache())
         self._project_id: str | None = None
-        self._field_ids: dict[str, dict[str, Any]] | None = None  # name â†’ {id, dataType, options}
+        self._field_ids: dict[str, dict[str, Any]] | None = None  # name → {id, dataType, options}
         self._active_sprint_id: str | None = None
         self._rest_fallback_count: int = 0
 
@@ -269,7 +269,7 @@ class GraphQLGateway:
         states: list[str] | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
-        """Paginated issue fetch using GraphQL â€” replaces all REST get_issues() calls."""
+        """Paginated issue fetch using GraphQL — replaces all REST get_issues() calls."""
         owner, _, repo = self.repo_name.partition("/")
         state_filter = states or ["OPEN"]
 
@@ -401,7 +401,7 @@ class GraphQLGateway:
         resolved_type = field_type or field.get("dataType", "TEXT")
 
         if resolved_type == "SINGLE_SELECT":
-            # Resolve option name â†’ option ID
+            # Resolve option name → option ID
             try:
                 option_id = self.get_single_select_option_id(field_name, value)
                 value_input = {"singleSelectOptionId": option_id}

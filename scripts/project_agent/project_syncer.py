@@ -1,4 +1,4 @@
-"""Project Syncer â€” sync issue labels/milestone into project board custom fields."""
+"""Project Syncer — sync issue labels/milestone into project board custom fields."""
 from __future__ import annotations
 
 from agent_platform.context import AgentContext
