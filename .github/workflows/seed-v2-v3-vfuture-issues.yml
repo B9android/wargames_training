@@ -1,0 +1,45 @@
+name: "🗺️ Seed v2/v3/vFuture Roadmap Issues"
+
+# Standalone workflow to seed v2–v5 epics, tasks, and sprint issues.
+# Runs on workflow_dispatch so it can be triggered manually at any time.
+# Idempotent — skips any issue whose title already exists.
+#
+# For bootstrap (labels + milestones + issues in one shot), use the
+# seed-roadmap action in the Orchestration workflow instead.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (print planned issues without creating them)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: seed-v2-v3-vfuture-issues
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  seed-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Seed v2/v3/vFuture roadmap issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        working-directory: scripts/project_agent
+        run: python seed_v2_v3_vfuture_issues.py
