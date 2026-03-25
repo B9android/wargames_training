@@ -55,9 +55,9 @@ record = pool.add(
 print(f"Pool initialised — agent_id: {record.agent_id}, version: {record.version}")
 ```
 
-The manifest is written atomically to `checkpoints/league/main_agent/pool.json`.
-Every subsequent trainer reads and appends to this file as training progresses.
-
+The manifest is written atomically to `checkpoints/league/main_agent/pool.json` by the
+main agent trainer. Other league trainers maintain their own `pool_manifest` files and
+typically read from the main agent pool via a `main_agent_pool_manifest` config setting.
 ---
 
 ## Step 2 — Configure the Matchmaker
