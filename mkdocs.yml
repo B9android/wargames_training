@@ -60,6 +60,7 @@ nav:
   - Getting Started:
       - tutorials/quickstart.md
       - tutorials/training.md
+      - tutorials/league_training.md
       - tutorials/benchmark.md
   - API Reference:
       - api/index.md

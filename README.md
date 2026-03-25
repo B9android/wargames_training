@@ -172,6 +172,7 @@ while keeping `main` always runnable.
 - [Environment Spec](docs/ENVIRONMENT_SPEC.md)
 - [Multi-Agent Guide](docs/multi_agent_guide.md)
 - [League Training Guide](docs/league_training_guide.md)
+- [League Training Tutorial](docs/tutorials/league_training.md)
 - [HRL Architecture](docs/hrl_architecture.md)
 - [Metrics Reference](docs/metrics_reference.md)
 - [Project Report](docs/PROJECT_REPORT.md)

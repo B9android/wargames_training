@@ -31,7 +31,11 @@ See `configs/self_play.yaml` for the canonical self-play configuration.
 
 ## League Training
 
-For competitive multi-agent training see
+For a step-by-step worked example covering agent pool bootstrapping, matchmaker
+configuration, exploiter loops, Nash sampling, and the diversity report see
+the **[League Training Tutorial](league_training.md)**.
+
+For the full API reference see
 [`docs/league_training_guide.md`](../league_training_guide.md).
 
 ## Experiment Tracking
