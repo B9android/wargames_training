@@ -341,12 +341,12 @@ Smoke test PASSED ✓
 **Cause:** The pool manifest was partially written (e.g., process killed mid-write).
 
 **Fix:** `AgentPool` writes atomically via a `.tmp` file so corruption should be
-rare.  If it occurs, inspect the last valid `.tmp` backup:
+rare.  If it occurs, inspect the last valid `.tmp` backup (`pool.tmp`):
 
 ```bash
-ls checkpoints/league/main_agent/pool.json*
-# If pool.json.tmp exists and is valid JSON, restore it:
-mv checkpoints/league/main_agent/pool.json.tmp \
+ls checkpoints/league/main_agent/pool*
+# If pool.tmp exists and is valid JSON, restore it:
+mv checkpoints/league/main_agent/pool.tmp \
    checkpoints/league/main_agent/pool.json
 ```
 
