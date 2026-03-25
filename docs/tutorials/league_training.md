@@ -124,13 +124,16 @@ The configuration file is `configs/league/main_agent.yaml`.  Key parameters:
 | `league.snapshot_freq` | `100_000` | Steps between pool snapshots |
 | `league.pool_max_size` | `200` | Maximum snapshots retained |
 
-### Python API
+### Command-line / Hydra entry point
 
-```python
-from training.league.train_main_agent import MainAgentTrainer
+League training for the main agent is currently launched via the CLI/Hydra
+entry point rather than a simple one-line Python constructor. To run with
+the default configuration in `configs/league/main_agent.yaml`:
 
-trainer = MainAgentTrainer(config_path="configs/league/main_agent.yaml")
-trainer.train()
+```bash
+python -m training.league.train_main_agent \
+  --config-path configs/league \
+  --config-name main_agent
 ```
 
 ---
