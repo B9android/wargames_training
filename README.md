@@ -1,5 +1,7 @@
 # Wargames Training
 
+[![CI](https://github.com/B9android/wargames_training/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/B9android/wargames_training/actions/workflows/ci.yml)
+
 Reinforcement learning research project for training AI agents to control
 Napoleonic-era military battalions in a continuous 2D simulation.
 

@@ -27,8 +27,9 @@ jobs:
       - name: Check for forbidden per-agent workflow files
         id: check_workflows
         run: |
-          FORBIDDEN=$(git diff --name-only HEAD~1 HEAD -- '.github/workflows/*.yml' | \
-            grep -vE 'orchestration\.yml|governance\.yml|agent-project-board\.yml|agent-setup-labels-milestones\.yml|seed-v1-issues\.yml|docs\.yml|ray_smoke_test\.yml' || true)
+          BASE=$(git merge-base origin/main HEAD)
+          FORBIDDEN=$(git diff --name-only "$BASE" HEAD -- '.github/workflows/*.yml' | \
+            grep -vE '(orchestration|governance|agent-project-board|agent-setup-labels-milestones|seed-v1-issues|docs|ray_smoke_test|ci)\.yml$' || true)
           if [ -n "$FORBIDDEN" ]; then
             echo "::error::New per-agent workflow files found. All agents MUST go through orchestration.yml."
             echo "Forbidden files:"
@@ -41,10 +42,11 @@ jobs:
       # ─── Rule 2: no imports of legacy deleted agent modules ─────
       - name: Check for references to deleted legacy workflows
         run: |
+          BASE=$(git merge-base origin/main HEAD)
           DELETED_NAMES="agent-epic-decomposer agent-issue-writer agent-milestone-check agent-pr-linker agent-progress-report agent-project-syncer agent-sprint-manager agent-triage experiment-approval experiment-kickoff scheduled-automation training-monitor orchestration-v2"
           FOUND=""
           for name in $DELETED_NAMES; do
-            hits=$(git diff HEAD~1 HEAD -- '*.yml' '*.yaml' '*.py' '*.md' | \
+            hits=$(git diff "$BASE" HEAD -- '*.yml' '*.yaml' '*.py' '*.md' | \
                    grep "^+" | grep -v "^+++" | grep "$name" || true)
             if [ -n "$hits" ]; then
               FOUND="$FOUND\n$name: $hits"
