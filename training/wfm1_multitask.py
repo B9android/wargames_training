@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/wfm1_multitask.py
 """WFM-1 multi-task training loop — E12.1.
 

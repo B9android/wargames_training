@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Seed gap-filling and improvement issues discovered by a full project audit.
 
 Each issue targets a specific gap identified in the codebase: missing CI/CD

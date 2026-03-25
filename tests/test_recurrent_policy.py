@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_recurrent_policy.py
 """Tests for models/recurrent_policy.py — E8.2 Memory Module (LSTM / Temporal Context).
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_human_feedback.py
 """Tests for training/human_feedback.py (Epic E9.3).
 

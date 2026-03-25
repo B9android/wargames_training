@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/curriculum_scheduler.py
 """Curriculum scheduler for the E2.3 staged 2v2 training pipeline.
 

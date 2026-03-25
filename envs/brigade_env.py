@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Brigade Commander Environment — high-level MDP for hierarchical RL.
 
 :class:`BrigadeEnv` is a :class:`gymnasium.Env` that sits above the battalion

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_logistics.py
 """Tests for envs/sim/logistics.py — supply, ammunition, and fatigue model.
 

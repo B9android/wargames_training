@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""GraphQL Gateway â€” permanent, GraphQL-first client for all GitHub operations.
 
 Replaces the old projects_v2.py with a unified, testable gateway.

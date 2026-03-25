@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """WargamesBench — standardised 20-scenario benchmark suite (E12.2).
 
 WargamesBench enables reproducible, apples-to-apples comparison of any

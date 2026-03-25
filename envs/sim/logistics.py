@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Supply, ammunition, and fatigue model for Napoleonic battalion simulation.
 
 Tracks per-battalion ammunition, food/water supply, and cumulative fatigue.

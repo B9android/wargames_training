@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # models/mappo_policy.py
 """MAPPO actor and centralized critic for multi-battalion cooperative training.
 

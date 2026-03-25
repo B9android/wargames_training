@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Wargames Training — analysis public API.
 
 Stable interfaces for course-of-action generation and policy saliency analysis.

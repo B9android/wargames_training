@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Brigade Commander training — PPO on the :class:`~envs.brigade_env.BrigadeEnv`.
 
 Trains a brigade-level RL agent that issues macro-commands (options) to

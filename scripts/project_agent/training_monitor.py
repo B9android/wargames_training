@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Training monitor agent for syncing W&B results to experiment issues."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Shared experiment lifecycle helpers for approval and kickoff agents."""
 
 from __future__ import annotations

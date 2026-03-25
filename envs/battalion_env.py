@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/battalion_env.py
 """Gymnasium 1v1 battalion environment.
 

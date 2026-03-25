@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_entity_encoder.py
 """Tests for models/entity_encoder.py — E8.1 Entity-Based Observation & Transformer Policy.
 

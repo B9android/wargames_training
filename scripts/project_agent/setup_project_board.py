@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Idempotent GitHub Projects v2 board bootstrap for wargames_training.
 
 Safe defaults:

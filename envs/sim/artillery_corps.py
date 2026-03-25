@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/artillery_corps.py
 """Artillery corps simulation: grand battery, counter-battery, fortification, and siege.
 

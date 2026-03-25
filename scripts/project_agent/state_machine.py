@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """State transition validator for project-management automation."""
 
 from __future__ import annotations

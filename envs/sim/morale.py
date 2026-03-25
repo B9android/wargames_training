@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/morale.py
 """Morale state machine with stressors for Napoleonic battalion simulation.
 

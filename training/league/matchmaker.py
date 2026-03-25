@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/matchmaker.py
 """League matchmaker using Prioritized Fictitious Self-Play (PFSP) (E4.1).
 

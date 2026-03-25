@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_python_api.py
 """Comprehensive tests for the whole-project Python API.
 

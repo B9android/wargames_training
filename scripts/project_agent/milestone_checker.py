@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Milestone Health Check Agent.
 Runs daily and detects at-risk milestones, stale issues, and unlabeled issues.
 """

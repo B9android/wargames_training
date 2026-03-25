@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/reward.py
 """Shaped reward computation for BattalionEnv.
 

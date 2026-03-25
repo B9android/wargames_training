@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/elo.py
 """Elo rating system for battalion policy evaluation.
 

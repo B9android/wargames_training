@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""GitHub REST gateway â€” thin PyGithub wrapper for operations not available in GraphQL.
 
 All write paths respect dry_run.  Callers receive typed objects rather

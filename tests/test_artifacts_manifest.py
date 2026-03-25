@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Unit tests for training.artifacts helper utilities."""
 
 from __future__ import annotations

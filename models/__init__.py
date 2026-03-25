@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Neural network models for wargames_training.
 
 Exports

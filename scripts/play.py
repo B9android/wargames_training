@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 # scripts/play.py
 """Interactive human-vs-AI game runner for BattalionEnv.
 

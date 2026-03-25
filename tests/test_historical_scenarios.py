@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for envs/scenarios/historical.py — E5.4 historical scenario validation."""
 
 from __future__ import annotations

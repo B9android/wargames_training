@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for training/adaptive_temporal.py — AdaptiveTemporalScheduler."""
 
 from __future__ import annotations

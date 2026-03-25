@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Historical scenario loading, batch import, and outcome comparison (E5.4, E11.1)."""
 
 from envs.scenarios.historical import (

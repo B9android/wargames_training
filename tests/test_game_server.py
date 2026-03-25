@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_game_server.py
 """Tests for server/game_server.py and server/replay.py (E9.1)."""
 

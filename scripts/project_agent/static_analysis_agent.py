@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Platform entrypoint for deterministic static analysis.
 
 Wraps static_analyzer.py with agent_platform runner semantics so this check can be

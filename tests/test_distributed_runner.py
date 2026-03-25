@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_distributed_runner.py
 """Tests for E4.7 — distributed rollout runner (Ray actor pool).
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_matchmaker.py
 """Tests for training/league/matchmaker.py and training/league/match_database.py."""
 

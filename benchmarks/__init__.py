@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """WargamesBench — standardised evaluation benchmark suite (E12.2).
 
 Public re-exports from :mod:`benchmarks.wargames_bench`.

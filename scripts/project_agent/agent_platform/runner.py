@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Standard agent runner â€” boilerplate-free entry point for every agent.
 
 Usage

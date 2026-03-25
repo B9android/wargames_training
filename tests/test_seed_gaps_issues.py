@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for scripts/project_agent/seed_gaps_issues.py."""
 import sys
 import types

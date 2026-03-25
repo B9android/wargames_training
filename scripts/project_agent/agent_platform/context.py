@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Platform agent context â€” parses and validates the environment contract for every agent invocation."""
 from __future__ import annotations
 

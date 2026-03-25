@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/train_main_agent.py
 """Main agent training loop for league training (E4.2).
 

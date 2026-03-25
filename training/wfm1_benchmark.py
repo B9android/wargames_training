@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/wfm1_benchmark.py
 """WFM-1 zero-shot vs. specialist benchmark — E12.1.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Platform execution summary â€” three-surface UX output for every agent run.
 
 Surfaces:

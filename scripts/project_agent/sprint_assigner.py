@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Sprint Assigner: Helper for auto-assigning issues to active sprint."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_cavalry_corps.py
 """Tests for envs/sim/cavalry_corps.py and envs/cavalry_corps_env.py.
 

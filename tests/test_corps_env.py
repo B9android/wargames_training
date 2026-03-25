@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for envs/corps_env.py — Corps Commander Environment."""
 
 from __future__ import annotations

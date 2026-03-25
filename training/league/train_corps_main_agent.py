@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/train_corps_main_agent.py
 """Corps-level main-agent training loop for league training (E7.3).
 

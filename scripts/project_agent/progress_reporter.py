@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Weekly Progress Report Agent: summarizes weekly issue activity and milestone progress."""
 
 from __future__ import annotations

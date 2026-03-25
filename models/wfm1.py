@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # models/wfm1.py
 """Wargames Foundation Model 1 (WFM-1) — E12.1.
 

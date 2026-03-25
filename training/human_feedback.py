@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/human_feedback.py
 """After-Action Review (AAR) & Training Feedback Loop (Epic E9.3).
 

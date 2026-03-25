@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_battalion.py
 
 import pytest

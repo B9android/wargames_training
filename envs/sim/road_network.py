@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/road_network.py
 """Road network: road segments with movement-speed bonuses.
 

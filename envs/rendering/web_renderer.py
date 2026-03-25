@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/rendering/web_renderer.py
 """Lightweight JSON-serialisable renderer for BattalionEnv.
 

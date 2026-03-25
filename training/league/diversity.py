@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/diversity.py
 """Strategy diversity metrics for league training (E4.6).
 

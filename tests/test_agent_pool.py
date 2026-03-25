@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_agent_pool.py
 """Tests for training/league/agent_pool.py."""
 

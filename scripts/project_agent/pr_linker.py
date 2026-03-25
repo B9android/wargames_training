@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""PR Linker â€” auto-links PRs to issues and syncs project board status.
 
 Entry point for orchestration.yml:pr_link job.

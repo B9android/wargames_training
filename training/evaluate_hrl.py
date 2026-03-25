@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/evaluate_hrl.py
 """End-to-end HRL vs. flat MARL evaluation harness (Epic E3.7).
 

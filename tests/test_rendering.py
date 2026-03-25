@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_rendering.py
 """Tests for envs/rendering/renderer.py, recorder.py, and the --render CLI."""
 

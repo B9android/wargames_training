@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Batch scenario importer for E11.1 — Historical Battle Database.
 
 Reads 50+ Napoleonic battle records from JSON or CSV files and converts

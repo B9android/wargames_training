@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Deterministic static analyzer for cross-file integration TODO generation.
 
 This module intentionally avoids AI heuristics. It performs AST-based checks,

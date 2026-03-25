@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/remote_multi_battalion_env.py
 """Ray remote actor wrapper for :class:`~envs.multi_battalion_env.MultiBattalionEnv`.
 

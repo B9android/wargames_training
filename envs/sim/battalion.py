@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/battalion.py
 
 from __future__ import annotations

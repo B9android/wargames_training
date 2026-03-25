@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_smdp_wrapper.py
 """Tests for envs/options.py and envs/smdp_wrapper.py — SMDP / Options framework."""
 

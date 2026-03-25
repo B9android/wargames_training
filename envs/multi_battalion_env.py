@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/multi_battalion_env.py
 """PettingZoo ParallelEnv for NvN battalion combat.
 

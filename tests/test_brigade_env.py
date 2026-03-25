@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for envs/brigade_env.py — Brigade Commander Environment."""
 
 from __future__ import annotations

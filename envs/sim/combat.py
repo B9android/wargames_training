@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Firepower, damage, morale
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_battalion_env.py
 """Tests for envs/battalion_env.py — BattalionEnv Gymnasium environment."""
 

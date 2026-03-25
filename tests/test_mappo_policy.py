@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_mappo_policy.py
 """Tests for models/mappo_policy.py and training/train_mappo.py.
 

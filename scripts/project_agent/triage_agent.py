@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Triage Agent â€” rule-first triage with optional AI fallback for ambiguous issues."""
 from __future__ import annotations
 

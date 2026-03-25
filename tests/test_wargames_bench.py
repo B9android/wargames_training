@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for WargamesBench — E12.2 Open Research Platform & Public Benchmark.
 
 Coverage

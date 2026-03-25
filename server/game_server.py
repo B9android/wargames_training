@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # server/game_server.py
 """Asyncio WebSocket game server for E9.1 interactive wargame interface.
 

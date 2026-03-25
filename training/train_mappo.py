@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/train_mappo.py
 """MAPPO training entry point for multi-battalion cooperative combat.
 

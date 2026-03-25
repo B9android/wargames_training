@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for envs/sim/supply_network.py — Strategic Supply Network."""
 
 from __future__ import annotations

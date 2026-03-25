@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/nash.py
 """Nash equilibrium approximation for league training (E4.5).
 

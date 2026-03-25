@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/engine.py
 """Thin simulation engine: ties combat.py and terrain.py into full episodes.
 

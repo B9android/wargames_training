@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_train_main_agent.py
 """Tests for training/league/train_main_agent.py (E4.2)."""
 

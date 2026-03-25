@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/metrics/__init__.py
 """Metrics package for wargames_training environments."""
 

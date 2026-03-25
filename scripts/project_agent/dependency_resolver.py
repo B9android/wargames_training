@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Helpers for extracting and validating issue references in automation payloads."""
 
 from __future__ import annotations

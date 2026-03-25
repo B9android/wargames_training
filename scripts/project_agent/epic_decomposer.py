@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 ﻿"""Epic Decomposer â€” creates child issues from an epic's Implementation Plan.
 
 Entry point for orchestration.yml:epic_decompose* jobs.

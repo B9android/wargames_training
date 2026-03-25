@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/sim/weather.py
 """Weather and time-of-day model for Napoleonic battalion simulation.
 

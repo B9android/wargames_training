@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # training/league/match_database.py
 """Persistent match result database for league training (E4.1, E7.3).
 

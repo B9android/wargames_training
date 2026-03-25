@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/smdp_wrapper.py
 """SMDP Wrapper — wraps MultiBattalionEnv with semi-MDP / Options framework.
 

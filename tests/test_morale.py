@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_morale.py
 """Tests for envs/sim/morale.py — morale state machine with stressors.
 

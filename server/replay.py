@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # server/replay.py
 """Replay recording, serialisation, and playback for E9.1.
 

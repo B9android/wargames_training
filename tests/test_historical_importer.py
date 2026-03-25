@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for E11.1 — Historical Battle Database & Scenario Importer.
 
 Covers:

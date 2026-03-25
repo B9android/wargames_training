@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Historical scenario loader and outcome comparator (E5.4).
 
 This module provides:

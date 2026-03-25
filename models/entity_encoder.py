@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # models/entity_encoder.py
 """Entity-based observation encoder with multi-head self-attention.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for envs/division_env.py — Division Commander Environment."""
 
 from __future__ import annotations

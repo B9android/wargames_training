@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Idempotent bootstrap of GitHub labels and milestones for wargames_training.
 
 Creates all labels defined in configs/orchestration.yaml (type:, priority:,

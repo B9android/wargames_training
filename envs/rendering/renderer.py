@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # envs/rendering/renderer.py
 """Pygame-based visualiser for BattalionEnv episodes.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_nash.py
 """Tests for training/league/nash.py — Nash equilibrium approximation (E4.5)."""
 

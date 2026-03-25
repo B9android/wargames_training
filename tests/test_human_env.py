@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_human_env.py
 """Tests for envs/human_env.py and envs/rendering/web_renderer.py."""
 

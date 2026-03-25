@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Division Commander training — PPO on the :class:`~envs.division_env.DivisionEnv`.
 
 Trains a division-level RL agent that issues operational commands to

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # tests/test_coa_generator.py
 """Tests for analysis/coa_generator.py and api/coa_endpoint.py (Epics E5.2 / E9.2).
 

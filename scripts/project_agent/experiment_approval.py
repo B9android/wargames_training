@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Experiment approval agent for gated kickoff transitions."""
 
 from __future__ import annotations
