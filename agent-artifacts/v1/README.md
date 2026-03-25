@@ -12,7 +12,7 @@ trained on the **M1: 1v1** configuration against `scripted_l3` opponents.
 | Algorithm           | PPO (Stable-Baselines3)            |
 | Policy              | `BattalionMlpPolicy` (128 × 128)   |
 | Environment         | `BattalionEnv` (1v1, 1000×1000 m)  |
-| Curriculum level    | 3 (scripted Red, full manoeuvre)   |
+| Curriculum level    | 3 (scripted Red, movement only — no Red fire) |
 | Total timesteps     | ~50 000 (bootstrap baseline)       |
 | Parallel envs       | 4                                  |
 | Learning rate       | 3 × 10⁻⁴                          |
