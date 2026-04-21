@@ -43,6 +43,7 @@ jupyter>=1.0.0
 black>=24.0.0
 ruff>=0.4.0
 pytest>=8.0.0
+oracletrace>=2.0.0
 
 # Docs
 mkdocs>=1.5.0
