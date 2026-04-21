@@ -1,0 +1,183 @@
+name: "CI: Benchmark Regression Gate"
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: "If true, publish this run as the new baseline artifact"
+        required: false
+        default: false
+        type: boolean
+      episodes:
+        description: "Episodes per scenario"
+        required: false
+        default: "5"
+        type: string
+      scenarios:
+        description: "Number of scenarios"
+        required: false
+        default: "8"
+        type: string
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BENCH_EPISODES: ${{ github.event.inputs.episodes || '5' }}
+      BENCH_SCENARIOS: ${{ github.event.inputs.scenarios || '8' }}
+      BENCH_THRESHOLD_PERCENT: "20"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-benchmark-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-benchmark-
+
+      - name: Install benchmark dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy oracletrace
+
+      - name: Run WargamesBench (latency capture)
+        run: |
+          mkdir -p benchmark-artifacts
+          python benchmarks/wargames_bench.py \
+            --episodes "${BENCH_EPISODES}" \
+            --scenarios "${BENCH_SCENARIOS}" \
+            --synthetic-only \
+            --label "ci_scripted_baseline" \
+            --metrics-json benchmark-artifacts/current_metrics.json \
+            --output benchmark-artifacts/leaderboard.md
+
+      - name: Run OracleTrace profile
+        run: |
+          BENCH_LABEL="ci_scripted_baseline" \
+          BENCHMARK_ARTIFACTS_DIR="benchmark-artifacts" \
+          oracletrace \
+            --json benchmark-artifacts/oracletrace-current.json \
+            scripts/ci/benchmark_oracletrace_target.py
+
+      - name: Download latest baseline artifact
+        id: download_baseline
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: benchmark.yml
+          branch: main
+          name: wargames-benchmark-baseline
+          path: benchmark-artifacts/baseline
+          if_no_artifact_found: warn
+
+      - name: Run p95 regression gate
+        id: gate
+        continue-on-error: true
+        run: |
+          BASELINE_FILE="benchmark-artifacts/baseline/current_metrics.json"
+          if [ -f "$BASELINE_FILE" ]; then
+            python scripts/ci/benchmark_regression_gate.py \
+              --current benchmark-artifacts/current_metrics.json \
+              --baseline "$BASELINE_FILE" \
+              --threshold-percent "${BENCH_THRESHOLD_PERCENT}" \
+              --summary-markdown benchmark-artifacts/gate-summary.md \
+              --result-json benchmark-artifacts/gate-result.json
+          else
+            python scripts/ci/benchmark_regression_gate.py \
+              --current benchmark-artifacts/current_metrics.json \
+              --threshold-percent "${BENCH_THRESHOLD_PERCENT}" \
+              --summary-markdown benchmark-artifacts/gate-summary.md \
+              --result-json benchmark-artifacts/gate-result.json
+          fi
+
+      - name: Add summary to workflow run
+        if: always()
+        run: |
+          if [ -f benchmark-artifacts/gate-summary.md ]; then
+            cat benchmark-artifacts/gate-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload benchmark results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wargames-benchmark-results
+          path: benchmark-artifacts/
+          retention-days: 30
+
+      - name: Upload new baseline artifact
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.update_baseline == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wargames-benchmark-baseline
+          path: benchmark-artifacts/current_metrics.json
+          retention-days: 90
+
+      - name: Publish PR benchmark comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'benchmark-artifacts/gate-summary.md';
+            const marker = '<!-- wargames-benchmark-gate -->';
+            const body = fs.existsSync(path)
+              ? `${marker}\n${fs.readFileSync(path, 'utf8')}`
+              : `${marker}\nBenchmark summary file was not generated.`;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const existing = comments.find(
+              (c) => c.user?.type === 'Bot' && c.body?.includes(marker),
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Enforce benchmark gate
+        if: steps.gate.outcome == 'failure' && !(github.event_name == 'workflow_dispatch' && github.event.inputs.update_baseline == 'true')
+        run: |
+          echo "Benchmark gate failed: p95 regression exceeded ${BENCH_THRESHOLD_PERCENT}%"
+          exit 1
